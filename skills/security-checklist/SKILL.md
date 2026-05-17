@@ -1,3 +1,7 @@
+---
+description: Security checklist for reviewing code that handles sensitive data
+---
+
 # Security Checklist
 
 Use this skill when reviewing code that handles user input, authentication, data storage, network operations, or any code that touches sensitive data. Also use it when the user asks for a security review.
