@@ -11,8 +11,8 @@ export interface ServerDeps {
   spawnAgent: (id: string, options: any) => Promise<{ agent: Agent; error?: string }>;
   sendToAgent: (agent: Agent, message: string, timeoutMs: number) => Promise<void>;
   removeWorktree: (worktreePath: string) => Promise<void>;
-  discoverDefinitions: (cwd: string) => Array<{ name: string; description: string; model?: string; tools?: string[]; source: string }>;
-  getDefinition: (name: string, cwd: string) => { name: string; description: string; model?: string; tools?: string[]; skills?: string[]; systemPrompt: string; source: string; filePath: string } | undefined;
+  discoverDefinitions: (cwd: string) => Array<{ name: string; description: string; model?: string; thinking?: string; tools?: string[]; source: string }>;
+  getDefinition: (name: string, cwd: string) => { name: string; description: string; model?: string; thinking?: string; tools?: string[]; skills?: string[]; systemPrompt: string; source: string; filePath: string } | undefined;
   discoverExtensions: (cwd: string) => Array<{ name: string; path: string; scope: string }>;
 }
 
@@ -215,6 +215,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           name: d.name,
           description: d.description,
           model: d.model,
+          thinking: (d as any).thinking,
           tools: d.tools,
           source: d.source,
         }))
@@ -224,8 +225,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 
     // GET /api/models
     if (url.pathname === "/api/models" && req.method === "GET") {
-      const { getAvailableModels } = await import("./models.js");
-      const models = getAvailableModels();
+      const { getAvailableModelInfos } = await import("./models.js");
+      const models = getAvailableModelInfos();
       send(res, jsonResponse(models));
       return;
     }
@@ -253,6 +254,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           name: body.name,
           description: body.description,
           model: body.model,
+          thinking: body.thinking,
           tools: body.tools,
           skills: body.skills,
           systemPrompt: body.prompt || body.systemPrompt || "",

@@ -1,4 +1,4 @@
-import type { AgentInfo, AgentTypeInfo, ExtensionInfo, ServerEvent } from "./types.js";
+import type { AgentInfo, AgentTypeInfo, ModelInfo, ServerEvent } from "./types.js";
 
 // ── DOM refs ──
 
@@ -15,6 +15,8 @@ const typeForm = document.getElementById("type-form") as HTMLFormElement;
 const typeNameInput = document.getElementById("type-name") as HTMLInputElement;
 const typeDescInput = document.getElementById("type-desc") as HTMLInputElement;
 const typeModelSelect = document.getElementById("type-model") as HTMLSelectElement;
+const typeThinkingSelect = document.getElementById("type-thinking") as HTMLSelectElement;
+const typeThinkingWrap = document.getElementById("type-thinking-wrap") as HTMLDivElement;
 const typePromptInput = document.getElementById("type-prompt") as HTMLTextAreaElement;
 const typeSaveBtn = document.getElementById("type-save-btn") as HTMLButtonElement;
 const typeCancelBtn = document.getElementById("type-cancel-btn") as HTMLButtonElement;
@@ -72,13 +74,14 @@ function pushLog(text: string, level: "info" | "success" | "warn" | "error" = "i
 // ── Agent Types Editor ──
 
 let currentEditingType: string | null = null;
-let availableModels: string[] = [];
+let availableModels: ModelInfo[] = [];
 
 async function loadModelsForEditor() {
   try {
     const res = await fetch("/api/models");
     if (!res.ok) return;
-    availableModels = await res.json();
+    const raw = await res.json();
+    availableModels = raw.map((m: string | ModelInfo) => typeof m === "string" ? { provider: "", id: m, context: "", maxOut: "", thinking: false, images: false } : m);
   } catch {
     availableModels = [];
   }
@@ -126,11 +129,12 @@ function openTypeEditor(def?: AgentTypeInfo) {
   typeModelSelect.innerHTML = '<option value="">-- default --</option>';
   for (const m of availableModels) {
     const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    if (def?.model === m) opt.selected = true;
+    opt.value = m.id;
+    opt.textContent = m.provider ? `${m.provider}/${m.id}` : m.id;
+    if (def?.model === m.id) opt.selected = true;
     typeModelSelect.appendChild(opt);
   }
+  updateThinkingDropdown(def?.thinking);
   typeModal.style.display = "flex";
   typeNameInput.focus();
   if (def) {
@@ -142,6 +146,25 @@ function openTypeEditor(def?: AgentTypeInfo) {
       typeNameInput.parentElement?.appendChild(note);
     }
   }
+}
+
+function updateThinkingDropdown(selected?: string) {
+  const model = availableModels.find((m) => m.id === typeModelSelect.value);
+  if (!model?.thinking) {
+    typeThinkingWrap.style.display = "none";
+    typeThinkingSelect.innerHTML = "";
+    return;
+  }
+  const levels = model.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  typeThinkingSelect.innerHTML = "";
+  for (const level of levels) {
+    const opt = document.createElement("option");
+    opt.value = level;
+    opt.textContent = level;
+    if ((selected || "medium") === level) opt.selected = true;
+    typeThinkingSelect.appendChild(opt);
+  }
+  typeThinkingWrap.style.display = "block";
 }
 
 function closeTypeEditor() {
@@ -162,6 +185,7 @@ async function saveType() {
     name: typeNameInput.value.trim(),
     description: typeDescInput.value.trim(),
     model: typeModelSelect.value || undefined,
+    thinking: typeThinkingSelect.value || undefined,
     prompt: typePromptInput.value.trim() || undefined,
   };
   if (!payload.name || !payload.description) {
@@ -524,6 +548,7 @@ setInterval(refreshAgentStats, 5_000);
 // Wire up type editor buttons
 if (newTypeBtn) newTypeBtn.addEventListener("click", () => openTypeEditor());
 if (typeSaveBtn) typeSaveBtn.addEventListener("click", saveType);
+if (typeModelSelect) typeModelSelect.addEventListener("change", () => updateThinkingDropdown());
 if (typeCancelBtn) {
   typeCancelBtn.addEventListener("click", () => {
     closeTypeEditor();

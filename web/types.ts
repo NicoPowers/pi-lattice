@@ -15,8 +15,19 @@ export interface AgentTypeInfo {
   name: string;
   description: string;
   model?: string;
+  thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
   source: string;
+}
+
+export interface ModelInfo {
+  provider: string;
+  id: string;
+  context: string;
+  maxOut: string;
+  thinking: boolean;
+  images: boolean;
+  thinkingLevels?: Array<"off" | "minimal" | "low" | "medium" | "high" | "xhigh">;
 }
 
 export interface ExtensionInfo {

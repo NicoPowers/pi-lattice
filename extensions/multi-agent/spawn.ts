@@ -129,6 +129,7 @@ export async function spawnAgent(
   }
 
   const effectiveModel = definition?.model || model;
+  const effectiveThinking = definition?.thinking;
   const effectiveTools = definition?.tools ? [...definition.tools] : [];
   if (!effectiveTools.includes("delegate")) {
     effectiveTools.push("delegate");
@@ -136,6 +137,7 @@ export async function spawnAgent(
 
   const piArgs = ["--mode", "rpc", "--no-session"];
   if (effectiveModel) piArgs.push("--model", effectiveModel);
+  if (effectiveThinking) piArgs.push("--thinking", effectiveThinking);
   // Only restrict tools when no extensions are loaded. Extensions may register
   // their own tools (e.g. web_search) that wouldn't be in the whitelist.
   if (effectiveTools.length > 0 && (!extensions || extensions.length === 0)) {

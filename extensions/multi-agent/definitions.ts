@@ -92,6 +92,7 @@ function loadDefinitionsFromDir(dir: string, source: "user" | "project" | "packa
       name: frontmatter.name,
       description: frontmatter.description,
       model: frontmatter.model,
+      thinking: (frontmatter.thinking as AgentDefinition["thinking"]) || undefined,
       tools: tools && tools.length > 0 ? tools : undefined,
       skills: skills && skills.length > 0 ? skills : undefined,
       systemPrompt: body,
@@ -147,6 +148,7 @@ export function saveAgentDefinition(
       `description: ${def.description || ""}`,
     ];
     if (def.model) frontmatterLines.push(`model: ${def.model}`);
+    if (def.thinking) frontmatterLines.push(`thinking: ${def.thinking}`);
     if (def.tools && def.tools.length > 0) frontmatterLines.push(`tools: ${def.tools.join(", ")}`);
     if (def.skills && def.skills.length > 0) frontmatterLines.push(`skills: ${def.skills.join(", ")}`);
 

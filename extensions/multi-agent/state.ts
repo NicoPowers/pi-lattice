@@ -19,6 +19,7 @@ export interface AgentDefinition {
   name: string;
   description: string;
   model?: string;
+  thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
   skills?: string[];
   systemPrompt: string;

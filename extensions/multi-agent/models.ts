@@ -1,12 +1,22 @@
 import { spawnSync } from "node:child_process";
 
+export interface AvailableModelInfo {
+  provider: string;
+  id: string;
+  context: string;
+  maxOut: string;
+  thinking: boolean;
+  images: boolean;
+  thinkingLevels?: Array<"off" | "minimal" | "low" | "medium" | "high" | "xhigh">;
+}
+
 /**
  * Discovers models available to the current Pi installation
  * by running `pi --list-models` and parsing the output table.
  */
-let cachedModels: string[] | null = null;
+let cachedModels: AvailableModelInfo[] | null = null;
 
-export function getAvailableModels(): string[] {
+export function getAvailableModelInfos(): AvailableModelInfo[] {
   if (cachedModels) {
     return cachedModels;
   }
@@ -37,7 +47,6 @@ export function getAvailableModels(): string[] {
     }
 
     const models = parseListModelsOutput(stdout);
-
     cachedModels = models;
     return models;
   } catch (err) {
@@ -46,7 +55,11 @@ export function getAvailableModels(): string[] {
   }
 }
 
-export function parseListModelsOutput(output: string): string[] {
+export function getAvailableModels(): string[] {
+  return getAvailableModelInfos().map((m) => m.id);
+}
+
+export function parseListModelsOutput(output: string): AvailableModelInfo[] {
   const lines = output.split("\n");
   const headerIndex = lines.findIndex((line) => {
     const normalized = line.trim().replace(/\s+/g, " ");
@@ -55,7 +68,8 @@ export function parseListModelsOutput(output: string): string[] {
 
   if (headerIndex === -1) return [];
 
-  const models: string[] = [];
+  const models: AvailableModelInfo[] = [];
+  const seen = new Set<string>();
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -64,14 +78,21 @@ export function parseListModelsOutput(output: string): string[] {
     // Real rows have: provider, model, context, max-out, thinking, images
     if (parts.length < 6) continue;
 
-    const model = parts[1];
-    const thinking = parts[4];
-    const images = parts[5];
-    if (!/^(yes|no)$/.test(thinking) || !/^(yes|no)$/.test(images)) continue;
+    const [provider, id, context, maxOut, thinkingRaw, imagesRaw] = parts;
+    if (!/^(yes|no)$/.test(thinkingRaw) || !/^(yes|no)$/.test(imagesRaw)) continue;
+    if (!id || seen.has(id)) continue;
 
-    if (model && !models.includes(model)) {
-      models.push(model);
-    }
+    const thinking = thinkingRaw === "yes";
+    models.push({
+      provider,
+      id,
+      context,
+      maxOut,
+      thinking,
+      images: imagesRaw === "yes",
+      thinkingLevels: thinking ? ["off", "minimal", "low", "medium", "high", "xhigh"] : undefined,
+    });
+    seen.add(id);
   }
   return models;
 }

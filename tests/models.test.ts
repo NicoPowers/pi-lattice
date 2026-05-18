@@ -11,7 +11,26 @@ google        gemini-2.5-flash       1.0M     65.5K    yes       yes
 moonshotai    kimi-k2.6              262.1K   262.1K   yes       yes
 `;
 
-    expect(parseListModelsOutput(output)).toEqual(["gemini-2.5-flash", "kimi-k2.6"]);
+    expect(parseListModelsOutput(output)).toEqual([
+      {
+        provider: "google",
+        id: "gemini-2.5-flash",
+        context: "1.0M",
+        maxOut: "65.5K",
+        thinking: true,
+        images: true,
+        thinkingLevels: ["off", "minimal", "low", "medium", "high", "xhigh"],
+      },
+      {
+        provider: "moonshotai",
+        id: "kimi-k2.6",
+        context: "262.1K",
+        maxOut: "262.1K",
+        thinking: true,
+        images: true,
+        thinkingLevels: ["off", "minimal", "low", "medium", "high", "xhigh"],
+      },
+    ]);
   });
 
   it("returns empty array when no table header is present", () => {

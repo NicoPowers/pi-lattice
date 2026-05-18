@@ -10,6 +10,8 @@ var typeForm = document.getElementById("type-form");
 var typeNameInput = document.getElementById("type-name");
 var typeDescInput = document.getElementById("type-desc");
 var typeModelSelect = document.getElementById("type-model");
+var typeThinkingSelect = document.getElementById("type-thinking");
+var typeThinkingWrap = document.getElementById("type-thinking-wrap");
 var typePromptInput = document.getElementById("type-prompt");
 var typeSaveBtn = document.getElementById("type-save-btn");
 var typeCancelBtn = document.getElementById("type-cancel-btn");
@@ -66,7 +68,8 @@ async function loadModelsForEditor() {
     const res = await fetch("/api/models");
     if (!res.ok)
       return;
-    availableModels = await res.json();
+    const raw = await res.json();
+    availableModels = raw.map((m) => typeof m === "string" ? { provider: "", id: m, context: "", maxOut: "", thinking: false, images: false } : m);
   } catch {
     availableModels = [];
   }
@@ -110,12 +113,13 @@ function openTypeEditor(def) {
   typeModelSelect.innerHTML = '<option value="">-- default --</option>';
   for (const m of availableModels) {
     const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    if (def?.model === m)
+    opt.value = m.id;
+    opt.textContent = m.provider ? `${m.provider}/${m.id}` : m.id;
+    if (def?.model === m.id)
       opt.selected = true;
     typeModelSelect.appendChild(opt);
   }
+  updateThinkingDropdown(def?.thinking);
   typeModal.style.display = "flex";
   typeNameInput.focus();
   if (def) {
@@ -127,6 +131,25 @@ function openTypeEditor(def) {
       typeNameInput.parentElement?.appendChild(note);
     }
   }
+}
+function updateThinkingDropdown(selected) {
+  const model = availableModels.find((m) => m.id === typeModelSelect.value);
+  if (!model?.thinking) {
+    typeThinkingWrap.style.display = "none";
+    typeThinkingSelect.innerHTML = "";
+    return;
+  }
+  const levels = model.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  typeThinkingSelect.innerHTML = "";
+  for (const level of levels) {
+    const opt = document.createElement("option");
+    opt.value = level;
+    opt.textContent = level;
+    if ((selected || "medium") === level)
+      opt.selected = true;
+    typeThinkingSelect.appendChild(opt);
+  }
+  typeThinkingWrap.style.display = "block";
 }
 function closeTypeEditor() {
   const parent = typeNameInput.parentElement;
@@ -143,6 +166,7 @@ async function saveType() {
     name: typeNameInput.value.trim(),
     description: typeDescInput.value.trim(),
     model: typeModelSelect.value || undefined,
+    thinking: typeThinkingSelect.value || undefined,
     prompt: typePromptInput.value.trim() || undefined
   };
   if (!payload.name || !payload.description) {
@@ -480,6 +504,8 @@ if (newTypeBtn)
   newTypeBtn.addEventListener("click", () => openTypeEditor());
 if (typeSaveBtn)
   typeSaveBtn.addEventListener("click", saveType);
+if (typeModelSelect)
+  typeModelSelect.addEventListener("change", () => updateThinkingDropdown());
 if (typeCancelBtn) {
   typeCancelBtn.addEventListener("click", () => {
     closeTypeEditor();
