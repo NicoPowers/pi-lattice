@@ -36,22 +36,7 @@ export function getAvailableModels(): string[] {
       return [];
     }
 
-    const lines = stdout.split("\n");
-    const models: string[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      // Split on whitespace and take the second column (model name)
-      const parts = line.split(/\s+/);
-      if (parts.length >= 2) {
-        const model = parts[1];
-        if (model && !models.includes(model)) {
-          models.push(model);
-        }
-      }
-    }
+    const models = parseListModelsOutput(stdout);
 
     cachedModels = models;
     return models;
@@ -59,6 +44,36 @@ export function getAvailableModels(): string[] {
     console.error("[models] Failed to discover models:", err);
     return [];
   }
+}
+
+export function parseListModelsOutput(output: string): string[] {
+  const lines = output.split("\n");
+  const headerIndex = lines.findIndex((line) => {
+    const normalized = line.trim().replace(/\s+/g, " ");
+    return normalized.startsWith("provider model context");
+  });
+
+  if (headerIndex === -1) return [];
+
+  const models: string[] = [];
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const parts = line.split(/\s+/);
+    // Real rows have: provider, model, context, max-out, thinking, images
+    if (parts.length < 6) continue;
+
+    const model = parts[1];
+    const thinking = parts[4];
+    const images = parts[5];
+    if (!/^(yes|no)$/.test(thinking) || !/^(yes|no)$/.test(images)) continue;
+
+    if (model && !models.includes(model)) {
+      models.push(model);
+    }
+  }
+  return models;
 }
 
 export function clearModelCache() {
