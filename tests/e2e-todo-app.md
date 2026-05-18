@@ -17,7 +17,12 @@ pi
 ## Test Steps
 
 ### Step 1 — Start the orchestrator
-Inside Pi, the multi-agent extension should auto-load.
+```bash
+cd tests/fixtures/todo-project
+pi
+```
+
+The Pi session **is** the orchestrator. The multi-agent extension auto-loads.
 
 Verify:
 ```
@@ -25,70 +30,56 @@ Verify:
 ```
 Should show: `No active agents.`
 
-### Step 2 — Spawn the lead
+### Step 2 — Task the orchestrator
+Just ask naturally:
 ```
-/spawn lead self implementer
-```
-
-Or ask the orchestrator to create it:
-```
-Create a sub-agent named 'lead' using the implementer type. We need to build a todo app.
-```
-
-### Step 3 — Assign the mission
-Send the lead a high-level task:
-```
-/ask lead "Build a simple CLI todo app in this project. It should support: add, list, complete, and delete tasks. Use a JSON file for storage. Write clean, tested code. Spawn helper agents if you need research or review."
+Build me a simple CLI todo app in this project. It should support add, list, complete, and delete tasks. Use a JSON file for storage. Write clean code with basic tests.
 ```
 
 **Expected behavior:**
-- Lead receives the task
-- Lead decides scope
-- Lead may call `create_sub_agent` to spawn:
-  - `researcher` — explore best practices for CLI apps
-  - `implementer_1` — write core logic
-  - `reviewer` — review the code
-- Lead delegates sub-tasks via `delegate` tool
+- Orchestrator analyzes the request
+- Orchestrator decides it needs help
+- Orchestrator calls `create_sub_agent` to spawn:
+  - `implementer` (or `lead`) — to write the code
+  - Possibly `researcher` — if it wants to check patterns first
+  - Possibly `reviewer` — to check the result
+- Orchestrator delegates work via `delegate` tool
 - Sub-agents return results
-- Lead synthesizes and writes final code
+- Orchestrator synthesizes and reports back to you
 
-### Step 4 — Observe via dashboard
-Open the dashboard in another terminal:
+### Step 3 — Observe via dashboard
+Open the dashboard:
 ```
 /dashboard
 ```
 
-Watch:
-- Hierarchy tree growing
-- Agent statuses changing (idle → streaming → idle)
-- Event log showing delegation chains
+Watch the hierarchy tree grow in real-time as the orchestrator spawns agents.
 
-### Step 5 — Verify deliverable
-After lead reports completion, check the worktree:
+### Step 4 — Verify deliverable
+After the orchestrator reports completion, check the project:
 
 ```bash
-# In another terminal
-ls /tmp/pi-worktree-lead-*/
+ls tests/fixtures/todo-project/
 ```
 
 Expected files:
-- `todo.py` or `todo.js` — main CLI
-- `tasks.json` — data file (maybe)
-- `README.md` — updated with usage
-- `test_todo.py` or similar — tests
+- `todo.py` (or similar) — main CLI
+- `tasks.json` — data file
+- `README.md` — updated
+- Tests
 
-### Step 6 — Review and accept
-Ask the orchestrator:
-```
-Show me what lead built. Is it complete?
-```
-
-### Step 7 — Cleanup (or Emergency Stop)
-```
-/kill lead
+Try running it:
+```bash
+python todo.py add "Buy milk"
+python todo.py list
 ```
 
-Or if anything goes wrong, hit **🛑 Emergency Stop** in the dashboard.
+### Step 5 — Cleanup
+```
+/kill all
+```
+
+Or hit **🛑 Emergency Stop** in the dashboard.
 
 ## Success Criteria
 

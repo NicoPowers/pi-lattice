@@ -14,6 +14,10 @@ let serverHandle: { url: string; stop: () => void } | undefined;
 export default function (pi: ExtensionAPI) {
   log("init", "multi-agent extension loaded");
 
+  console.log("🎛️  Orchestrator mode active. You are the root agent. Ask me to build something and I'll spawn specialists as needed.");
+  console.log("   Tools available: create_sub_agent, agent_send, agent_status, agent_kill");
+  console.log("   Dashboard: /dashboard  |  Emergency stop: 🛑 button or /kill all");
+
   cleanupOrphanedWorktrees();
 
   async function ensureServer(cwd: string) {
@@ -512,8 +516,24 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("kill", {
-    description: "Kill a spawned agent. Usage: /kill <name>",
+    description: "Kill a spawned agent. Usage: /kill <name> or /kill all",
     handler: async (name, ctx) => {
+      if (name === "all") {
+        let count = 0;
+        for (const [id, agent] of agents) {
+          if (!agent.proc.killed) {
+            try { agent.proc.kill("SIGTERM"); } catch {}
+          }
+          if (!agent.parent) {
+            await removeWorktree(agent.worktreePath);
+          }
+          count++;
+        }
+        agents.clear();
+        ctx.ui.notify(`Killed all ${count} agents and cleaned worktrees.`, "info");
+        return;
+      }
+
       const agent = agents.get(name);
       if (!agent) {
         ctx.ui.notify(`Agent '${name}' not found.`, "error");
