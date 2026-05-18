@@ -418,6 +418,25 @@ async function spawnAgent(
     }
   }
 
+  // Copy delegate extension into worktree so sub-agent can load it inside bwrap
+  let delegateInsideBwrap: string | null = null;
+  try {
+    const delegateSource = path.join(__dirname, "delegate-agent.ts");
+    if (fs.existsSync(delegateSource)) {
+      const delegateDir = path.join(worktreePath, ".pi", "extensions");
+      const delegateDest = path.join(delegateDir, "delegate-agent.ts");
+      fs.mkdirSync(delegateDir, { recursive: true });
+      fs.copyFileSync(delegateSource, delegateDest);
+      delegateInsideBwrap = "/tmp/workspace/.pi/extensions/delegate-agent.ts";
+    }
+  } catch {
+    /* ignore copy failures */
+  }
+  if (delegateInsideBwrap) {
+    piArgs.push("--no-extensions");
+    piArgs.push("--extension", delegateInsideBwrap);
+  }
+
   // Build bwrap command
   const piInvocation = getPiInvocation(piArgs);
 
@@ -499,6 +518,48 @@ async function spawnAgent(
           }
           stopSpinnerIfIdle();
           refreshPanel();
+        } else if (event.type === "tool_execution_start" && event.toolName === "delegate") {
+          const toolCallId = event.toolCallId;
+          const args = event.args || {};
+          const target = args.target;
+          const task = args.task;
+          if (toolCallId && target && task) {
+            log("delegate", `Agent '${id}' delegated to '${target}'`, { toolCallId });
+            Promise.resolve().then(async () => {
+              try {
+                const reqFile = path.join(agent.worktreePath, ".pi", "comms", "requests", `${toolCallId}.json`);
+                // Wait briefly for the request file to be written by the delegate tool
+                let retries = 0;
+                while (!fs.existsSync(reqFile) && retries < 20) {
+                  await new Promise((r) => setTimeout(r, 50));
+                  retries++;
+                }
+                if (!fs.existsSync(reqFile)) {
+                  log("delegate", `Request file not found for ${toolCallId}`);
+                  return;
+                }
+
+                const targetAgent = agents.get(target);
+                if (!targetAgent) {
+                  const respFile = path.join(agent.worktreePath, ".pi", "comms", "responses", `${toolCallId}.json`);
+                  fs.writeFileSync(respFile, `Error: Target agent '${target}' not found`, "utf-8");
+                  log("delegate", `Target agent '${target}' not found`);
+                  return;
+                }
+
+                await sendToAgent(targetAgent, task, 300_000);
+                const result = targetAgent.accumulatedText || "(no response)";
+
+                const respFile = path.join(agent.worktreePath, ".pi", "comms", "responses", `${toolCallId}.json`);
+                fs.writeFileSync(respFile, result, "utf-8");
+                log("delegate", `Routed ${toolCallId} to '${target}', result written (${result.length} chars)`);
+              } catch (err: any) {
+                log("delegate", `Routing error for ${toolCallId}: ${err.message}`);
+                const respFile = path.join(agent.worktreePath, ".pi", "comms", "responses", `${toolCallId}.json`);
+                fs.writeFileSync(respFile, `Error: ${err.message}`, "utf-8");
+              }
+            });
+          }
         }
       } catch (e) {
         log("rpc", `Agent '${id}' malformed JSON line`, line.slice(0, 200));

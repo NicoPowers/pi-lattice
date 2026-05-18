@@ -6,7 +6,7 @@
   "author": "",
   "license": "MIT",
   "pi": {
-    "extensions": ["./extensions"],
+    "extensions": ["./extensions/multi-agent.ts"],
     "skills": ["./skills"]
   }
 }
