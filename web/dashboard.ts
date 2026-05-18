@@ -100,7 +100,7 @@ function openTypeEditor(def?: AgentTypeInfo) {
     if (def?.model === m) opt.selected = true;
     typeModelSelect.appendChild(opt);
   }
-  typeModal.style.display = "block";
+  typeModal.style.display = "flex";
   typeNameInput.focus();
   if (def) {
     typeNameInput.readOnly = true;
@@ -114,6 +114,13 @@ function openTypeEditor(def?: AgentTypeInfo) {
 }
 
 function closeTypeEditor() {
+  // Remove any dynamically added warning notes
+  const parent = typeNameInput.parentElement;
+  if (parent) {
+    const notes = parent.querySelectorAll("div");
+    notes.forEach(n => n.remove());
+  }
+
   typeModal.style.display = "none";
   currentEditingType = null;
   typeNameInput.readOnly = false;
@@ -392,9 +399,13 @@ loadModelsForEditor();
 loadAgentTypesForEditor();
 
 // Wire up type editor buttons
-if (newTypeBtn) (newTypeBtn as any).onclick = () => openTypeEditor();
-if (typeSaveBtn) (typeSaveBtn as any).onclick = saveType;
-if (typeCancelBtn) (typeCancelBtn as any).onclick = closeTypeEditor();
+if (newTypeBtn) newTypeBtn.addEventListener("click", () => openTypeEditor());
+if (typeSaveBtn) typeSaveBtn.addEventListener("click", saveType);
+if (typeCancelBtn) {
+  typeCancelBtn.addEventListener("click", () => {
+    closeTypeEditor();
+  });
+}
 
 // Emergency Stop
 const emergencyBtn = document.getElementById("emergency-btn") as HTMLButtonElement;

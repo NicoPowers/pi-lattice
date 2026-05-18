@@ -83,7 +83,7 @@ function openTypeEditor(def) {
       opt.selected = true;
     typeModelSelect.appendChild(opt);
   }
-  typeModal.style.display = "block";
+  typeModal.style.display = "flex";
   typeNameInput.focus();
   if (def) {
     typeNameInput.readOnly = true;
@@ -96,6 +96,11 @@ function openTypeEditor(def) {
   }
 }
 function closeTypeEditor() {
+  const parent = typeNameInput.parentElement;
+  if (parent) {
+    const notes = parent.querySelectorAll("div");
+    notes.forEach((n) => n.remove());
+  }
   typeModal.style.display = "none";
   currentEditingType = null;
   typeNameInput.readOnly = false;
@@ -350,11 +355,14 @@ useSSE();
 loadModelsForEditor();
 loadAgentTypesForEditor();
 if (newTypeBtn)
-  newTypeBtn.onclick = () => openTypeEditor();
+  newTypeBtn.addEventListener("click", () => openTypeEditor());
 if (typeSaveBtn)
-  typeSaveBtn.onclick = saveType;
-if (typeCancelBtn)
-  typeCancelBtn.onclick = closeTypeEditor();
+  typeSaveBtn.addEventListener("click", saveType);
+if (typeCancelBtn) {
+  typeCancelBtn.addEventListener("click", () => {
+    closeTypeEditor();
+  });
+}
 var emergencyBtn = document.getElementById("emergency-btn");
 if (emergencyBtn) {
   emergencyBtn.addEventListener("click", async () => {
