@@ -253,6 +253,32 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "agent_steer",
+    label: "Steer Agent",
+    description: "Send a steering message to an active agent mid-turn. Use this if an agent appears stuck or needs course correction.",
+    parameters: Type.Object({
+      name: Type.String({ description: "Agent instance name" }),
+      message: Type.String({ description: "Steering instruction to send immediately" }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+      const agent = agents.get(params.name);
+      if (!agent) {
+        return {
+          content: [{ type: "text", text: `Agent '${params.name}' not found.` }],
+          isError: true,
+          details: {},
+        };
+      }
+      agent.stdin.write(JSON.stringify({ type: "steer", message: params.message }) + "\n");
+      log("steer", `Steered agent '${params.name}'`, { message: params.message });
+      return {
+        content: [{ type: "text", text: `Steered '${params.name}'.` }],
+        details: { name: params.name },
+      };
+    },
+  });
+
+  pi.registerTool({
     name: "agent_status",
     label: "Agent Status",
     description: "Check the status of all spawned agents or one specific agent.",

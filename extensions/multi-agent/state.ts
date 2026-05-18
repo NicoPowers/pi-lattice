@@ -33,6 +33,7 @@ export interface Agent {
   status: "idle" | "streaming" | "error" | "exited";
   accumulatedText: string;
   history: Array<{ role: "user" | "assistant"; text: string }>;
+  events: Array<{ ts: number; type: string; event: any }>;
   buffer: string;
   definition?: AgentDefinition;
   worktreePath: string;

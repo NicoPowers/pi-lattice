@@ -323,6 +323,52 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // GET /api/agents/:name/events
+    const eventsMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/events$/);
+    if (eventsMatch && req.method === "GET") {
+      const name = decodeURIComponent(eventsMatch[1]);
+      const agent = agents.get(name);
+      if (!agent) {
+        send(res, errorResponse("Agent not found", 404));
+        return;
+      }
+      send(res, jsonResponse({
+        name,
+        status: agent.status,
+        worktree: agent.worktreePath,
+        history: agent.history,
+        accumulatedText: agent.accumulatedText,
+        events: agent.events,
+      }));
+      return;
+    }
+
+    // POST /api/agents/:name/steer
+    const steerMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/steer$/);
+    if (steerMatch && req.method === "POST") {
+      const name = decodeURIComponent(steerMatch[1]);
+      const agent = agents.get(name);
+      if (!agent) {
+        send(res, errorResponse("Agent not found", 404));
+        return;
+      }
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      if (!body.message) {
+        send(res, errorResponse("message is required", 400));
+        return;
+      }
+      agent.stdin.write(JSON.stringify({ type: "steer", message: body.message }) + "\n");
+      log("steer", `Steered agent '${name}'`, { message: body.message });
+      send(res, jsonResponse({ success: true }));
+      return;
+    }
+
     // POST /api/agents/:name/send
     const sendMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/send$/);
     if (sendMatch && req.method === "POST") {

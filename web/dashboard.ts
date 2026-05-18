@@ -18,6 +18,10 @@ const typeModelSelect = document.getElementById("type-model") as HTMLSelectEleme
 const typePromptInput = document.getElementById("type-prompt") as HTMLTextAreaElement;
 const typeSaveBtn = document.getElementById("type-save-btn") as HTMLButtonElement;
 const typeCancelBtn = document.getElementById("type-cancel-btn") as HTMLButtonElement;
+const inspectModal = document.getElementById("inspect-modal") as HTMLDivElement;
+const inspectTitle = document.getElementById("inspect-title") as HTMLHeadingElement;
+const inspectContent = document.getElementById("inspect-content") as HTMLPreElement;
+const inspectCloseBtn = document.getElementById("inspect-close-btn") as HTMLButtonElement;
 
 // ── State ──
 
@@ -250,6 +254,7 @@ function renderAgents() {
       <div class="agent-actions">
         <input id="msg-${name}" placeholder="Message…">
         <button id="btn-send-${name}">Send</button>
+        <button id="btn-inspect-${name}" class="secondary">Inspect</button>
         <button id="btn-kill-${name}" class="danger">Kill</button>
       </div>
     `;
@@ -268,6 +273,7 @@ function renderAgents() {
     });
 
     div.querySelector(`#btn-send-${name}`)?.addEventListener("click", () => sendMessage(name));
+    div.querySelector(`#btn-inspect-${name}`)?.addEventListener("click", () => inspectAgent(name));
     div.querySelector(`#btn-kill-${name}`)?.addEventListener("click", () => killAgent(name));
     div.querySelector(`#btn-copy-path-${name}`)?.addEventListener("click", async () => {
       try {
@@ -331,6 +337,40 @@ async function sendMessage(name: string) {
     else pushLog("Queued message for " + name);
   } catch (e: any) {
     pushLog("Send to " + name + " error: " + e.message, "error");
+  }
+}
+
+async function inspectAgent(name: string) {
+  try {
+    const res = await fetch(`/api/agents/${encodeURIComponent(name)}/events`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    inspectTitle.textContent = `Inspect ${name}`;
+    const lines: string[] = [];
+    lines.push(`status: ${data.status}`);
+    lines.push(`worktree: ${data.worktree}`);
+    lines.push("");
+    lines.push("Recent events:");
+    for (const item of (data.events || []).slice(-120)) {
+      const time = new Date(item.ts).toLocaleTimeString();
+      const ev = item.event || {};
+      if (ev.type === "message_update" && ev.assistantMessageEvent?.type === "text_delta") {
+        lines.push(`${time} text_delta ${JSON.stringify(ev.assistantMessageEvent.delta).slice(0, 160)}`);
+      } else if (ev.type === "tool_execution_start") {
+        lines.push(`${time} tool_start ${ev.toolName || ""} ${JSON.stringify(ev.args || {}).slice(0, 220)}`);
+      } else if (ev.type === "tool_execution_end") {
+        lines.push(`${time} tool_end ${ev.toolName || ""}`);
+      } else {
+        lines.push(`${time} ${ev.type || item.type}`);
+      }
+    }
+    lines.push("");
+    lines.push("Accumulated assistant text:");
+    lines.push(data.accumulatedText || "(none)");
+    inspectContent.textContent = lines.join("\n");
+    inspectModal.style.display = "flex";
+  } catch (e: any) {
+    pushLog(`Inspect ${name} failed: ${e.message}`, "error");
   }
 }
 
@@ -421,6 +461,7 @@ if (typeCancelBtn) {
     closeTypeEditor();
   });
 }
+if (inspectCloseBtn) inspectCloseBtn.addEventListener("click", () => { inspectModal.style.display = "none"; });
 
 // Emergency Stop
 const emergencyBtn = document.getElementById("emergency-btn") as HTMLButtonElement;

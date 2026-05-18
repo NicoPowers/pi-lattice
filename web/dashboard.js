@@ -13,6 +13,10 @@ var typeModelSelect = document.getElementById("type-model");
 var typePromptInput = document.getElementById("type-prompt");
 var typeSaveBtn = document.getElementById("type-save-btn");
 var typeCancelBtn = document.getElementById("type-cancel-btn");
+var inspectModal = document.getElementById("inspect-modal");
+var inspectTitle = document.getElementById("inspect-title");
+var inspectContent = document.getElementById("inspect-content");
+var inspectCloseBtn = document.getElementById("inspect-close-btn");
 var agents = {};
 var hierarchyExpanded = new Set;
 function escapeHtml(t) {
@@ -218,6 +222,7 @@ function renderAgents() {
       <div class="agent-actions">
         <input id="msg-${name}" placeholder="Message…">
         <button id="btn-send-${name}">Send</button>
+        <button id="btn-inspect-${name}" class="secondary">Inspect</button>
         <button id="btn-kill-${name}" class="danger">Kill</button>
       </div>
     `;
@@ -234,6 +239,7 @@ function renderAgents() {
         sendMessage(name);
     });
     div.querySelector(`#btn-send-${name}`)?.addEventListener("click", () => sendMessage(name));
+    div.querySelector(`#btn-inspect-${name}`)?.addEventListener("click", () => inspectAgent(name));
     div.querySelector(`#btn-kill-${name}`)?.addEventListener("click", () => killAgent(name));
     div.querySelector(`#btn-copy-path-${name}`)?.addEventListener("click", async () => {
       try {
@@ -295,6 +301,41 @@ async function sendMessage(name) {
       pushLog("Queued message for " + name);
   } catch (e) {
     pushLog("Send to " + name + " error: " + e.message, "error");
+  }
+}
+async function inspectAgent(name) {
+  try {
+    const res = await fetch(`/api/agents/${encodeURIComponent(name)}/events`);
+    if (!res.ok)
+      throw new Error(await res.text());
+    const data = await res.json();
+    inspectTitle.textContent = `Inspect ${name}`;
+    const lines = [];
+    lines.push(`status: ${data.status}`);
+    lines.push(`worktree: ${data.worktree}`);
+    lines.push("");
+    lines.push("Recent events:");
+    for (const item of (data.events || []).slice(-120)) {
+      const time = new Date(item.ts).toLocaleTimeString();
+      const ev = item.event || {};
+      if (ev.type === "message_update" && ev.assistantMessageEvent?.type === "text_delta") {
+        lines.push(`${time} text_delta ${JSON.stringify(ev.assistantMessageEvent.delta).slice(0, 160)}`);
+      } else if (ev.type === "tool_execution_start") {
+        lines.push(`${time} tool_start ${ev.toolName || ""} ${JSON.stringify(ev.args || {}).slice(0, 220)}`);
+      } else if (ev.type === "tool_execution_end") {
+        lines.push(`${time} tool_end ${ev.toolName || ""}`);
+      } else {
+        lines.push(`${time} ${ev.type || item.type}`);
+      }
+    }
+    lines.push("");
+    lines.push("Accumulated assistant text:");
+    lines.push(data.accumulatedText || "(none)");
+    inspectContent.textContent = lines.join(`
+`);
+    inspectModal.style.display = "flex";
+  } catch (e) {
+    pushLog(`Inspect ${name} failed: ${e.message}`, "error");
   }
 }
 async function killAgent(name) {
@@ -378,6 +419,10 @@ if (typeCancelBtn) {
     closeTypeEditor();
   });
 }
+if (inspectCloseBtn)
+  inspectCloseBtn.addEventListener("click", () => {
+    inspectModal.style.display = "none";
+  });
 var emergencyBtn = document.getElementById("emergency-btn");
 if (emergencyBtn) {
   emergencyBtn.addEventListener("click", async () => {

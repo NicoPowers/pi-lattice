@@ -227,6 +227,7 @@ export async function spawnAgent(
     status: "idle",
     accumulatedText: "",
     history: [],
+    events: [],
     buffer: "",
     definition,
     worktreePath,
@@ -241,6 +242,8 @@ export async function spawnAgent(
       if (!line.trim()) continue;
       try {
         const event = JSON.parse(line);
+        agent.events.push({ ts: Date.now(), type: event.type || "unknown", event });
+        if (agent.events.length > 500) agent.events.shift();
         if (event.type === "agent_start") {
           agent.status = "streaming";
           agent.accumulatedText = "";
