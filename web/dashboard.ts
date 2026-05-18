@@ -351,19 +351,41 @@ async function inspectAgent(name: string) {
     lines.push(`worktree: ${data.worktree}`);
     lines.push("");
     lines.push("Recent events:");
-    for (const item of (data.events || []).slice(-120)) {
+    let textBuffer = "";
+    let textStartTime = "";
+    const flushTextBuffer = () => {
+      const text = textBuffer.trim();
+      if (text) {
+        lines.push(`${textStartTime} assistant_text ${JSON.stringify(text.length > 500 ? text.slice(0, 500) + "…" : text)}`);
+      }
+      textBuffer = "";
+      textStartTime = "";
+    };
+
+    for (const item of (data.events || []).slice(-180)) {
       const time = new Date(item.ts).toLocaleTimeString();
       const ev = item.event || {};
       if (ev.type === "message_update" && ev.assistantMessageEvent?.type === "text_delta") {
-        lines.push(`${time} text_delta ${JSON.stringify(ev.assistantMessageEvent.delta).slice(0, 160)}`);
-      } else if (ev.type === "tool_execution_start") {
+        if (!textStartTime) textStartTime = time;
+        textBuffer += ev.assistantMessageEvent.delta || "";
+        continue;
+      }
+
+      // Ignore generic message_update noise once text deltas are coalesced.
+      if (ev.type === "message_update") continue;
+
+      flushTextBuffer();
+      if (ev.type === "tool_execution_start") {
         lines.push(`${time} tool_start ${ev.toolName || ""} ${JSON.stringify(ev.args || {}).slice(0, 220)}`);
       } else if (ev.type === "tool_execution_end") {
         lines.push(`${time} tool_end ${ev.toolName || ""}`);
+      } else if (["agent_start", "turn_start", "message_start", "message_end", "turn_end", "agent_end"].includes(ev.type)) {
+        lines.push(`${time} ${ev.type}`);
       } else {
         lines.push(`${time} ${ev.type || item.type}`);
       }
     }
+    flushTextBuffer();
     lines.push("");
     lines.push("Accumulated assistant text:");
     lines.push(data.accumulatedText || "(none)");
