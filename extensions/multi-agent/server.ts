@@ -1,7 +1,7 @@
 import * as http from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { type Agent, agents, log } from "./state.js";
+import { type Agent, type AgentDefinition, agents, log } from "./state.js";
 import { rpcCommand } from "./send.js";
 
 // ── Types ──
@@ -11,8 +11,8 @@ export interface ServerDeps {
   spawnAgent: (id: string, options: any) => Promise<{ agent: Agent; error?: string }>;
   sendToAgent: (agent: Agent, message: string, timeoutMs: number) => Promise<void>;
   removeWorktree: (worktreePath: string) => Promise<void>;
-  discoverDefinitions: (cwd: string) => Array<{ name: string; description: string; model?: string; thinking?: string; tools?: string[]; source: string }>;
-  getDefinition: (name: string, cwd: string) => { name: string; description: string; model?: string; thinking?: string; tools?: string[]; skills?: string[]; systemPrompt: string; source: string; filePath: string } | undefined;
+  discoverDefinitions: (cwd: string) => AgentDefinition[];
+  getDefinition: (name: string, cwd: string) => AgentDefinition | undefined;
   discoverExtensions: (cwd: string) => Array<{ name: string; path: string; scope: string; description?: string; expectedTools?: string[]; metadataStatus?: string; metadataSource?: string }>;
 }
 
@@ -228,6 +228,9 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           model: d.model,
           thinking: (d as any).thinking,
           tools: d.tools,
+          skills: d.skills,
+          skillTemplates: d.skillTemplates,
+          extensionTemplates: d.extensionTemplates,
           source: d.source,
         }))
       ));
@@ -268,6 +271,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           thinking: body.thinking,
           tools: body.tools,
           skills: body.skills,
+          skillTemplates: body.skillTemplates,
+          extensionTemplates: body.extensionTemplates,
           systemPrompt: body.prompt || body.systemPrompt || "",
           source: "project",
           filePath: "",
@@ -402,17 +407,24 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       }
 
       const allExts = deps.discoverExtensions(deps.repoCwd);
-      const extensions = (requestedExtensions || [])
-        .map((n: string) => allExts.find((e) => e.name === n))
-        .filter(Boolean);
+      const { resolveCapabilities } = await import("./capability-resolution.js");
+      const capabilities = resolveCapabilities({
+        cwd: deps.repoCwd,
+        definition,
+        requestedExtensions: requestedExtensions || [],
+        availableExtensions: allExts,
+      });
+      const resolvedDefinition = definition
+        ? { ...definition, skills: capabilities.skills }
+        : undefined;
 
       const result = await deps.spawnAgent(name, {
         model,
         repoCwd: deps.repoCwd,
-        definition,
+        definition: resolvedDefinition,
         parent: parent === "self" ? undefined : parent,
         worktreePath,
-        extensions,
+        extensions: capabilities.extensions,
       });
 
       if (result.error || !result.agent) {

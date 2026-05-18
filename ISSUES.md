@@ -359,10 +359,61 @@ Before Phase 1 is considered complete, verify:
 
 ## Phase 4 — Agent Definition Resolution
 
-- `skillTemplates:` frontmatter
-- `extensionTemplates:` frontmatter
-- Resolve `applyToAll + selected templates`
-- Apply only to newly spawned agents
+**Goal**: Resolve saved skill/extension templates into agent spawn configuration for newly spawned agents only.
+
+### Issue 1: Agent Definition Frontmatter
+
+**What to do:**
+- Add optional `skillTemplates:` and `extensionTemplates:` frontmatter fields to agent definitions.
+- Parse comma-separated template names during definition discovery.
+- Preserve existing direct `skills:` and direct extension selection behavior.
+
+**Validation:**
+- Definition tests cover template fields.
+
+### Issue 2: Capability Resolution Helper
+
+**What to do:**
+- Add a backend resolver that combines:
+  - direct definition skills
+  - all `applyToAll` skill templates
+  - selected `skillTemplates`
+  - direct requested extensions
+  - all `applyToAll` extension templates
+  - selected `extensionTemplates`
+- Dedupe while preserving order.
+- Resolve extension template items by discovered extension name.
+
+**Validation:**
+- Unit tests cover apply-to-all plus selected templates.
+
+### Issue 3: Spawn Integration
+
+**What to do:**
+- Use resolved skills/extensions when spawning from `create_sub_agent`.
+- Use resolved skills/extensions when spawning from dashboard/API.
+- Apply resolution at spawn time only; existing running agents are unchanged.
+
+**Validation:**
+- Spawning an agent uses resolved skills/extensions without changing stored definitions.
+
+### Issue 4: API/Preview Surface
+
+**What to do:**
+- Include template fields in `/api/agent-types` output so later UI phases can preview them.
+- Do not build full capability preview UI yet.
+
+**Validation:**
+- API output remains backwards compatible.
+
+### Issue 5: Docs and Regression
+
+**What to do:**
+- Document `skillTemplates:` and `extensionTemplates:` frontmatter.
+- Keep runtime tool reporting out of scope.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 5 — Actual Runtime Tool Reporting
 

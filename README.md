@@ -206,6 +206,19 @@ skills: tdd, my-custom-skill
 You are {{name}}, a {{type}} agent. ...
 ```
 
+Agent definitions can also opt into saved templates:
+
+```markdown
+---
+name: frontend-coder
+description: Frontend implementation agent
+skillTemplates: common, frontend
+extensionTemplates: browser-tools
+---
+```
+
+When a new agent is spawned, the backend resolves direct `skills:` plus all `applyToAll` skill templates plus selected `skillTemplates:`. Extension resolution similarly combines directly requested extensions, all `applyToAll` extension templates, and selected `extensionTemplates:`. This resolution applies only to newly spawned agents; existing running agents are unchanged.
+
 User and project definitions override the package defaults.
 
 ## Installation

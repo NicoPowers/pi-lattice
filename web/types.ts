@@ -17,6 +17,9 @@ export interface AgentTypeInfo {
   model?: string;
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
+  skills?: string[];
+  skillTemplates?: string[];
+  extensionTemplates?: string[];
   source: string;
 }
 
@@ -33,6 +36,10 @@ export interface ModelInfo {
 export interface ExtensionInfo {
   name: string;
   scope: string;
+  description?: string;
+  expectedTools?: string[];
+  metadataStatus?: "provided" | "unknown" | "invalid";
+  metadataSource?: string;
 }
 
 export type ServerEvent =

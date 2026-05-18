@@ -22,6 +22,8 @@ export interface AgentDefinition {
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
   skills?: string[];
+  skillTemplates?: string[];
+  extensionTemplates?: string[];
   systemPrompt: string;
   source: "user" | "project" | "package";
   filePath: string;

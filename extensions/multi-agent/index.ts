@@ -8,6 +8,7 @@ import { spawnAgent } from "./spawn.js";
 import { sendToAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
+import { resolveCapabilities } from "./capability-resolution.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
@@ -156,17 +157,23 @@ export default function (pi: ExtensionAPI) {
       }
 
       const allExts = discoverExtensions(ctx.cwd);
-      const extensions = (params.extensions || [])
-        .map((n: string) => allExts.find((e) => e.name === n))
-        .filter((e): e is NonNullable<typeof e> => e !== undefined);
+      const capabilities = resolveCapabilities({
+        cwd: ctx.cwd,
+        definition,
+        requestedExtensions: params.extensions || [],
+        availableExtensions: allExts,
+      });
+      const resolvedDefinition = definition
+        ? { ...definition, skills: capabilities.skills }
+        : undefined;
 
       const result = await spawnAgent(params.name, {
         model: params.model,
         repoCwd: ctx.cwd,
-        definition,
+        definition: resolvedDefinition,
         parent: params.parent === "self" ? undefined : params.parent,
         worktreePath,
-        extensions,
+        extensions: capabilities.extensions,
       });
 
       if (result.error || !result.agent) {

@@ -56,6 +56,22 @@ describe("definition discovery", () => {
     expect(defs.find((d) => d.name === "broken")).toBeUndefined();
   });
 
+  it("parses template frontmatter fields", async () => {
+    const { discoverDefinitions } = await import("../extensions/multi-agent/definitions.js");
+
+    const projectAgentsDir = path.join(tmpDir, ".pi", "agents");
+    fs.mkdirSync(projectAgentsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(projectAgentsDir, "templated.md"),
+      `---\nname: templated\ndescription: Uses templates\nskillTemplates: common, frontend\nextensionTemplates: browser\n---\nPrompt.`,
+      "utf-8"
+    );
+
+    const def = discoverDefinitions(tmpDir).find((d) => d.name === "templated");
+    expect(def?.skillTemplates).toEqual(["common", "frontend"]);
+    expect(def?.extensionTemplates).toEqual(["browser"]);
+  });
+
   it("project definitions override user definitions", async () => {
     const { discoverDefinitions } = await import("../extensions/multi-agent/definitions.js");
 
