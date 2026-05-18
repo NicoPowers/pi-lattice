@@ -225,6 +225,10 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         send(res, errorResponse("name and description are required", 400));
         return;
       }
+      if (body.name.toLowerCase() === "orchestrator") {
+        send(res, errorResponse("The orchestrator type is protected and cannot be overwritten via API", 403));
+        return;
+      }
       const { saveAgentDefinition } = await import("./definitions.js");
       const result = saveAgentDefinition(
         {

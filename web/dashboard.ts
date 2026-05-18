@@ -102,7 +102,15 @@ function openTypeEditor(def?: AgentTypeInfo) {
   }
   typeModal.style.display = "block";
   typeNameInput.focus();
-  if (def) typeNameInput.readOnly = true; // prevent renaming for now
+  if (def) {
+    typeNameInput.readOnly = true;
+    if (def.name.toLowerCase() === "orchestrator") {
+      const note = document.createElement("div");
+      note.style.cssText = "color:var(--warning);font-size:0.75rem;margin-top:0.25rem;";
+      note.textContent = "⚠️ The orchestrator type is protected.";
+      typeNameInput.parentElement?.appendChild(note);
+    }
+  }
 }
 
 function closeTypeEditor() {
