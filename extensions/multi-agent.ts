@@ -225,23 +225,71 @@ function refreshPanel() {
   const theme = currentCtx.ui.theme;
   const lines: string[] = [];
 
+  function renderAgentTree(): string[] {
+    const out: string[] = [];
+    const visited = new Set<string>();
+
+    function getStatusIcon(agent: Agent): string {
+      if (agent.status === "streaming") {
+        return theme.fg("accent", SPINNER_FRAMES[spinnerIndex]);
+      } else if (agent.status === "idle") {
+        return theme.fg("success", "●");
+      } else {
+        return theme.fg("error", "○");
+      }
+    }
+
+    function renderNode(name: string, depth: number, isLast: boolean, prefix: string) {
+      if (visited.has(name)) return;
+      visited.add(name);
+
+      const agent = agents.get(name);
+      if (!agent) return;
+
+      const icon = getStatusIcon(agent);
+      const defName = agent.definition?.name ? theme.fg("dim", ` (${agent.definition.name})`) : "";
+      const branch = depth === 0 ? "" : prefix + (isLast ? "└─ " : "├─ ");
+      const line = `${branch}${icon} ${theme.fg(agent.status === "streaming" ? "warning" : "dim", name)}${defName}`;
+      out.push(line);
+
+      const childNames = agent.children.filter((c) => agents.has(c));
+      const newPrefix = depth === 0 ? "" : prefix + (isLast ? "   " : "│  ");
+      for (let i = 0; i < childNames.length; i++) {
+        renderNode(childNames[i], depth + 1, i === childNames.length - 1, newPrefix);
+      }
+    }
+
+    // Find roots and orphaned agents (shouldn't happen, but handle gracefully)
+    const roots: string[] = [];
+    const nonRoots = new Set<string>();
+    for (const [, agent] of agents) {
+      for (const child of agent.children) {
+        nonRoots.add(child);
+      }
+    }
+    for (const [name] of agents) {
+      if (!nonRoots.has(name)) {
+        roots.push(name);
+      }
+    }
+    // Also render any agents that weren't reached (cycle safety)
+    for (const [name] of agents) {
+      if (!roots.includes(name) && !visited.has(name)) {
+        roots.push(name);
+      }
+    }
+
+    for (let i = 0; i < roots.length; i++) {
+      renderNode(roots[i], 0, i === roots.length - 1, "");
+    }
+
+    return out;
+  }
+
   if (agents.size === 0) {
     lines.push(theme.fg("dim", "No subagents"));
   } else {
-    const parts: string[] = [];
-    for (const [name, agent] of agents) {
-      const defName = agent.definition?.name ? ` (${agent.definition.name})` : "";
-      const parentTag = agent.parent ? theme.fg("dim", `←${agent.parent}`) : "";
-      if (agent.status === "streaming") {
-        const frame = theme.fg("accent", SPINNER_FRAMES[spinnerIndex]);
-        parts.push(`${frame} ${theme.fg("warning", name)}${theme.fg("dim", defName)}${parentTag}`);
-      } else if (agent.status === "idle") {
-        parts.push(`${theme.fg("success", "●")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}${parentTag}`);
-      } else {
-        parts.push(`${theme.fg("error", "○")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}${parentTag}`);
-      }
-    }
-    lines.push(parts.join("  "));
+    lines.push(...renderAgentTree());
   }
 
   currentCtx.ui.setWidget("multi-agent", lines, { placement: "belowEditor" });
