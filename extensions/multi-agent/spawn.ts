@@ -326,9 +326,17 @@ export async function spawnAgent(
     flush();
   });
 
+  const stderrLogPath = path.join(worktreePath, ".pi", "stderr.log");
   proc.stderr!.on("data", (data: Buffer) => {
-    const text = data.toString().trim();
-    if (text) log("rpc", `Agent '${id}' STDERR`, text);
+    const text = data.toString();
+    if (text.trim()) {
+      log("rpc", `Agent '${id}' STDERR`, text.trim());
+      try {
+        fs.appendFileSync(stderrLogPath, text, "utf-8");
+      } catch {
+        /* ignore */
+      }
+    }
   });
 
   proc.on("close", (code) => {
