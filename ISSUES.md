@@ -91,7 +91,7 @@ agent_send("lead", "write async-test.txt with 'async works' and cat it")
 
 ### Issue 3: Per-Agent `delegate` Extension ✅
 
-**Status**: Implemented.
+**Status**: Implemented and tested.
 
 **What changed:**
 - Created `extensions/delegate-agent.ts` — registers a `delegate` tool inside each sub-agent
@@ -101,7 +101,7 @@ agent_send("lead", "write async-test.txt with 'async works' and cat it")
 
 ### Issue 4: Broker Extension Routes `delegate` Requests ✅
 
-**Status**: Implemented.
+**Status**: Implemented and tested.
 
 **What changed:**
 - Broker extension monitors JSONL stdout for `tool_execution_start` with `toolName: "delegate"`
@@ -113,6 +113,17 @@ agent_send("lead", "write async-test.txt with 'async works' and cat it")
 - `delegate-agent.ts` copied into worktree `.pi/extensions/` before each spawn
 - Sub-agents launched with `--no-extensions --extension /tmp/workspace/.pi/extensions/delegate-agent.ts`
 - `package.json` changed to only auto-load `multi-agent.ts` (prevents delegate loading in orchestrator)
+
+**Tested:**
+```
+/spawn lead self coder
+/spawn scout lead coder
+/ask lead "Delegate to scout to list all files, then summarize"
+→ Lead calls delegate("scout", "list all files...")
+→ Broker routes to scout
+→ Scout responds with file list
+→ Lead gets result back and summarizes
+```
 
 ---
 
