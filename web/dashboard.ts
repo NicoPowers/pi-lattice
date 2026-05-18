@@ -30,6 +30,11 @@ function escapeHtml(t: string): string {
   return t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] ?? c));
 }
 
+function shortPath(p: string): string {
+  if (!p) return "";
+  return p.length > 42 ? "…" + p.slice(-39) : p;
+}
+
 function pushLog(text: string, level: "info" | "success" | "warn" | "error" = "info") {
   const line = document.createElement("div");
   line.className = `log-line ${level}`;
@@ -238,6 +243,8 @@ function renderAgents() {
         <span>${a.definition ? "type: " + escapeHtml(a.definition) : "no type"}</span>
         <span>${a.parent ? "parent: " + escapeHtml(a.parent) : "root"}</span>
         <span>turns: ${a.turns || 0}</span>
+        <span title="${escapeHtml(a.worktree || "")}">worktree: ${escapeHtml(shortPath(a.worktree || ""))}</span>
+        ${a.worktree ? `<button class="secondary" id="btn-copy-path-${name}" style="font-size:0.7rem;padding:0.125rem 0.375rem;">Copy Path</button>` : ""}
       </div>
       <div class="terminal" id="term-${name}"></div>
       <div class="agent-actions">
@@ -262,6 +269,14 @@ function renderAgents() {
 
     div.querySelector(`#btn-send-${name}`)?.addEventListener("click", () => sendMessage(name));
     div.querySelector(`#btn-kill-${name}`)?.addEventListener("click", () => killAgent(name));
+    div.querySelector(`#btn-copy-path-${name}`)?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(a.worktree || "");
+        pushLog(`Copied worktree path for ${name}`, "success");
+      } catch {
+        pushLog(`Worktree path: ${a.worktree}`, "info");
+      }
+    });
 
     agentsEl.appendChild(div);
   }

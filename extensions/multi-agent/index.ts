@@ -554,6 +554,23 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("worktrees", {
+    description: "List active agent worktrees and VS Code open commands.",
+    handler: async (_args, ctx) => {
+      if (agents.size === 0) {
+        ctx.ui.notify("No active agent worktrees.", "info");
+        return;
+      }
+      const lines = Array.from(agents.entries()).map(([name, agent]) => {
+        return [
+          `${name}: ${agent.worktreePath}`,
+          `  VS Code: code ${agent.worktreePath}`,
+        ].join("\n");
+      });
+      ctx.ui.notify(lines.join("\n\n"), "info");
+    },
+  });
+
   pi.registerCommand("kill", {
     description: "Kill a spawned agent. Usage: /kill <name> or /kill all",
     handler: async (name, ctx) => {
