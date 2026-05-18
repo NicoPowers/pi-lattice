@@ -146,7 +146,7 @@ export async function spawnAgent(
   const extDir = path.join(worktreePath, ".pi", "extensions");
   fs.mkdirSync(extDir, { recursive: true });
 
-  // Always copy delegate-agent.ts
+  // Always copy delegate-agent.ts into worktree
   let delegateInsideBwrap: string | null = null;
   try {
     const delegateSource = path.join(__dirname, "..", "delegate-agent.ts");
@@ -159,18 +159,16 @@ export async function spawnAgent(
     /* ignore copy failures */
   }
 
-  // Copy any additional selected extensions
+  // User-selected extensions: pass original absolute paths.
+  // ~/.pi/agent is already bind-mounted into bwrap, so these resolve correctly.
   const extraExtPaths: string[] = [];
   if (extensions && extensions.length > 0) {
     for (const ext of extensions) {
-      try {
-        const destName = ext.name + ".ts";
-        const dest = path.join(extDir, destName);
-        fs.copyFileSync(ext.path, dest);
-        extraExtPaths.push(`/tmp/workspace/.pi/extensions/${destName}`);
-        log("spawn", `Copied extension '${ext.name}' to worktree`, { path: dest });
-      } catch (err: any) {
-        log("spawn", `Failed to copy extension '${ext.name}': ${err.message}`);
+      if (fs.existsSync(ext.path)) {
+        extraExtPaths.push(ext.path);
+        log("spawn", `Extension '${ext.name}' will be loaded from host path`, { path: ext.path });
+      } else {
+        log("spawn", `Extension '${ext.name}' path not found`, { path: ext.path });
       }
     }
   }
