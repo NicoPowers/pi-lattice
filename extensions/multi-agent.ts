@@ -420,7 +420,13 @@ async function spawnAgent(
       "- `target`: name of the sibling agent",
       "- `task`: clear instructions for what they should do",
       "",
-      "Wait for the delegate response and incorporate it into your final answer.",
+      "You may delegate MULTIPLE times in a single turn. For example:",
+      "1. Delegate 'find all auth-related code' to scout",
+      "2. Review scout's findings",
+      "3. Delegate 'check src/login.js for SQL injection' to scout",
+      "4. Synthesize both responses into your final answer",
+      "",
+      "Wait for each delegate response before making your next move.",
       "",
     ].join("\n");
     const delegatePromptFile = path.join(promptDir, `${id}-delegate.md`);

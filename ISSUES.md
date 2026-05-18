@@ -127,29 +127,40 @@ agent_send("lead", "write async-test.txt with 'async works' and cat it")
 
 ---
 
-### Issue 5: End-to-End MVP
+### Issue 5: End-to-End MVP 🔄
 
 **Goal**: Orchestrator → Lead → Scout → Lead → Orchestrator works end-to-end.
 
+**Status**: Ready for testing.
+
 **Test scenario**:
 ```
-Orchestrator: agent_spawn(name="lead", type="coder", parent="self")
-Orchestrator: agent_spawn(name="scout", type="reviewer", parent="lead")
-Orchestrator: agent_send("lead", "Find auth bugs. Use @scout if needed.")
-  → Returns immediately (async)
-  
-  [Background]
-  Lead calls delegate("scout", "Find all auth-related code")
-    Broker routes to Scout
-    Scout responds with findings
-    Broker writes response, Lead continues
-  Lead calls delegate("scout", "Check src/login.js for SQL injection")
-    Same cycle...
-  Lead gives final: "Found 2 issues. Details: ..."
-  
-  Broker delivers to Orchestrator:
-  "[lead] Found 2 issues. Details: ..."
+# 1. Spawn agents
+/spawn lead self coder
+/spawn scout lead reviewer
+
+# 2. Send async task to lead
+agent_send("lead", "Find auth bugs. Use @scout if needed.")
+  → Returns immediately: "Queued task for 'lead'..."
+
+# 3. [Background] Lead delegates multiple times
+Lead calls delegate("scout", "Find all auth-related code")
+  → Broker routes to Scout
+  → Scout responds with findings
+  → Broker writes response, Lead continues
+Lead calls delegate("scout", "Check src/login.js for SQL injection")
+  → Same cycle...
+Lead gives final: "Found 2 issues. Details: ..."
+
+# 4. Result delivered to Orchestrator
+→ [lead] Found 2 issues. Details: ...
 ```
+
+**What to verify:**
+- Multiple delegate calls in a single agent turn work correctly
+- Scout (reviewer type) uses read-only tools as configured
+- Lead synthesizes multiple delegate responses into final answer
+- Async result delivered back to orchestrator via steering message
 
 ---
 
@@ -173,7 +184,6 @@ Orchestrator: agent_send("lead", "Find auth bugs. Use @scout if needed.")
 - **No logs inspection**: Communication logs not yet written to disk
 - **No PR/push**: Agents are read-write-local only
 - **WSL not tested**: Bwrap requires WSL2 (Linux kernel)
-- **No per-agent extension loading**: `delegate-agent.ts` not yet created or loaded
 
 ---
 
@@ -182,8 +192,8 @@ Orchestrator: agent_send("lead", "Find auth bugs. Use @scout if needed.")
 1. `cd` into a **git repository** (not `~/.pi/`)
 2. Start `pi`
 3. `/reload` to load the extension
-4. Test Issue 1 with `/spawn lead self coder`
-5. Continue with Issue 2 (async `agent_send`)
+4. Spawn agents: `/spawn lead self coder`, `/spawn scout lead reviewer`
+5. Test async delegation: `agent_send("lead", "Find auth bugs. Use @scout if needed.")`
 
 ## Git History
 
