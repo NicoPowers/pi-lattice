@@ -9,7 +9,7 @@
   "scripts": {
     "test": "bun test",
     "lint": "bunx tsc --noEmit --skipLibCheck",
-    "build": "bun build --target=browser --minify --define process.env.NODE_ENV=\"production\" --outdir=web web/app.tsx && bunx tailwindcss -i web/tailwind.css -o web/app.css --minify",
+    "build": "bun build --target=browser --minify --define 'process.env.NODE_ENV=\"production\"' --outdir=web web/app.tsx && bunx tailwindcss -i web/tailwind.css -o web/app.css --minify",
     "check": "bun run lint && bun run build && bun test"
   },
   "devDependencies": {
