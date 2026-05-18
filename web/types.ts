@@ -1,5 +1,18 @@
 // Shared types between server and dashboard
 
+export interface RuntimeToolInfo {
+  name: string;
+  description?: string;
+  sourceInfo?: unknown;
+}
+
+export interface RuntimeToolSnapshot {
+  active: RuntimeToolInfo[];
+  all: RuntimeToolInfo[];
+  reportedAt: number;
+  source: "child-agent";
+}
+
 export interface AgentInfo {
   name: string;
   status: "idle" | "streaming" | "error" | "exited";
@@ -8,6 +21,7 @@ export interface AgentInfo {
   children: string[];
   turns: number;
   worktree: string;
+  runtimeTools?: RuntimeToolSnapshot;
   text?: string;
 }
 
@@ -17,6 +31,9 @@ export interface AgentTypeInfo {
   model?: string;
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
+  skills?: string[];
+  skillTemplates?: string[];
+  extensionTemplates?: string[];
   source: string;
 }
 
@@ -30,9 +47,21 @@ export interface ModelInfo {
   thinkingLevels?: Array<"off" | "minimal" | "low" | "medium" | "high" | "xhigh">;
 }
 
+export interface SkillInfo {
+  name: string;
+  description?: string;
+  path: string;
+  source?: string;
+  scope?: string;
+}
+
 export interface ExtensionInfo {
   name: string;
   scope: string;
+  description?: string;
+  expectedTools?: string[];
+  metadataStatus?: "provided" | "unknown" | "invalid";
+  metadataSource?: string;
 }
 
 export type ServerEvent =

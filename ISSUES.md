@@ -250,36 +250,274 @@ Before Phase 1 is considered complete, verify:
 
 ## Phase 2 — Template Backend
 
-- Project-local `.pi/skill-templates/`
-- Project-local `.pi/extension-templates/`
-- CRUD APIs
-- `applyToAll`
-- Separate modules for skills/extensions
+**Goal**: Add backend persistence and APIs for reusable skill and extension templates. This phase is backend-only; templates are not applied to spawned agents until Phase 4 and do not need dashboard UI until Phase 6.
+
+### Issue 1: Template Data Model
+
+**What to do:**
+- Define common template shape: `name`, `description`, `items`, `applyToAll`, `source`, `filePath`.
+- Expose separate skill and extension template types.
+
+**Validation:**
+- Types compile with `bun run lint`.
+
+### Issue 2: Project-local Template File Layout
+
+**What to do:**
+- Store skill templates under `.pi/skill-templates/*.md`.
+- Store extension templates under `.pi/extension-templates/*.md`.
+- Use markdown frontmatter consistent with agent definitions.
+
+**Validation:**
+- Saving creates the expected project-local files.
+- Discovery returns saved templates.
+
+### Issue 3: Template Discovery Modules
+
+**What to do:**
+- Add separate backend modules for skill templates and extension templates.
+- Include list/get/save/delete helpers.
+- Keep shared parsing/validation in a common helper if useful.
+
+**Validation:**
+- Unit tests cover discovery, save, get, and delete.
+
+### Issue 4: CRUD REST APIs
+
+**What to do:**
+- Add `GET /api/skill-templates`.
+- Add `POST /api/skill-templates`.
+- Add `GET /api/skill-templates/:name`.
+- Add `DELETE /api/skill-templates/:name`.
+- Add equivalent `/api/extension-templates` routes.
+
+**Validation:**
+- API routes return JSON and correct error statuses.
+
+### Issue 5: Validation and Name Safety
+
+**What to do:**
+- Validate required `name` and `description`.
+- Reject path traversal and unsafe filenames.
+- Normalize/dedupe item lists on save.
+
+**Validation:**
+- Tests prove unsafe names cannot write outside template dirs.
+
+### Issue 6: Docs and Regression
+
+**What to do:**
+- Document template layout/API basics.
+- Keep Phase 2 backend-only; do not wire templates into spawn resolution yet.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 3 — Static Extension Metadata
 
-- Optional static expected-tool metadata convention
-- Unknown tools shown as unknown, not error
-- No runtime extension introspection
+**Goal**: Add optional, best-effort static metadata for discovered extensions so later UI phases can preview expected tools without executing extension code.
+
+### Issue 1: Metadata Shape
+
+**What to do:**
+- Extend discovered extension info with optional `description`, `expectedTools`, `metadataStatus`, and `metadataSource`.
+- Treat metadata as advisory only.
+
+**Validation:**
+- Existing extension discovery still works when no metadata exists.
+
+### Issue 2: Static Metadata Convention
+
+**What to do:**
+- Support an optional source comment convention in extension `.ts`/`.js` files:
+  - `// pi-orchestrator: { "description": "...", "expectedTools": ["tool_a"] }`
+  - or block comment equivalent.
+- Parse metadata without importing or executing extension code.
+
+**Validation:**
+- Tests cover metadata present, absent, and invalid.
+
+### Issue 3: API Exposure
+
+**What to do:**
+- Include metadata fields in `GET /api/extensions` output.
+- Unknown metadata should return `metadataStatus: "unknown"`, not an error.
+- Invalid metadata should not break discovery.
+
+**Validation:**
+- `GET /api/extensions` remains JSON and tolerant of missing metadata.
+
+### Issue 4: Docs and Regression
+
+**What to do:**
+- Document the static metadata convention.
+- Do not add runtime extension introspection.
+- Do not wire metadata into spawn behavior yet.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 4 — Agent Definition Resolution
 
-- `skillTemplates:` frontmatter
-- `extensionTemplates:` frontmatter
-- Resolve `applyToAll + selected templates`
-- Apply only to newly spawned agents
+**Goal**: Resolve saved skill/extension templates into agent spawn configuration for newly spawned agents only.
+
+### Issue 1: Agent Definition Frontmatter
+
+**What to do:**
+- Add optional `skillTemplates:` and `extensionTemplates:` frontmatter fields to agent definitions.
+- Parse comma-separated template names during definition discovery.
+- Preserve existing direct `skills:` and direct extension selection behavior.
+
+**Validation:**
+- Definition tests cover template fields.
+
+### Issue 2: Capability Resolution Helper
+
+**What to do:**
+- Add a backend resolver that combines:
+  - direct definition skills
+  - all `applyToAll` skill templates
+  - selected `skillTemplates`
+  - direct requested extensions
+  - all `applyToAll` extension templates
+  - selected `extensionTemplates`
+- Dedupe while preserving order.
+- Resolve extension template items by discovered extension name.
+
+**Validation:**
+- Unit tests cover apply-to-all plus selected templates.
+
+### Issue 3: Spawn Integration
+
+**What to do:**
+- Use resolved skills/extensions when spawning from `create_sub_agent`.
+- Use resolved skills/extensions when spawning from dashboard/API.
+- Apply resolution at spawn time only; existing running agents are unchanged.
+
+**Validation:**
+- Spawning an agent uses resolved skills/extensions without changing stored definitions.
+
+### Issue 4: API/Preview Surface
+
+**What to do:**
+- Include template fields in `/api/agent-types` output so later UI phases can preview them.
+- Do not build full capability preview UI yet.
+
+**Validation:**
+- API output remains backwards compatible.
+
+### Issue 5: Docs and Regression
+
+**What to do:**
+- Document `skillTemplates:` and `extensionTemplates:` frontmatter.
+- Keep runtime tool reporting out of scope.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 5 — Actual Runtime Tool Reporting
 
-- Child agents report `pi.getActiveTools()` / `pi.getAllTools()` from inside their own Pi session
-- Dashboard shows actual tools per running agent
+**Goal**: Capture actual tools available inside each spawned child Pi session and expose them to the dashboard/API.
+
+### Issue 1: Runtime Tool Snapshot Format
+
+**What to do:**
+- Define a serializable runtime tool snapshot with `active`, `all`, `reportedAt`, and per-tool `name`, `description`, `sourceInfo`.
+- Store snapshots under the agent worktree comms area.
+
+**Validation:**
+- Snapshot parsing tolerates missing or malformed files.
+
+### Issue 2: Child Agent Reporter
+
+**What to do:**
+- Update the child-loaded delegate extension to call `pi.getActiveTools()` and `pi.getAllTools()` from inside the child session.
+- Write the snapshot without executing or introspecting extension code externally.
+
+**Validation:**
+- Reporter code compiles and writes only serializable fields.
+
+### Issue 3: Broker/API Exposure
+
+**What to do:**
+- Read runtime tool snapshots from each agent worktree.
+- Include runtime tool data in serialized agent info and `/api/agents/:name/events` inspection payload.
+- Keep missing snapshots as unknown, not an error.
+
+**Validation:**
+- Unit tests cover missing, valid, and malformed snapshots.
+
+### Issue 4: Dashboard Display
+
+**What to do:**
+- Show runtime active/all tool names on agent cards when reported.
+- Show detailed runtime tools in Inspect modal.
+- Use unknown/empty state when no snapshot has been reported yet.
+
+**Validation:**
+- Dashboard bundle smoke test passes.
+
+### Issue 5: Docs and Regression
+
+**What to do:**
+- Document runtime tool reporting as best-effort and child-reported.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 6 — Template UI
 
-- Skill Templates tab
-- Extension Templates tab
-- Searchable lists/checklists, no drag/drop initially
-- Preview resolved capabilities
+**Goal**: Add dashboard UI for creating, editing, deleting, and inspecting skill/extension templates backed by the Phase 2 APIs.
+
+### Issue 1: Dashboard Template Data Hooks
+
+**What to do:**
+- Load `/api/skill-templates` and `/api/extension-templates` in React.
+- Load `/api/extensions` for extension template selection hints.
+- Refresh template lists after save/delete.
+
+**Validation:**
+- Dashboard smoke test still loads without runtime errors.
+
+### Issue 2: Skill Templates Tab
+
+**What to do:**
+- Add a Skill Templates tab.
+- List templates with name, description, `applyToAll`, and selected skills.
+- Add create/edit/delete dialog using comma/newline skill entry.
+
+**Validation:**
+- Can create/edit/delete skill templates through REST APIs.
+
+### Issue 3: Extension Templates Tab
+
+**What to do:**
+- Add an Extension Templates tab.
+- List templates with name, description, `applyToAll`, and selected extensions.
+- Add create/edit/delete dialog.
+- Show discovered extensions as selectable hints/checklist where possible.
+
+**Validation:**
+- Can create/edit/delete extension templates through REST APIs.
+
+### Issue 4: Agent Type Template Fields
+
+**What to do:**
+- Extend Agent Type editor with `skillTemplates` and `extensionTemplates` comma/newline fields.
+- Save fields through existing `/api/agent-types` POST.
+
+**Validation:**
+- Saved agent definitions include template frontmatter.
+
+### Issue 5: UX and Regression
+
+**What to do:**
+- Keep UI simple: no drag/drop.
+- Use clear unknown/empty states.
+- Do not add runtime tool reporting changes here.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 7 — Agent Type Capability Preview
 

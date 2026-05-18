@@ -69,8 +69,14 @@ pi-agent-orchestrator/
 ├── agents/
 │   ├── coder.md
 │   └── reviewer.md
+├── .pi/
+│   ├── skill-templates/            # Optional project-local skill template files
+│   └── extension-templates/        # Optional project-local extension template files
 ├── web/
-│   └── index.html                  # Dashboard UI (vanilla JS, no build step)
+│   ├── index.html                  # Static React dashboard shell
+│   ├── app.tsx                     # React dashboard entrypoint
+│   ├── tailwind.css                # Tailwind input
+│   └── components/ui/              # Local shadcn-style UI primitives
 └── tests/
     ├── definitions.test.ts         # Unit tests for agent discovery
     ├── server.test.ts              # Unit tests for port probing + SSE
@@ -119,6 +125,52 @@ agent_kill(name="my_coder")
 agent_types()
 ```
 
+### Template Backend
+
+Project-local template files can be stored under:
+
+```text
+.pi/skill-templates/*.md
+.pi/extension-templates/*.md
+```
+
+They use markdown frontmatter:
+
+```markdown
+---
+name: common
+description: Common skills for most agents
+applyToAll: true
+skills: tdd, security-checklist
+---
+```
+
+Extension templates use `extensions:` instead of `skills:`. Phase 2 only adds backend storage and CRUD APIs; template resolution is applied to newly spawned agents in a later phase.
+
+Extensions may optionally advertise static, best-effort metadata without being executed. Add a source comment near the top of an extension file:
+
+```ts
+// pi-orchestrator: { "description": "Browser helpers", "expectedTools": ["open_page", "click"] }
+```
+
+Missing or invalid extension metadata is tolerated and reported as `metadataStatus: "unknown"` or `"invalid"`; it is advisory only.
+
+Spawned child agents also report their actual runtime tools from inside their own Pi session. The delegate extension writes a best-effort `.pi/comms/runtime-tools.json` snapshot containing `pi.getActiveTools()` and `pi.getAllTools()` results. The dashboard/API treats missing snapshots as unknown rather than an error.
+
+REST endpoints:
+
+```text
+GET    /api/skill-templates
+POST   /api/skill-templates
+GET    /api/skill-templates/:name
+DELETE /api/skill-templates/:name
+
+GET    /api/extension-templates
+POST   /api/extension-templates
+GET    /api/extension-templates/:name
+DELETE /api/extension-templates/:name
+```
+
 ### Web Dashboard
 
 When Pi starts, the extension prints a URL like:
@@ -128,13 +180,19 @@ When Pi starts, the extension prints a URL like:
 ```
 
 Open it in any browser. You can:
-- **Spawn** agents with name, parent, type, and model override
-- **View** live terminal output per agent (streamed via SSE)
+- **View** active agents and live assistant output streamed via SSE
+- **Inspect** lifecycle/tool events with text deltas coalesced into readable blocks
 - **Send** messages to any agent
 - **Kill** agents and their children
+- **Copy** agent worktree paths
+- **Monitor** hierarchy, context/token usage, and cost stats
+- **Create/edit** Agent Type Library definitions
+- **Create/edit/delete** skill and extension templates
+- **Assign** skill and extension templates from the Agent Type editor
 - **Watch** the global event log (spawns, kills, delegations)
+- **Emergency Stop** all agents and clear dashboard state
 
-Dashboard actions are bidirectionally synced with the terminal — spawn an agent from the web UI and the orchestrator LLM receives a steer message so it knows the fleet changed.
+The dashboard is a static React + TypeScript + Tailwind bundle served by the extension HTTP server; no runtime dev server or framework is required.
 
 ## Customizing Agents
 
@@ -151,6 +209,19 @@ skills: tdd, my-custom-skill
 
 You are {{name}}, a {{type}} agent. ...
 ```
+
+Agent definitions can also opt into saved templates:
+
+```markdown
+---
+name: frontend-coder
+description: Frontend implementation agent
+skillTemplates: common, frontend
+extensionTemplates: browser-tools
+---
+```
+
+When a new agent is spawned, the backend resolves direct `skills:` plus all `applyToAll` skill templates plus selected `skillTemplates:`. Extension resolution similarly combines directly requested extensions, all `applyToAll` extension templates, and selected `extensionTemplates:`. This resolution applies only to newly spawned agents; existing running agents are unchanged.
 
 User and project definitions override the package defaults.
 
@@ -170,7 +241,10 @@ pi install /path/to/pi-agent-orchestrator
 # Install dependencies (for tests)
 bun install
 
-# Run unit tests
+# Run typecheck, build, and tests
+bun run check
+
+# Or run unit tests only
 bun test
 
 # Test inside a git repo (not ~/.pi/)

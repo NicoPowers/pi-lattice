@@ -34,7 +34,7 @@ function getPackageAgentsDir(): string | null {
   return null;
 }
 
-function resolveSkillPath(raw: string, agentFileDir: string, cwd: string): string {
+export function resolveSkillPath(raw: string, agentFileDir: string, cwd: string): string {
   if (path.isAbsolute(raw)) return raw;
   const relativeToAgent = path.resolve(agentFileDir, raw);
   if (fs.existsSync(relativeToAgent)) return relativeToAgent;
@@ -88,6 +88,16 @@ function loadDefinitionsFromDir(dir: string, source: "user" | "project" | "packa
       .filter(Boolean)
       .map((s) => resolveSkillPath(s, dir, cwd));
 
+    const skillTemplates = frontmatter.skillTemplates
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const extensionTemplates = frontmatter.extensionTemplates
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     defs.push({
       name: frontmatter.name,
       description: frontmatter.description,
@@ -95,6 +105,8 @@ function loadDefinitionsFromDir(dir: string, source: "user" | "project" | "packa
       thinking: (frontmatter.thinking as AgentDefinition["thinking"]) || undefined,
       tools: tools && tools.length > 0 ? tools : undefined,
       skills: skills && skills.length > 0 ? skills : undefined,
+      skillTemplates: skillTemplates && skillTemplates.length > 0 ? skillTemplates : undefined,
+      extensionTemplates: extensionTemplates && extensionTemplates.length > 0 ? extensionTemplates : undefined,
       systemPrompt: body,
       source,
       filePath,
@@ -151,6 +163,8 @@ export function saveAgentDefinition(
     if (def.thinking) frontmatterLines.push(`thinking: ${def.thinking}`);
     if (def.tools && def.tools.length > 0) frontmatterLines.push(`tools: ${def.tools.join(", ")}`);
     if (def.skills && def.skills.length > 0) frontmatterLines.push(`skills: ${def.skills.join(", ")}`);
+    if (def.skillTemplates && def.skillTemplates.length > 0) frontmatterLines.push(`skillTemplates: ${def.skillTemplates.join(", ")}`);
+    if (def.extensionTemplates && def.extensionTemplates.length > 0) frontmatterLines.push(`extensionTemplates: ${def.extensionTemplates.join(", ")}`);
 
     const frontmatter = `---\n${frontmatterLines.join("\n")}\n---`;
     const body = (def as any).prompt || def.systemPrompt || "";

@@ -1,8 +1,9 @@
 import * as http from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { type Agent, agents, log } from "./state.js";
+import { type Agent, type AgentDefinition, agents, log } from "./state.js";
 import { rpcCommand } from "./send.js";
+import { readRuntimeToolSnapshot } from "./runtime-tools.js";
 
 // ── Types ──
 
@@ -11,9 +12,9 @@ export interface ServerDeps {
   spawnAgent: (id: string, options: any) => Promise<{ agent: Agent; error?: string }>;
   sendToAgent: (agent: Agent, message: string, timeoutMs: number) => Promise<void>;
   removeWorktree: (worktreePath: string) => Promise<void>;
-  discoverDefinitions: (cwd: string) => Array<{ name: string; description: string; model?: string; thinking?: string; tools?: string[]; source: string }>;
-  getDefinition: (name: string, cwd: string) => { name: string; description: string; model?: string; thinking?: string; tools?: string[]; skills?: string[]; systemPrompt: string; source: string; filePath: string } | undefined;
-  discoverExtensions: (cwd: string) => Array<{ name: string; path: string; scope: string }>;
+  discoverDefinitions: (cwd: string) => AgentDefinition[];
+  getDefinition: (name: string, cwd: string) => AgentDefinition | undefined;
+  discoverExtensions: (cwd: string) => Array<{ name: string; path: string; scope: string; description?: string; expectedTools?: string[]; metadataStatus?: string; metadataSource?: string }>;
 }
 
 interface ServerHandle {
@@ -43,6 +44,7 @@ export function broadcast(event: { type: string; data: any }) {
 // ── Helpers ──
 
 function serializeAgent(agent: Agent) {
+  agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
   return {
     name: agent.id,
     status: agent.status,
@@ -51,6 +53,7 @@ function serializeAgent(agent: Agent) {
     children: agent.children,
     turns: Math.floor(agent.history.length / 2),
     worktree: agent.worktreePath,
+    runtimeTools: agent.runtimeTools,
   };
 }
 
@@ -77,6 +80,21 @@ function corsHeaders(): Record<string, string> {
 function send(res: http.ServerResponse, { status, body, headers }: ReturnType<typeof jsonResponse>) {
   res.writeHead(status, { ...headers, ...corsHeaders() });
   res.end(body);
+}
+
+function contentTypeFor(filePath: string): string {
+  if (filePath.endsWith(".html")) return "text/html";
+  if (filePath.endsWith(".js")) return "application/javascript";
+  if (filePath.endsWith(".css")) return "text/css";
+  if (filePath.endsWith(".map")) return "application/json";
+  return "application/octet-stream";
+}
+
+function sendStatic(res: http.ServerResponse, filePath: string): boolean {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
+  res.writeHead(200, { "Content-Type": contentTypeFor(filePath), ...corsHeaders() });
+  fs.createReadStream(filePath).pipe(res);
+  return true;
 }
 
 // ── Port probing ──
@@ -129,24 +147,13 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 
     // Static: dashboard
     const webDir = path.join(__dirname, "..", "..", "web");
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      const htmlPath = path.join(webDir, "index.html");
-      if (fs.existsSync(htmlPath)) {
-        res.writeHead(200, { "Content-Type": "text/html", ...corsHeaders() });
-        fs.createReadStream(htmlPath).pipe(res);
-        return;
-      }
-      send(res, errorResponse("Dashboard not found", 404));
+    if (url.pathname === "/" || url.pathname === "/dashboard" || url.pathname === "/index.html") {
+      if (!sendStatic(res, path.join(webDir, "index.html"))) send(res, errorResponse("Dashboard not found", 404));
       return;
     }
-    if (url.pathname === "/dashboard.js") {
-      const jsPath = path.join(webDir, "dashboard.js");
-      if (fs.existsSync(jsPath)) {
-        res.writeHead(200, { "Content-Type": "application/javascript", ...corsHeaders() });
-        fs.createReadStream(jsPath).pipe(res);
-        return;
-      }
-      send(res, errorResponse("Dashboard script not found", 404));
+    if (["/app.js", "/app.css"].includes(url.pathname)) {
+      const filePath = path.join(webDir, path.basename(url.pathname));
+      if (!sendStatic(res, filePath)) send(res, errorResponse("Dashboard asset not found", 404));
       return;
     }
 
@@ -198,11 +205,25 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // GET /api/skills
+    if (url.pathname === "/api/skills" && req.method === "GET") {
+      const { discoverSkills } = await import("./skill-discovery.js");
+      send(res, jsonResponse(await discoverSkills(deps.repoCwd)));
+      return;
+    }
+
     // GET /api/extensions
     if (url.pathname === "/api/extensions" && req.method === "GET") {
       const exts = deps.discoverExtensions(deps.repoCwd);
       send(res, jsonResponse(
-        exts.map((e) => ({ name: e.name, scope: e.scope }))
+        exts.map((e) => ({
+          name: e.name,
+          scope: e.scope,
+          description: (e as any).description,
+          expectedTools: (e as any).expectedTools,
+          metadataStatus: (e as any).metadataStatus || "unknown",
+          metadataSource: (e as any).metadataSource,
+        }))
       ));
       return;
     }
@@ -217,6 +238,9 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           model: d.model,
           thinking: (d as any).thinking,
           tools: d.tools,
+          skills: d.skills,
+          skillTemplates: d.skillTemplates,
+          extensionTemplates: d.extensionTemplates,
           source: d.source,
         }))
       ));
@@ -257,6 +281,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
           thinking: body.thinking,
           tools: body.tools,
           skills: body.skills,
+          skillTemplates: body.skillTemplates,
+          extensionTemplates: body.extensionTemplates,
           systemPrompt: body.prompt || body.systemPrompt || "",
           source: "project",
           filePath: "",
@@ -268,6 +294,88 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       } else {
         send(res, errorResponse(result.error || "Failed to save", 500));
       }
+      return;
+    }
+
+    // Skill template CRUD
+    if (url.pathname === "/api/skill-templates" && req.method === "GET") {
+      const { discoverSkillTemplates } = await import("./skill-templates.js");
+      send(res, jsonResponse(discoverSkillTemplates(deps.repoCwd)));
+      return;
+    }
+    if (url.pathname === "/api/skill-templates" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { saveSkillTemplate } = await import("./skill-templates.js");
+      const result = saveSkillTemplate({
+        name: body.name,
+        description: body.description,
+        items: body.skills || body.items || [],
+        applyToAll: !!body.applyToAll,
+      }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
+      else send(res, errorResponse(result.error || "Failed to save skill template", 400));
+      return;
+    }
+    const skillTemplateMatch = url.pathname.match(/^\/api\/skill-templates\/([^/]+)$/);
+    if (skillTemplateMatch && req.method === "GET") {
+      const { getSkillTemplate } = await import("./skill-templates.js");
+      const template = getSkillTemplate(decodeURIComponent(skillTemplateMatch[1]), deps.repoCwd);
+      if (template) send(res, jsonResponse(template));
+      else send(res, errorResponse("Skill template not found", 404));
+      return;
+    }
+    if (skillTemplateMatch && req.method === "DELETE") {
+      const { deleteSkillTemplate } = await import("./skill-templates.js");
+      const result = deleteSkillTemplate(decodeURIComponent(skillTemplateMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true }));
+      else send(res, errorResponse(result.error || "Failed to delete skill template", result.error === "template not found" ? 404 : 400));
+      return;
+    }
+
+    // Extension template CRUD
+    if (url.pathname === "/api/extension-templates" && req.method === "GET") {
+      const { discoverExtensionTemplates } = await import("./extension-templates.js");
+      send(res, jsonResponse(discoverExtensionTemplates(deps.repoCwd)));
+      return;
+    }
+    if (url.pathname === "/api/extension-templates" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { saveExtensionTemplate } = await import("./extension-templates.js");
+      const result = saveExtensionTemplate({
+        name: body.name,
+        description: body.description,
+        items: body.extensions || body.items || [],
+        applyToAll: !!body.applyToAll,
+      }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
+      else send(res, errorResponse(result.error || "Failed to save extension template", 400));
+      return;
+    }
+    const extensionTemplateMatch = url.pathname.match(/^\/api\/extension-templates\/([^/]+)$/);
+    if (extensionTemplateMatch && req.method === "GET") {
+      const { getExtensionTemplate } = await import("./extension-templates.js");
+      const template = getExtensionTemplate(decodeURIComponent(extensionTemplateMatch[1]), deps.repoCwd);
+      if (template) send(res, jsonResponse(template));
+      else send(res, errorResponse("Extension template not found", 404));
+      return;
+    }
+    if (extensionTemplateMatch && req.method === "DELETE") {
+      const { deleteExtensionTemplate } = await import("./extension-templates.js");
+      const result = deleteExtensionTemplate(decodeURIComponent(extensionTemplateMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true }));
+      else send(res, errorResponse(result.error || "Failed to delete extension template", result.error === "template not found" ? 404 : 400));
       return;
     }
 
@@ -309,17 +417,24 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       }
 
       const allExts = deps.discoverExtensions(deps.repoCwd);
-      const extensions = (requestedExtensions || [])
-        .map((n: string) => allExts.find((e) => e.name === n))
-        .filter(Boolean);
+      const { resolveCapabilities } = await import("./capability-resolution.js");
+      const capabilities = resolveCapabilities({
+        cwd: deps.repoCwd,
+        definition,
+        requestedExtensions: requestedExtensions || [],
+        availableExtensions: allExts,
+      });
+      const resolvedDefinition = definition
+        ? { ...definition, skills: capabilities.skills }
+        : undefined;
 
       const result = await deps.spawnAgent(name, {
         model,
         repoCwd: deps.repoCwd,
-        definition,
+        definition: resolvedDefinition,
         parent: parent === "self" ? undefined : parent,
         worktreePath,
-        extensions,
+        extensions: capabilities.extensions,
       });
 
       if (result.error || !result.agent) {
@@ -352,10 +467,12 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         send(res, errorResponse("Agent not found", 404));
         return;
       }
+      agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
       send(res, jsonResponse({
         name,
         status: agent.status,
         worktree: agent.worktreePath,
+        runtimeTools: agent.runtimeTools,
         history: agent.history,
         accumulatedText: agent.accumulatedText,
         events: agent.events,

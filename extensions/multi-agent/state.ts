@@ -15,6 +15,19 @@ export function log(tag: string, msg: string, extra?: unknown) {
   }
 }
 
+export interface RuntimeToolInfo {
+  name: string;
+  description?: string;
+  sourceInfo?: unknown;
+}
+
+export interface RuntimeToolSnapshot {
+  active: RuntimeToolInfo[];
+  all: RuntimeToolInfo[];
+  reportedAt: number;
+  source: "child-agent";
+}
+
 export interface AgentDefinition {
   name: string;
   description: string;
@@ -22,6 +35,8 @@ export interface AgentDefinition {
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   tools?: string[];
   skills?: string[];
+  skillTemplates?: string[];
+  extensionTemplates?: string[];
   systemPrompt: string;
   source: "user" | "project" | "package";
   filePath: string;
@@ -40,6 +55,7 @@ export interface Agent {
   worktreePath: string;
   parent?: string;
   children: string[];
+  runtimeTools?: RuntimeToolSnapshot;
   _currentSend?: Promise<void>;
   _nextTurn?: { resolve: () => void; reject: (e: Error) => void };
   _rpcRequests?: Map<string, { resolve: (data: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>;

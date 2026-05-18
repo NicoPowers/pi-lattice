@@ -8,11 +8,14 @@ import { spawnAgent } from "./spawn.js";
 import { sendToAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
+import { resolveCapabilities } from "./capability-resolution.js";
+import { readRuntimeToolSnapshot } from "./runtime-tools.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
 
 function serializeAgentForDashboard(agent: import("./state.js").Agent) {
+  agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
   return {
     name: agent.id,
     status: agent.status,
@@ -21,15 +24,12 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
     children: agent.children,
     turns: Math.floor(agent.history.length / 2),
     worktree: agent.worktreePath,
+    runtimeTools: agent.runtimeTools,
   };
 }
 
 export default function (pi: ExtensionAPI) {
   log("init", "multi-agent extension loaded");
-
-  console.log("🎛️  Multi-agent extension loaded. Normal Pi mode is active.");
-  console.log("   Use /orchestrate to enter orchestration mode when you want Pi to spawn specialist agents.");
-  console.log("   Dashboard: /dashboard  |  Emergency stop: 🛑 button or /kill all");
 
   cleanupOrphanedWorktrees();
 
@@ -45,7 +45,7 @@ export default function (pi: ExtensionAPI) {
         getDefinition,
         discoverExtensions,
       });
-      console.log(`🌐 Dashboard: ${serverHandle.url}`);
+      log("server", `Dashboard listening at ${serverHandle.url}`);
     } catch (err: any) {
       log("server", `Failed to start dashboard server: ${err.message}`);
       console.error(`[multi-agent] Dashboard server failed: ${err.message}`);
@@ -156,17 +156,23 @@ export default function (pi: ExtensionAPI) {
       }
 
       const allExts = discoverExtensions(ctx.cwd);
-      const extensions = (params.extensions || [])
-        .map((n: string) => allExts.find((e) => e.name === n))
-        .filter((e): e is NonNullable<typeof e> => e !== undefined);
+      const capabilities = resolveCapabilities({
+        cwd: ctx.cwd,
+        definition,
+        requestedExtensions: params.extensions || [],
+        availableExtensions: allExts,
+      });
+      const resolvedDefinition = definition
+        ? { ...definition, skills: capabilities.skills }
+        : undefined;
 
       const result = await spawnAgent(params.name, {
         model: params.model,
         repoCwd: ctx.cwd,
-        definition,
+        definition: resolvedDefinition,
         parent: params.parent === "self" ? undefined : params.parent,
         worktreePath,
-        extensions,
+        extensions: capabilities.extensions,
       });
 
       if (result.error || !result.agent) {
