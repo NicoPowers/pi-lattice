@@ -393,6 +393,7 @@ async function spawnAgent(
 
   // Write prompt into worktree so it's visible inside bwrap
   let promptInsideBwrap: string | null = null;
+  let delegatePromptInsideBwrap: string | null = null;
   if (definition?.systemPrompt?.trim()) {
     const filledPrompt = definition.systemPrompt
       .replace(/\{\{name\}\}/g, id)
@@ -402,15 +403,43 @@ async function spawnAgent(
     const promptFile = path.join(promptDir, `${id}.md`);
     fs.writeFileSync(promptFile, filledPrompt, { encoding: "utf-8", mode: 0o600 });
     promptInsideBwrap = `/tmp/workspace/.pi/prompts/${id}.md`;
+
+    // Write delegation instructions
+    const delegateInstructions = [
+      "",
+      "---",
+      "",
+      "## Delegation",
+      "",
+      "You have access to a `delegate` tool. Use it to route work to sibling agents when:",
+      "- The task is better suited to another agent's specialty",
+      "- You want a second opinion or review",
+      "- The task can be parallelized",
+      "",
+      "To delegate, call the `delegate` tool with:",
+      "- `target`: name of the sibling agent",
+      "- `task`: clear instructions for what they should do",
+      "",
+      "Wait for the delegate response and incorporate it into your final answer.",
+      "",
+    ].join("\n");
+    const delegatePromptFile = path.join(promptDir, `${id}-delegate.md`);
+    fs.writeFileSync(delegatePromptFile, delegateInstructions, { encoding: "utf-8", mode: 0o600 });
+    delegatePromptInsideBwrap = `/tmp/workspace/.pi/prompts/${id}-delegate.md`;
   }
 
   const effectiveModel = definition?.model || model;
-  const effectiveTools = definition?.tools;
+  const effectiveTools = definition?.tools ? [...definition.tools] : [];
+  // Always enable delegate tool for spawned agents so they can route work to siblings
+  if (!effectiveTools.includes("delegate")) {
+    effectiveTools.push("delegate");
+  }
 
   const piArgs = ["--mode", "rpc", "--no-session"];
   if (effectiveModel) piArgs.push("--model", effectiveModel);
-  if (effectiveTools && effectiveTools.length > 0) piArgs.push("--tools", effectiveTools.join(","));
+  if (effectiveTools.length > 0) piArgs.push("--tools", effectiveTools.join(","));
   if (promptInsideBwrap) piArgs.push("--system-prompt", promptInsideBwrap);
+  if (delegatePromptInsideBwrap) piArgs.push("--append-system-prompt", delegatePromptInsideBwrap);
   if (definition?.skills) {
     piArgs.push("--no-skills");
     for (const skillPath of definition.skills) {
