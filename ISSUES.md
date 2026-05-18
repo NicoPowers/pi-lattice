@@ -417,8 +417,53 @@ Before Phase 1 is considered complete, verify:
 
 ## Phase 5 — Actual Runtime Tool Reporting
 
-- Child agents report `pi.getActiveTools()` / `pi.getAllTools()` from inside their own Pi session
-- Dashboard shows actual tools per running agent
+**Goal**: Capture actual tools available inside each spawned child Pi session and expose them to the dashboard/API.
+
+### Issue 1: Runtime Tool Snapshot Format
+
+**What to do:**
+- Define a serializable runtime tool snapshot with `active`, `all`, `reportedAt`, and per-tool `name`, `description`, `sourceInfo`.
+- Store snapshots under the agent worktree comms area.
+
+**Validation:**
+- Snapshot parsing tolerates missing or malformed files.
+
+### Issue 2: Child Agent Reporter
+
+**What to do:**
+- Update the child-loaded delegate extension to call `pi.getActiveTools()` and `pi.getAllTools()` from inside the child session.
+- Write the snapshot without executing or introspecting extension code externally.
+
+**Validation:**
+- Reporter code compiles and writes only serializable fields.
+
+### Issue 3: Broker/API Exposure
+
+**What to do:**
+- Read runtime tool snapshots from each agent worktree.
+- Include runtime tool data in serialized agent info and `/api/agents/:name/events` inspection payload.
+- Keep missing snapshots as unknown, not an error.
+
+**Validation:**
+- Unit tests cover missing, valid, and malformed snapshots.
+
+### Issue 4: Dashboard Display
+
+**What to do:**
+- Show runtime active/all tool names on agent cards when reported.
+- Show detailed runtime tools in Inspect modal.
+- Use unknown/empty state when no snapshot has been reported yet.
+
+**Validation:**
+- Dashboard bundle smoke test passes.
+
+### Issue 5: Docs and Regression
+
+**What to do:**
+- Document runtime tool reporting as best-effort and child-reported.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 6 — Template UI
 

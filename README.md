@@ -155,6 +155,8 @@ Extensions may optionally advertise static, best-effort metadata without being e
 
 Missing or invalid extension metadata is tolerated and reported as `metadataStatus: "unknown"` or `"invalid"`; it is advisory only.
 
+Spawned child agents also report their actual runtime tools from inside their own Pi session. The delegate extension writes a best-effort `.pi/comms/runtime-tools.json` snapshot containing `pi.getActiveTools()` and `pi.getAllTools()` results. The dashboard/API treats missing snapshots as unknown rather than an error.
+
 REST endpoints:
 
 ```text

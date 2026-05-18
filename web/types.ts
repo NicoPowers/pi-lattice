@@ -1,5 +1,18 @@
 // Shared types between server and dashboard
 
+export interface RuntimeToolInfo {
+  name: string;
+  description?: string;
+  sourceInfo?: unknown;
+}
+
+export interface RuntimeToolSnapshot {
+  active: RuntimeToolInfo[];
+  all: RuntimeToolInfo[];
+  reportedAt: number;
+  source: "child-agent";
+}
+
 export interface AgentInfo {
   name: string;
   status: "idle" | "streaming" | "error" | "exited";
@@ -8,6 +21,7 @@ export interface AgentInfo {
   children: string[];
   turns: number;
   worktree: string;
+  runtimeTools?: RuntimeToolSnapshot;
   text?: string;
 }
 

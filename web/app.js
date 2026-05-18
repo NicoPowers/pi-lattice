@@ -17650,6 +17650,13 @@ function AgentCard({ name, agent, stats, onInspect, pushLog }) {
                     children: "Copy Path"
                   }, undefined, false, undefined, this)
                 ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+                title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
+                children: [
+                  "tools: ",
+                  agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
+                ]
               }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this),
@@ -17976,7 +17983,15 @@ function TypeEditorDialog({ open, typeDef, models, onClose, onSaved }) {
   }, undefined, false, undefined, this);
 }
 function formatInspectData(data) {
-  const lines = [`status: ${data.status}`, `worktree: ${data.worktree}`, "", "Recent events:"];
+  const lines = [`status: ${data.status}`, `worktree: ${data.worktree}`];
+  if (data.runtimeTools) {
+    lines.push(`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`);
+    lines.push(`active tools: ${data.runtimeTools.active.map((tool) => tool.name).join(", ") || "(none)"}`);
+    lines.push(`all tools: ${data.runtimeTools.all.map((tool) => tool.name).join(", ") || "(none)"}`);
+  } else {
+    lines.push("runtime tools: unknown");
+  }
+  lines.push("", "Recent events:");
   let textBuffer = "";
   let textStartTime = "";
   const flush = () => {

@@ -9,11 +9,13 @@ import { sendToAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
 import { resolveCapabilities } from "./capability-resolution.js";
+import { readRuntimeToolSnapshot } from "./runtime-tools.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
 
 function serializeAgentForDashboard(agent: import("./state.js").Agent) {
+  agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
   return {
     name: agent.id,
     status: agent.status,
@@ -22,6 +24,7 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
     children: agent.children,
     turns: Math.floor(agent.history.length / 2),
     worktree: agent.worktreePath,
+    runtimeTools: agent.runtimeTools,
   };
 }
 
