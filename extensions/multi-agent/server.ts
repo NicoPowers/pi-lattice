@@ -79,6 +79,21 @@ function send(res: http.ServerResponse, { status, body, headers }: ReturnType<ty
   res.end(body);
 }
 
+function contentTypeFor(filePath: string): string {
+  if (filePath.endsWith(".html")) return "text/html";
+  if (filePath.endsWith(".js")) return "application/javascript";
+  if (filePath.endsWith(".css")) return "text/css";
+  if (filePath.endsWith(".map")) return "application/json";
+  return "application/octet-stream";
+}
+
+function sendStatic(res: http.ServerResponse, filePath: string): boolean {
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
+  res.writeHead(200, { "Content-Type": contentTypeFor(filePath), ...corsHeaders() });
+  fs.createReadStream(filePath).pipe(res);
+  return true;
+}
+
 // ── Port probing ──
 
 function tryPort(port: number): Promise<number> {
@@ -129,24 +144,13 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 
     // Static: dashboard
     const webDir = path.join(__dirname, "..", "..", "web");
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      const htmlPath = path.join(webDir, "index.html");
-      if (fs.existsSync(htmlPath)) {
-        res.writeHead(200, { "Content-Type": "text/html", ...corsHeaders() });
-        fs.createReadStream(htmlPath).pipe(res);
-        return;
-      }
-      send(res, errorResponse("Dashboard not found", 404));
+    if (url.pathname === "/" || url.pathname === "/dashboard" || url.pathname === "/index.html") {
+      if (!sendStatic(res, path.join(webDir, "index.html"))) send(res, errorResponse("Dashboard not found", 404));
       return;
     }
-    if (url.pathname === "/dashboard.js") {
-      const jsPath = path.join(webDir, "dashboard.js");
-      if (fs.existsSync(jsPath)) {
-        res.writeHead(200, { "Content-Type": "application/javascript", ...corsHeaders() });
-        fs.createReadStream(jsPath).pipe(res);
-        return;
-      }
-      send(res, errorResponse("Dashboard script not found", 404));
+    if (["/app.js", "/app.css"].includes(url.pathname)) {
+      const filePath = path.join(webDir, path.basename(url.pathname));
+      if (!sendStatic(res, filePath)) send(res, errorResponse("Dashboard asset not found", 404));
       return;
     }
 

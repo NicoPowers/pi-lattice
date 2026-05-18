@@ -70,7 +70,10 @@ pi-agent-orchestrator/
 │   ├── coder.md
 │   └── reviewer.md
 ├── web/
-│   └── index.html                  # Dashboard UI (vanilla JS, no build step)
+│   ├── index.html                  # Static React dashboard shell
+│   ├── app.tsx                     # React dashboard entrypoint
+│   ├── tailwind.css                # Tailwind input
+│   └── components/ui/              # Local shadcn-style UI primitives
 └── tests/
     ├── definitions.test.ts         # Unit tests for agent discovery
     ├── server.test.ts              # Unit tests for port probing + SSE
@@ -128,13 +131,17 @@ When Pi starts, the extension prints a URL like:
 ```
 
 Open it in any browser. You can:
-- **Spawn** agents with name, parent, type, and model override
-- **View** live terminal output per agent (streamed via SSE)
+- **View** active agents and live assistant output streamed via SSE
+- **Inspect** lifecycle/tool events with text deltas coalesced into readable blocks
 - **Send** messages to any agent
 - **Kill** agents and their children
+- **Copy** agent worktree paths
+- **Monitor** hierarchy, context/token usage, and cost stats
+- **Create/edit** Agent Type Library definitions
 - **Watch** the global event log (spawns, kills, delegations)
+- **Emergency Stop** all agents and clear dashboard state
 
-Dashboard actions are bidirectionally synced with the terminal — spawn an agent from the web UI and the orchestrator LLM receives a steer message so it knows the fleet changed.
+The dashboard is a static React + TypeScript + Tailwind bundle served by the extension HTTP server; no runtime dev server or framework is required.
 
 ## Customizing Agents
 
@@ -170,7 +177,10 @@ pi install /path/to/pi-agent-orchestrator
 # Install dependencies (for tests)
 bun install
 
-# Run unit tests
+# Run typecheck, build, and tests
+bun run check
+
+# Or run unit tests only
 bun test
 
 # Test inside a git repo (not ~/.pi/)

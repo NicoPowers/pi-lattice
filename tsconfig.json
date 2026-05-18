@@ -9,12 +9,14 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "resolveJsonModule": true,
+    "jsx": "react-jsx",
     "types": ["bun-types"]
   },
   "include": [
     "extensions/**/*",
     "tests/**/*",
-    "web/**/*.ts"
+    "web/**/*.ts",
+    "web/**/*.tsx"
   ],
   "exclude": [
     "node_modules",
