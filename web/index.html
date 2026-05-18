@@ -413,7 +413,7 @@
     const type = typeSelect.value;
     const model = document.getElementById('spawn-model').value.trim();
     const extCheckboxes = document.querySelectorAll('input[name="extension"]:checked');
-    const extensions = Array.from(extCheckboxes).map((cb) => (cb as HTMLInputElement).value);
+    const extensions = Array.from(extCheckboxes).map((cb) => cb.value);
     if (!type) {
       pushLog('Please select an agent type.', 'warn');
       return;
