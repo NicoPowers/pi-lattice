@@ -298,6 +298,57 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // Orchestrator-only: create sub-agents with explicit reasoning
+  pi.registerTool({
+    name: "create_sub_agent",
+    label: "Create Sub-Agent",
+    description: "Create a new sub-agent. Provide a clear reason. Only the orchestrator should call this.",
+    parameters: Type.Object({
+      name: Type.String({ description: "Unique agent name (e.g. researcher, implementer)" }),
+      type: Type.String({ description: "Agent definition type" }),
+      reason: Type.String({ description: "Why this sub-agent is needed" }),
+      model: Type.Optional(Type.String({ description: "Optional model override" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      log("tool", "create_sub_agent called", { name: params.name, type: params.type, reason: params.reason });
+
+      const definition = getDefinition(params.type, ctx.cwd);
+      if (!definition) {
+        return {
+          content: [{ type: "text", text: `Agent type '${params.type}' not found.` }],
+          isError: true,
+          details: {},
+        };
+      }
+
+      const result = await spawnAgent(params.name, {
+        model: params.model,
+        repoCwd: ctx.cwd,
+        definition,
+        parent: undefined,
+      });
+
+      if (result.error || !result.agent) {
+        return {
+          content: [{ type: "text", text: result.error || "Failed to create sub-agent" }],
+          isError: true,
+          details: {},
+        };
+      }
+
+      agents.set(params.name, result.agent);
+      log("spawn", `Orchestrator created '${params.name}' (type: ${params.type}) - ${params.reason}`);
+
+      return {
+        content: [{
+          type: "text",
+          text: `Created sub-agent '${params.name}' (type: ${params.type}). Reason: ${params.reason}.`,
+        }],
+        details: { name: params.name, type: params.type, reason: params.reason },
+      };
+    },
+  });
+
   pi.registerTool({
     name: "agent_kill",
     label: "Kill Agent",
