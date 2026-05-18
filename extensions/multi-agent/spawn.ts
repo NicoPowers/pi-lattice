@@ -255,11 +255,25 @@ export async function spawnAgent(
                   return;
                 }
 
-                const targetAgent = agents.get(target);
+                // Case-insensitive lookup + suggest alternatives on miss
+                let targetAgent = agents.get(target);
                 if (!targetAgent) {
+                  for (const [name, a] of agents) {
+                    if (name.toLowerCase() === target.toLowerCase()) {
+                      targetAgent = a;
+                      break;
+                    }
+                  }
+                }
+                if (!targetAgent) {
+                  const available = Array.from(agents.keys()).join(", ") || "none";
                   const respFile = path.join(agent.worktreePath, ".pi", "comms", "responses", `${toolCallId}.json`);
-                  fs.writeFileSync(respFile, `Error: Target agent '${target}' not found`, "utf-8");
-                  log("delegate", `Target agent '${target}' not found`);
+                  fs.writeFileSync(
+                    respFile,
+                    `Error: Target agent '${target}' not found. Available agents: ${available}. Check spelling and try again.`,
+                    "utf-8"
+                  );
+                  log("delegate", `Target agent '${target}' not found. Available: ${available}`);
                   return;
                 }
 
