@@ -1031,7 +1031,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "agent_kill",
     label: "Kill Agent",
-    description: "Terminate an agent and its children, removing their worktree if root.",
+    description: "Terminate an agent and all its descendants, removing their worktree if root.",
     parameters: Type.Object({
       name: Type.String({ description: "Agent instance name" }),
     }),
@@ -1045,15 +1045,32 @@ export default function (pi: ExtensionAPI) {
           details: {},
         };
 
-      // Kill children recursively
-      for (const childId of agent.children) {
-        const child = agents.get(childId);
-        if (child && !child.proc.killed) child.proc.kill("SIGTERM");
+      // Collect all descendants recursively
+      const toKill: string[] = [];
+      function collectDescendants(name: string) {
+        const a = agents.get(name);
+        if (!a) return;
+        toKill.push(name);
+        for (const childId of a.children) {
+          collectDescendants(childId);
+        }
       }
-      if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+      collectDescendants(params.name);
 
+      // Kill all processes
+      for (const id of toKill) {
+        const a = agents.get(id);
+        if (a && !a.proc.killed) {
+          a.proc.kill("SIGTERM");
+        }
+      }
       setTimeout(() => {
-        if (!agent.proc.killed) agent.proc.kill("SIGKILL");
+        for (const id of toKill) {
+          const a = agents.get(id);
+          if (a && !a.proc.killed) {
+            a.proc.kill("SIGKILL");
+          }
+        }
       }, 3000);
 
       // Remove from parent's children list
@@ -1069,12 +1086,17 @@ export default function (pi: ExtensionAPI) {
         await removeWorktree(agent.worktreePath);
       }
 
-      agents.delete(params.name);
+      // Delete all killed agents from the map
+      for (const id of toKill) {
+        agents.delete(id);
+      }
+
       stopSpinnerIfIdle();
       refreshPanel();
+      const killedList = toKill.length > 1 ? ` (${toKill.length} agents total)` : "";
       return {
-        content: [{ type: "text", text: `Killed agent '${params.name}'.` }],
-        details: {},
+        content: [{ type: "text", text: `Killed agent '${params.name}'${killedList}.` }],
+        details: { killed: toKill },
       };
     },
   });
@@ -1202,7 +1224,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("kill", {
-    description: "Kill a spawned agent. Usage: /kill <name>",
+    description: "Kill a spawned agent and all descendants. Usage: /kill <name>",
     handler: async (name, ctx) => {
       currentCtx = ctx;
       const agent = agents.get(name);
@@ -1211,11 +1233,45 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      for (const childId of agent.children) {
-        const child = agents.get(childId);
-        if (child && !child.proc.killed) child.proc.kill("SIGTERM");
+      // Collect all descendants recursively
+      const toKill: string[] = [];
+      function collectDescendants(n: string) {
+        const a = agents.get(n);
+        if (!a) return;
+        toKill.push(n);
+        for (const childId of a.children) {
+          collectDescendants(childId);
+        }
       }
-      if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+      collectDescendants(name);
+
+      // Confirm if killing multiple agents
+      if (toKill.length > 1) {
+        const ok = await ctx.ui.confirm(
+          "Kill Agent Tree?",
+          `Agent '${name}' has ${toKill.length - 1} descendant(s). Kill all of them?`,
+        );
+        if (!ok) {
+          ctx.ui.notify("Kill cancelled.", "info");
+          return;
+        }
+      }
+
+      // Kill all processes
+      for (const id of toKill) {
+        const a = agents.get(id);
+        if (a && !a.proc.killed) {
+          a.proc.kill("SIGTERM");
+        }
+      }
+      setTimeout(() => {
+        for (const id of toKill) {
+          const a = agents.get(id);
+          if (a && !a.proc.killed) {
+            a.proc.kill("SIGKILL");
+          }
+        }
+      }, 3000);
 
       if (agent.parent) {
         const parent = agents.get(agent.parent);
@@ -1224,10 +1280,16 @@ export default function (pi: ExtensionAPI) {
         await removeWorktree(agent.worktreePath);
       }
 
-      agents.delete(name);
+      for (const id of toKill) {
+        agents.delete(id);
+      }
+
       stopSpinnerIfIdle();
       refreshPanel();
-      ctx.ui.notify(`Killed agent '${name}'.`, "info");
+      const msg = toKill.length > 1
+        ? `Killed '${name}' and ${toKill.length - 1} descendant(s).`
+        : `Killed agent '${name}'.`;
+      ctx.ui.notify(msg, "info");
     },
   });
 }
