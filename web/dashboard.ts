@@ -22,6 +22,7 @@ const typeCancelBtn = document.getElementById("type-cancel-btn") as HTMLButtonEl
 // ── State ──
 
 let agents: Record<string, AgentInfo & { text?: string }> = {};
+let hierarchyExpanded = new Set<string>();
 
 // ── Helpers ──
 
@@ -143,7 +144,55 @@ function updateParentSelect() {
   // No longer used - kept for compatibility if needed elsewhere
 }
 
+function renderHierarchy() {
+  const container = document.getElementById("hierarchy");
+  if (!container) return;
+
+  const roots = Object.values(agents).filter(a => !a.parent);
+  if (!roots.length) {
+    container.innerHTML = '<div style="color:var(--dim);font-size:0.75rem;">No agents yet.</div>';
+    return;
+  }
+
+  let html = "";
+  const renderNode = (agent: any, depth: number) => {
+    const indent = "&nbsp;".repeat(depth * 3);
+    const isExpanded = hierarchyExpanded.has(agent.name);
+    const hasChildren = agent.children && agent.children.length > 0;
+    const expandIcon = hasChildren ? (isExpanded ? "▼ " : "▶ ") : "  ";
+
+    html += `<div style="padding:2px 0;cursor:${hasChildren ? "pointer" : "default"};" data-name="${agent.name}">
+      ${indent}${expandIcon}<strong>${agent.name}</strong> <span style="color:var(--dim);font-size:0.75rem;">[${agent.definition || "custom"}]</span>
+      <span class="badge ${agent.status}">${agent.status}</span>
+    </div>`;
+
+    if (isExpanded && hasChildren) {
+      for (const childName of agent.children) {
+        const child = agents[childName];
+        if (child) renderNode(child, depth + 1);
+      }
+    }
+  };
+
+  for (const root of roots) renderNode(root, 0);
+  container.innerHTML = html;
+
+  // Attach click handlers for expand/collapse
+  container.querySelectorAll("div[data-name]").forEach(el => {
+    const name = el.getAttribute("data-name")!;
+    const agent = agents[name];
+    if (agent?.children?.length) {
+      el.addEventListener("click", () => {
+        if (hierarchyExpanded.has(name)) hierarchyExpanded.delete(name);
+        else hierarchyExpanded.add(name);
+        renderHierarchy();
+      });
+    }
+  });
+}
+
 function renderAgents() {
+  renderHierarchy();
   if (!Object.keys(agents).length) {
     agentsEl.innerHTML = '<div class="empty">No agents running.</div>';
     updateParentSelect();
