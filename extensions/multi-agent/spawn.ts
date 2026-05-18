@@ -97,6 +97,8 @@ export async function spawnAgent(
       "",
       "Wait for each delegate response before making your next move.",
       "",
+      "If you are the root orchestrator and a task would benefit from focused research, parallel implementation, or specialized review, consider creating a sub-agent using the create_sub_agent tool. Always provide a clear reason.",
+      "",
     ].join("\n");
 
     // List sibling agents that share this worktree so this agent knows who it can delegate to
