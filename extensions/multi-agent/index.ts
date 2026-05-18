@@ -5,18 +5,39 @@ import { discoverDefinitions, getDefinition } from "./definitions.js";
 import { spawnAgent } from "./spawn.js";
 import { sendToAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
+import { startServer, broadcast } from "./server.js";
+
+let serverHandle: { url: string; stop: () => void } | undefined;
 
 export default function (pi: ExtensionAPI) {
   log("init", "multi-agent extension loaded");
 
   cleanupOrphanedWorktrees();
 
-  pi.on("session_start", () => {
-    /* no TUI widgets */
+  pi.on("session_start", async (_event, ctx) => {
+    if (serverHandle) {
+      serverHandle.stop();
+    }
+    serverHandle = await startServer({
+      repoCwd: ctx.cwd,
+      spawnAgent,
+      sendToAgent,
+      removeWorktree,
+      discoverDefinitions,
+      getDefinition,
+      notifyTerminal: (text: string) => {
+        pi.sendUserMessage(text, { deliverAs: "steer" });
+      },
+    });
+    console.log(`🌐 Dashboard: ${serverHandle.url}`);
   });
 
   pi.on("session_shutdown", async () => {
     log("lifecycle", "session_shutdown -> killing all child agents and removing worktrees");
+    if (serverHandle) {
+      serverHandle.stop();
+      serverHandle = undefined;
+    }
     for (const [, agent] of agents) {
       if (!agent.proc.killed) agent.proc.kill("SIGTERM");
     }
@@ -445,6 +466,26 @@ export default function (pi: ExtensionAPI) {
 
       agents.delete(name);
       ctx.ui.notify(`Killed agent '${name}'.`, "info");
+    },
+  });
+
+  pi.registerCommand("dashboard", {
+    description: "Print dashboard URL and open browser",
+    handler: async (_args, ctx) => {
+      if (!serverHandle) {
+        ctx.ui.notify("Dashboard server not running.", "error");
+        return;
+      }
+      ctx.ui.notify(`Dashboard: ${serverHandle.url}`, "info");
+      // Try to open browser
+      const { spawn } = await import("node:child_process");
+      const platform = process.platform;
+      const cmd = platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
+      try {
+        spawn(cmd, [serverHandle.url], { detached: true, stdio: "ignore" });
+      } catch {
+        /* ignore open failures */
+      }
     },
   });
 }
