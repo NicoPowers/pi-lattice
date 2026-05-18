@@ -17272,6 +17272,8 @@ var jsx_dev_runtime8 = __toESM(require_jsx_dev_runtime(), 1);
 var tabs = [
   { id: "agents", label: "Live Agents" },
   { id: "types", label: "Agent Types" },
+  { id: "skillTemplates", label: "Skill Templates" },
+  { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
   { id: "log", label: "Event Log" }
 ];
@@ -17306,6 +17308,11 @@ function App() {
   const [logs, setLogs] = import_react.useState([]);
   const [types, setTypes] = import_react.useState([]);
   const [models, setModels] = import_react.useState([]);
+  const [skillTemplates, setSkillTemplates] = import_react.useState([]);
+  const [extensionTemplates, setExtensionTemplates] = import_react.useState([]);
+  const [skills, setSkills] = import_react.useState([]);
+  const [extensions, setExtensions] = import_react.useState([]);
+  const [editingTemplate, setEditingTemplate] = import_react.useState(null);
   const [editingType, setEditingType] = import_react.useState(undefined);
   const [inspectAgentName, setInspectAgentName] = import_react.useState(null);
   const [inspectText, setInspectText] = import_react.useState("Loading…");
@@ -17340,6 +17347,34 @@ function App() {
         setAgentStats(await res.json());
     } catch {}
   }, []);
+  const refreshTemplates = import_react.useCallback(async () => {
+    try {
+      const [skillTemplatesRes, extsRes, availableExtsRes, skillsRes] = await Promise.all([
+        fetch("/api/skill-templates"),
+        fetch("/api/extension-templates"),
+        fetch("/api/extensions"),
+        fetch("/api/skills")
+      ]);
+      if (skillTemplatesRes.ok) {
+        const data = await skillTemplatesRes.json();
+        setSkillTemplates(Array.isArray(data) ? data : []);
+      }
+      if (extsRes.ok) {
+        const data = await extsRes.json();
+        setExtensionTemplates(Array.isArray(data) ? data : []);
+      }
+      if (availableExtsRes.ok) {
+        const data = await availableExtsRes.json();
+        setExtensions(Array.isArray(data) ? data : []);
+      }
+      if (skillsRes.ok) {
+        const data = await skillsRes.json();
+        setSkills(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      pushLog(`Failed to load templates: ${e.message}`, "error");
+    }
+  }, [pushLog]);
   const handleEvent = import_react.useCallback((ev) => {
     switch (ev.type) {
       case "init":
@@ -17410,10 +17445,11 @@ function App() {
   import_react.useEffect(() => {
     refreshTypes();
     refreshModels();
+    refreshTemplates();
     refreshStats();
     const interval = setInterval(refreshStats, 5000);
     return () => clearInterval(interval);
-  }, [refreshModels, refreshStats, refreshTypes]);
+  }, [refreshModels, refreshStats, refreshTemplates, refreshTypes]);
   const emergencyStop = async () => {
     if (!confirm("Emergency Stop: Kill all agents and clean up worktrees?"))
       return;
@@ -17499,6 +17535,22 @@ function App() {
                   onEdit: (type) => setEditingType(type),
                   large: true
                 }, undefined, false, undefined, this),
+                activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(TemplatesPanel, {
+                  kind: "skill",
+                  templates: skillTemplates,
+                  onNew: () => setEditingTemplate({ kind: "skill" }),
+                  onEdit: (template) => setEditingTemplate({ kind: "skill", template }),
+                  onDeleted: refreshTemplates,
+                  pushLog
+                }, undefined, false, undefined, this),
+                activeTab === "extensionTemplates" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(TemplatesPanel, {
+                  kind: "extension",
+                  templates: extensionTemplates,
+                  onNew: () => setEditingTemplate({ kind: "extension" }),
+                  onEdit: (template) => setEditingTemplate({ kind: "extension", template }),
+                  onDeleted: refreshTemplates,
+                  pushLog
+                }, undefined, false, undefined, this),
                 activeTab === "hierarchy" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(HierarchyPanel, {
                   agents
                 }, undefined, false, undefined, this),
@@ -17514,11 +17566,26 @@ function App() {
         open: editingType !== undefined,
         typeDef: editingType ?? undefined,
         models,
+        skillTemplates,
+        extensionTemplates,
         onClose: () => setEditingType(undefined),
         onSaved: () => {
           setEditingType(undefined);
           refreshTypes();
           pushLog("Saved agent type", "success");
+        }
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(TemplateEditorDialog, {
+        open: !!editingTemplate,
+        kind: editingTemplate?.kind || "skill",
+        template: editingTemplate?.template,
+        availableSkills: skills,
+        availableExtensions: extensions,
+        onClose: () => setEditingTemplate(null),
+        onSaved: () => {
+          setEditingTemplate(null);
+          refreshTemplates();
+          pushLog("Saved template", "success");
         }
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Dialog, {
@@ -17871,11 +17938,285 @@ function EventLog({ logs }) {
     ]
   }, undefined, true, undefined, this);
 }
-function TypeEditorDialog({ open, typeDef, models, onClose, onSaved }) {
+function splitItems(text) {
+  return Array.from(new Set(text.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)));
+}
+function toggleItemText(text, item) {
+  const items = splitItems(text);
+  const next = items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
+  return next.join(`
+`);
+}
+function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
+  const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
+  const deleteTemplate = async (name) => {
+    if (!confirm(`Delete ${label.slice(0, -1).toLowerCase()} '${name}'?`))
+      return;
+    const res = await fetch(`/api/${kind}-templates/${encodeURIComponent(name)}`, { method: "DELETE" });
+    if (!res.ok)
+      return pushLog(`Delete failed: ${await res.text()}`, "error");
+    pushLog(`Deleted template '${name}'`, "warn");
+    onDeleted();
+  };
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Card, {
+    className: "min-h-[70vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(CardHeader, {
+        children: /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(CardTitle, {
+          children: label
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(CardContent, {
+        className: "space-y-3",
+        children: [
+          !templates.length ? /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("p", {
+            className: "text-sm text-muted-foreground",
+            children: [
+              "No ",
+              label.toLowerCase(),
+              " found."
+            ]
+          }, undefined, true, undefined, this) : templates.map((template) => /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+            className: "rounded-md border border-border p-3",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                className: "flex items-start justify-between gap-3",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                        className: "flex items-center gap-2 text-sm font-semibold",
+                        children: [
+                          template.name,
+                          template.applyToAll && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Badge, {
+                            variant: "default",
+                            children: "apply to all"
+                          }, undefined, false, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                        className: "text-xs text-muted-foreground",
+                        children: template.description
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                    className: "flex gap-2",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
+                        variant: "secondary",
+                        className: "px-2 py-1 text-xs",
+                        onClick: () => onEdit(template),
+                        children: "Edit"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
+                        variant: "destructive",
+                        className: "px-2 py-1 text-xs",
+                        onClick: () => deleteTemplate(template.name),
+                        children: "Delete"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+                className: "mt-2 flex flex-wrap gap-1",
+                children: template.items.length ? template.items.map((item) => /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Badge, {
+                  variant: "outline",
+                  children: item
+                }, item, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+                  className: "text-xs text-muted-foreground",
+                  children: "No items."
+                }, undefined, false, undefined, this)
+              }, undefined, false, undefined, this)
+            ]
+          }, template.name, true, undefined, this)),
+          /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
+            variant: "secondary",
+            className: "w-full",
+            onClick: onNew,
+            children: [
+              "+ New ",
+              kind === "skill" ? "Skill" : "Extension",
+              " Template"
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TemplateEditorDialog({ open, kind, template, availableSkills, availableExtensions, onClose, onSaved }) {
+  const [name, setName] = import_react.useState("");
+  const [description, setDescription] = import_react.useState("");
+  const [applyToAll, setApplyToAll] = import_react.useState(false);
+  const [itemsText, setItemsText] = import_react.useState("");
+  import_react.useEffect(() => {
+    if (!open)
+      return;
+    setName(template?.name || "");
+    setDescription(template?.description || "");
+    setApplyToAll(!!template?.applyToAll);
+    setItemsText((template?.items || []).join(`
+`));
+  }, [open, template]);
+  const field = kind === "skill" ? "skills" : "extensions";
+  const save = async () => {
+    const payload = { name: name.trim(), description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
+    const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok)
+      return alert("Failed to save: " + await res.text());
+    onSaved();
+  };
+  const title = `${template ? "Edit" : "New"} ${kind === "skill" ? "Skill" : "Extension"} Template`;
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Dialog, {
+    open,
+    title,
+    onOpenChange: onClose,
+    children: /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+          children: "Name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
+          value: name,
+          onChange: (e) => setName(e.target.value),
+          readOnly: !!template
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+          children: "Description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "flex items-center gap-2 text-sm",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("input", {
+              type: "checkbox",
+              checked: applyToAll,
+              onChange: (e) => setApplyToAll(e.target.checked)
+            }, undefined, false, undefined, this),
+            " Apply to all newly spawned agents"
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+          children: [
+            kind === "skill" ? "Skills" : "Extensions",
+            " (comma or newline separated)"
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
+          rows: 7,
+          value: itemsText,
+          onChange: (e) => setItemsText(e.target.value)
+        }, undefined, false, undefined, this),
+        kind === "skill" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+          className: "space-y-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+              className: "text-xs uppercase tracking-wide text-muted-foreground",
+              children: "Discovered skills"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+              className: "flex flex-wrap gap-1",
+              children: availableSkills.length ? availableSkills.map((skill) => /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("button", {
+                title: skill.description || skill.path,
+                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
+                onClick: () => setItemsText((prev) => splitItems(`${prev}
+${skill.name}`).join(`
+`)),
+                children: skill.name
+              }, skill.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+                className: "text-xs text-muted-foreground",
+                children: "No skills discovered."
+              }, undefined, false, undefined, this)
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+          className: "space-y-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+              className: "text-xs uppercase tracking-wide text-muted-foreground",
+              children: "Discovered extensions"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+              className: "flex flex-wrap gap-1",
+              children: availableExtensions.length ? availableExtensions.map((ext) => /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("button", {
+                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
+                onClick: () => setItemsText((prev) => splitItems(`${prev}
+${ext.name}`).join(`
+`)),
+                children: ext.name
+              }, ext.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+                className: "text-xs text-muted-foreground",
+                children: "No extensions discovered."
+              }, undefined, false, undefined, this)
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
+              onClick: save,
+              children: "Save Template"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
+  const selected = new Set(splitItems(selectedText));
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+    className: "space-y-2",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+        className: "text-xs text-muted-foreground",
+        children: "Click to assign/unassign existing templates."
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+        className: "flex flex-wrap gap-1",
+        children: templates.length ? templates.map((template) => {
+          const active = selected.has(template.name);
+          return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("button", {
+            type: "button",
+            title: template.description,
+            className: `rounded-full border px-2 py-1 text-xs transition ${active ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`,
+            onClick: () => onToggle(template.name),
+            children: [
+              active ? "✓ " : "",
+              template.name
+            ]
+          }, template.name, true, undefined, this);
+        }) : /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+          className: "text-xs text-muted-foreground",
+          children: emptyText
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemplates, onClose, onSaved }) {
   const [name, setName] = import_react.useState("");
   const [description, setDescription] = import_react.useState("");
   const [model, setModel] = import_react.useState("");
   const [thinking, setThinking] = import_react.useState("");
+  const [skillTemplatesText, setSkillTemplatesText] = import_react.useState("");
+  const [extensionTemplatesText, setExtensionTemplatesText] = import_react.useState("");
   const [prompt, setPrompt] = import_react.useState("");
   import_react.useEffect(() => {
     if (!open)
@@ -17884,6 +18225,10 @@ function TypeEditorDialog({ open, typeDef, models, onClose, onSaved }) {
     setDescription(typeDef?.description || "");
     setModel(typeDef?.model || "");
     setThinking(typeDef?.thinking || "medium");
+    setSkillTemplatesText((typeDef?.skillTemplates || []).join(`
+`));
+    setExtensionTemplatesText((typeDef?.extensionTemplates || []).join(`
+`));
     setPrompt("");
   }, [open, typeDef]);
   const selectedModel = models.find((m) => m.id === model);
@@ -17891,7 +18236,7 @@ function TypeEditorDialog({ open, typeDef, models, onClose, onSaved }) {
   const save = async () => {
     if (!name.trim() || !description.trim())
       return alert("Name and description are required");
-    const payload = { name: name.trim(), description: description.trim(), model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, prompt: prompt.trim() || undefined };
+    const payload = { name: name.trim(), description: description.trim(), model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
     const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok)
       return alert("Failed to save: " + await res.text());
@@ -17955,6 +18300,38 @@ function TypeEditorDialog({ open, typeDef, models, onClose, onSaved }) {
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+          children: "Skill Templates"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
+          rows: 3,
+          value: skillTemplatesText,
+          onChange: (e) => setSkillTemplatesText(e.target.value),
+          placeholder: skillTemplates.map((template) => template.name).join(", ") || "common, frontend"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(TemplateChips, {
+          templates: skillTemplates,
+          selectedText: skillTemplatesText,
+          emptyText: "No skill templates defined yet.",
+          onToggle: (name2) => setSkillTemplatesText((prev) => toggleItemText(prev, name2))
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+          children: "Extension Templates"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
+          rows: 3,
+          value: extensionTemplatesText,
+          onChange: (e) => setExtensionTemplatesText(e.target.value),
+          placeholder: extensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(TemplateChips, {
+          templates: extensionTemplates,
+          selectedText: extensionTemplatesText,
+          emptyText: "No extension templates defined yet.",
+          onToggle: (name2) => setExtensionTemplatesText((prev) => toggleItemText(prev, name2))
+        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
           className: "block text-xs uppercase tracking-wide text-muted-foreground",
           children: "Prompt / Instructions"

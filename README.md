@@ -187,6 +187,8 @@ Open it in any browser. You can:
 - **Copy** agent worktree paths
 - **Monitor** hierarchy, context/token usage, and cost stats
 - **Create/edit** Agent Type Library definitions
+- **Create/edit/delete** skill and extension templates
+- **Assign** skill and extension templates from the Agent Type editor
 - **Watch** the global event log (spawns, kills, delegations)
 - **Emergency Stop** all agents and clear dashboard state
 

@@ -205,6 +205,13 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // GET /api/skills
+    if (url.pathname === "/api/skills" && req.method === "GET") {
+      const { discoverSkills } = await import("./skill-discovery.js");
+      send(res, jsonResponse(await discoverSkills(deps.repoCwd)));
+      return;
+    }
+
     // GET /api/extensions
     if (url.pathname === "/api/extensions" && req.method === "GET") {
       const exts = deps.discoverExtensions(deps.repoCwd);

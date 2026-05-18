@@ -56,6 +56,10 @@ describe("dashboard bundle smoke test", () => {
           if (url.includes("/api/agent-types")) return Response.json([]);
           if (url.includes("/api/models")) return Response.json([]);
           if (url.includes("/api/agent-stats")) return Response.json({});
+          if (url.includes("/api/skill-templates")) return Response.json([]);
+          if (url.includes("/api/extension-templates")) return Response.json([]);
+          if (url.includes("/api/extensions")) return Response.json([]);
+          if (url.includes("/api/skills")) return Response.json([]);
           return Response.json({});
         },
         confirm: () => true,

@@ -47,6 +47,14 @@ export interface ModelInfo {
   thinkingLevels?: Array<"off" | "minimal" | "low" | "medium" | "high" | "xhigh">;
 }
 
+export interface SkillInfo {
+  name: string;
+  description?: string;
+  path: string;
+  source?: string;
+  scope?: string;
+}
+
 export interface ExtensionInfo {
   name: string;
   scope: string;

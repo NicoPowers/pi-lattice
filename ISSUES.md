@@ -467,10 +467,57 @@ Before Phase 1 is considered complete, verify:
 
 ## Phase 6 — Template UI
 
-- Skill Templates tab
-- Extension Templates tab
-- Searchable lists/checklists, no drag/drop initially
-- Preview resolved capabilities
+**Goal**: Add dashboard UI for creating, editing, deleting, and inspecting skill/extension templates backed by the Phase 2 APIs.
+
+### Issue 1: Dashboard Template Data Hooks
+
+**What to do:**
+- Load `/api/skill-templates` and `/api/extension-templates` in React.
+- Load `/api/extensions` for extension template selection hints.
+- Refresh template lists after save/delete.
+
+**Validation:**
+- Dashboard smoke test still loads without runtime errors.
+
+### Issue 2: Skill Templates Tab
+
+**What to do:**
+- Add a Skill Templates tab.
+- List templates with name, description, `applyToAll`, and selected skills.
+- Add create/edit/delete dialog using comma/newline skill entry.
+
+**Validation:**
+- Can create/edit/delete skill templates through REST APIs.
+
+### Issue 3: Extension Templates Tab
+
+**What to do:**
+- Add an Extension Templates tab.
+- List templates with name, description, `applyToAll`, and selected extensions.
+- Add create/edit/delete dialog.
+- Show discovered extensions as selectable hints/checklist where possible.
+
+**Validation:**
+- Can create/edit/delete extension templates through REST APIs.
+
+### Issue 4: Agent Type Template Fields
+
+**What to do:**
+- Extend Agent Type editor with `skillTemplates` and `extensionTemplates` comma/newline fields.
+- Save fields through existing `/api/agent-types` POST.
+
+**Validation:**
+- Saved agent definitions include template frontmatter.
+
+### Issue 5: UX and Regression
+
+**What to do:**
+- Keep UI simple: no drag/drop.
+- Use clear unknown/empty states.
+- Do not add runtime tool reporting changes here.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 7 — Agent Type Capability Preview
 

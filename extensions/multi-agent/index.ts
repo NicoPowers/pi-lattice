@@ -31,10 +31,6 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
 export default function (pi: ExtensionAPI) {
   log("init", "multi-agent extension loaded");
 
-  console.log("🎛️  Multi-agent extension loaded. Normal Pi mode is active.");
-  console.log("   Use /orchestrate to enter orchestration mode when you want Pi to spawn specialist agents.");
-  console.log("   Dashboard: /dashboard  |  Emergency stop: 🛑 button or /kill all");
-
   cleanupOrphanedWorktrees();
 
   async function ensureServer(cwd: string) {
@@ -49,7 +45,7 @@ export default function (pi: ExtensionAPI) {
         getDefinition,
         discoverExtensions,
       });
-      console.log(`🌐 Dashboard: ${serverHandle.url}`);
+      log("server", `Dashboard listening at ${serverHandle.url}`);
     } catch (err: any) {
       log("server", `Failed to start dashboard server: ${err.message}`);
       console.error(`[multi-agent] Dashboard server failed: ${err.message}`);
