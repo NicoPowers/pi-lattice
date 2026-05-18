@@ -69,6 +69,9 @@ pi-agent-orchestrator/
 ├── agents/
 │   ├── coder.md
 │   └── reviewer.md
+├── .pi/
+│   ├── skill-templates/            # Optional project-local skill template files
+│   └── extension-templates/        # Optional project-local extension template files
 ├── web/
 │   ├── index.html                  # Static React dashboard shell
 │   ├── app.tsx                     # React dashboard entrypoint
@@ -120,6 +123,42 @@ agent_send(name="my_coder", message="Write a hello function")
 agent_status(name="my_coder")
 agent_kill(name="my_coder")
 agent_types()
+```
+
+### Template Backend
+
+Project-local template files can be stored under:
+
+```text
+.pi/skill-templates/*.md
+.pi/extension-templates/*.md
+```
+
+They use markdown frontmatter:
+
+```markdown
+---
+name: common
+description: Common skills for most agents
+applyToAll: true
+skills: tdd, security-checklist
+---
+```
+
+Extension templates use `extensions:` instead of `skills:`. Phase 2 only adds backend storage and CRUD APIs; template resolution is applied to newly spawned agents in a later phase.
+
+REST endpoints:
+
+```text
+GET    /api/skill-templates
+POST   /api/skill-templates
+GET    /api/skill-templates/:name
+DELETE /api/skill-templates/:name
+
+GET    /api/extension-templates
+POST   /api/extension-templates
+GET    /api/extension-templates/:name
+DELETE /api/extension-templates/:name
 ```
 
 ### Web Dashboard

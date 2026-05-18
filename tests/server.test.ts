@@ -1,6 +1,9 @@
 import { describe, it, expect } from "bun:test";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 async function findPort(preferred = [18765, 18766, 18767]): Promise<number> {
   for (const port of preferred) {
@@ -61,5 +64,49 @@ describe("SSE formatting", () => {
     const sse = `data: ${JSON.stringify(event)}\n\n`;
     expect(sse).toContain('data: {"type":"agent-spawned"');
     expect(sse).toEndWith("\n\n");
+  });
+});
+
+describe("template API", () => {
+  it("creates, lists, loads, and deletes skill templates", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-template-api-"));
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async () => ({ agent: undefined as any, error: "disabled in tests" }),
+      sendToAgent: async () => {},
+      removeWorktree: async () => {},
+      discoverDefinitions: () => [],
+      getDefinition: () => undefined,
+      discoverExtensions: () => [],
+    });
+
+    try {
+      const createRes = await fetch(`${handle.url}/api/skill-templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "common", description: "Common skills", skills: ["tdd", "security-checklist"], applyToAll: true }),
+      });
+      expect(createRes.status).toBe(200);
+
+      const listRes = await fetch(`${handle.url}/api/skill-templates`);
+      expect(listRes.status).toBe(200);
+      const list = await listRes.json();
+      expect(list[0].name).toBe("common");
+      expect(list[0].items).toEqual(["tdd", "security-checklist"]);
+
+      const getRes = await fetch(`${handle.url}/api/skill-templates/common`);
+      expect(getRes.status).toBe(200);
+      expect((await getRes.json()).applyToAll).toBe(true);
+
+      const deleteRes = await fetch(`${handle.url}/api/skill-templates/common`, { method: "DELETE" });
+      expect(deleteRes.status).toBe(200);
+
+      const missingRes = await fetch(`${handle.url}/api/skill-templates/common`);
+      expect(missingRes.status).toBe(404);
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

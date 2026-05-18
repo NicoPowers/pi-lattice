@@ -250,11 +250,68 @@ Before Phase 1 is considered complete, verify:
 
 ## Phase 2 — Template Backend
 
-- Project-local `.pi/skill-templates/`
-- Project-local `.pi/extension-templates/`
-- CRUD APIs
-- `applyToAll`
-- Separate modules for skills/extensions
+**Goal**: Add backend persistence and APIs for reusable skill and extension templates. This phase is backend-only; templates are not applied to spawned agents until Phase 4 and do not need dashboard UI until Phase 6.
+
+### Issue 1: Template Data Model
+
+**What to do:**
+- Define common template shape: `name`, `description`, `items`, `applyToAll`, `source`, `filePath`.
+- Expose separate skill and extension template types.
+
+**Validation:**
+- Types compile with `bun run lint`.
+
+### Issue 2: Project-local Template File Layout
+
+**What to do:**
+- Store skill templates under `.pi/skill-templates/*.md`.
+- Store extension templates under `.pi/extension-templates/*.md`.
+- Use markdown frontmatter consistent with agent definitions.
+
+**Validation:**
+- Saving creates the expected project-local files.
+- Discovery returns saved templates.
+
+### Issue 3: Template Discovery Modules
+
+**What to do:**
+- Add separate backend modules for skill templates and extension templates.
+- Include list/get/save/delete helpers.
+- Keep shared parsing/validation in a common helper if useful.
+
+**Validation:**
+- Unit tests cover discovery, save, get, and delete.
+
+### Issue 4: CRUD REST APIs
+
+**What to do:**
+- Add `GET /api/skill-templates`.
+- Add `POST /api/skill-templates`.
+- Add `GET /api/skill-templates/:name`.
+- Add `DELETE /api/skill-templates/:name`.
+- Add equivalent `/api/extension-templates` routes.
+
+**Validation:**
+- API routes return JSON and correct error statuses.
+
+### Issue 5: Validation and Name Safety
+
+**What to do:**
+- Validate required `name` and `description`.
+- Reject path traversal and unsafe filenames.
+- Normalize/dedupe item lists on save.
+
+**Validation:**
+- Tests prove unsafe names cannot write outside template dirs.
+
+### Issue 6: Docs and Regression
+
+**What to do:**
+- Document template layout/API basics.
+- Keep Phase 2 backend-only; do not wire templates into spawn resolution yet.
+
+**Validation:**
+- `bun run check` passes.
 
 ## Phase 3 — Static Extension Metadata
 

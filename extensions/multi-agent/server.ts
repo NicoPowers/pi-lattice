@@ -275,6 +275,88 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // Skill template CRUD
+    if (url.pathname === "/api/skill-templates" && req.method === "GET") {
+      const { discoverSkillTemplates } = await import("./skill-templates.js");
+      send(res, jsonResponse(discoverSkillTemplates(deps.repoCwd)));
+      return;
+    }
+    if (url.pathname === "/api/skill-templates" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { saveSkillTemplate } = await import("./skill-templates.js");
+      const result = saveSkillTemplate({
+        name: body.name,
+        description: body.description,
+        items: body.skills || body.items || [],
+        applyToAll: !!body.applyToAll,
+      }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
+      else send(res, errorResponse(result.error || "Failed to save skill template", 400));
+      return;
+    }
+    const skillTemplateMatch = url.pathname.match(/^\/api\/skill-templates\/([^/]+)$/);
+    if (skillTemplateMatch && req.method === "GET") {
+      const { getSkillTemplate } = await import("./skill-templates.js");
+      const template = getSkillTemplate(decodeURIComponent(skillTemplateMatch[1]), deps.repoCwd);
+      if (template) send(res, jsonResponse(template));
+      else send(res, errorResponse("Skill template not found", 404));
+      return;
+    }
+    if (skillTemplateMatch && req.method === "DELETE") {
+      const { deleteSkillTemplate } = await import("./skill-templates.js");
+      const result = deleteSkillTemplate(decodeURIComponent(skillTemplateMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true }));
+      else send(res, errorResponse(result.error || "Failed to delete skill template", result.error === "template not found" ? 404 : 400));
+      return;
+    }
+
+    // Extension template CRUD
+    if (url.pathname === "/api/extension-templates" && req.method === "GET") {
+      const { discoverExtensionTemplates } = await import("./extension-templates.js");
+      send(res, jsonResponse(discoverExtensionTemplates(deps.repoCwd)));
+      return;
+    }
+    if (url.pathname === "/api/extension-templates" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { saveExtensionTemplate } = await import("./extension-templates.js");
+      const result = saveExtensionTemplate({
+        name: body.name,
+        description: body.description,
+        items: body.extensions || body.items || [],
+        applyToAll: !!body.applyToAll,
+      }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
+      else send(res, errorResponse(result.error || "Failed to save extension template", 400));
+      return;
+    }
+    const extensionTemplateMatch = url.pathname.match(/^\/api\/extension-templates\/([^/]+)$/);
+    if (extensionTemplateMatch && req.method === "GET") {
+      const { getExtensionTemplate } = await import("./extension-templates.js");
+      const template = getExtensionTemplate(decodeURIComponent(extensionTemplateMatch[1]), deps.repoCwd);
+      if (template) send(res, jsonResponse(template));
+      else send(res, errorResponse("Extension template not found", 404));
+      return;
+    }
+    if (extensionTemplateMatch && req.method === "DELETE") {
+      const { deleteExtensionTemplate } = await import("./extension-templates.js");
+      const result = deleteExtensionTemplate(decodeURIComponent(extensionTemplateMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true }));
+      else send(res, errorResponse(result.error || "Failed to delete extension template", result.error === "template not found" ? 404 : 400));
+      return;
+    }
+
     // POST /api/spawn
     if (url.pathname === "/api/spawn" && req.method === "POST") {
       let body: any;
