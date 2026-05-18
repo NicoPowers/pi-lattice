@@ -127,11 +127,11 @@ agent_send("lead", "write async-test.txt with 'async works' and cat it")
 
 ---
 
-### Issue 5: End-to-End MVP 🔄
+### Issue 5: End-to-End MVP ✅
 
 **Goal**: Orchestrator → Lead → Scout → Lead → Orchestrator works end-to-end.
 
-**Status**: Ready for testing.
+**Status**: Tested successfully.
 
 **Test scenario**:
 ```
@@ -156,11 +156,27 @@ Lead gives final: "Found 2 issues. Details: ..."
 → [lead] Found 2 issues. Details: ...
 ```
 
-**What to verify:**
-- Multiple delegate calls in a single agent turn work correctly
-- Scout (reviewer type) uses read-only tools as configured
-- Lead synthesizes multiple delegate responses into final answer
-- Async result delivered back to orchestrator via steering message
+**Tested:**
+```
+agent_send("lead", "I want to improve this codebase. Have scout review the project structure and identify any issues, then implement whatever fixes scout recommends.")
+→ Returns immediately
+→ Lead delegates to scout
+→ Scout returns 11KB review with 23 findings
+→ Lead synthesizes findings and proposes fixes
+→ [lead] result delivered as steering message
+```
+
+**Verified:**
+- ✅ Lead delegated to scout successfully
+- ✅ Scout (reviewer type) performed read-only review with `security-checklist` skill
+- ✅ Broker routed 11KB response back to lead
+- ✅ Lead synthesized findings into final answer
+- ✅ Async result delivered back to orchestrator via steering message
+
+**Issue found & fixed:**
+- While agents were working, TUI input was occasionally dropped
+- Root cause: spinner refreshed every 120ms, flooding TUI with UI events
+- Fix: increased interval to 500ms + added content hashing to skip redundant updates
 
 ---
 
