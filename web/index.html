@@ -193,32 +193,11 @@
 <main>
   <aside class="sidebar">
     <div class="panel">
-      <h2>Spawn Agent</h2>
-      <form class="spawn-form" id="spawn-form">
-        <label for="spawn-name">Name</label>
-        <input id="spawn-name" placeholder="e.g. lead, scout" required autocomplete="off">
+      <h2>Agent Types</h2>
+      <div id="types-list" style="margin-bottom:0.75rem;font-size:0.875rem;"></div>
+      <button id="new-type-btn" class="secondary" style="width:100%;">+ New Type</button>
+    </div>
 
-        <label for="spawn-parent">Parent</label>
-        <select id="spawn-parent">
-          <option value="self">self (root / orchestrator)</option>
-        </select>
-
-        <label for="spawn-type">Agent Type</label>
-        <select id="spawn-type">
-          <option value="">-- select type --</option>
-        </select>
-
-        <label for="spawn-model">Model Override</label>
-        <input id="spawn-model" placeholder="e.g. claude-sonnet-4, kimi-k2.6" autocomplete="off">
-        <span style="font-size:0.75rem;color:var(--dim);">Optional. Overrides the default model for this agent type.</span>
-
-        <label>Extensions</label>
-        <div id="spawn-extensions" style="display:flex;flex-direction:column;gap:0.375rem;font-size:0.875rem;max-height:120px;overflow:auto;">
-          <span style="color:var(--dim);font-size:0.75rem;">Loading…</span>
-        </div>
-
-        <button type="submit" style="margin-top:0.25rem;">Spawn</button>
-      </form>
     </div>
     <div class="panel">
       <h2>Event Log</h2>
@@ -232,6 +211,37 @@
     </div>
   </section>
 </main>
+
+<!-- Type Editor Modal -->
+<div id="type-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:100;">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:0.5rem;width:100%;max-width:520px;margin:1rem;padding:1.25rem;">
+    <h3 style="margin:0 0 1rem;font-size:1rem;">Edit Agent Type</h3>
+    <form id="type-form">
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <div>
+          <label style="display:block;margin-bottom:0.25rem;">Name</label>
+          <input id="type-name" style="width:100%;" required>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:0.25rem;">Description</label>
+          <input id="type-desc" style="width:100%;" required>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:0.25rem;">Model</label>
+          <select id="type-model" style="width:100%;"></select>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:0.25rem;">Prompt / Instructions</label>
+          <textarea id="type-prompt" rows="6" style="width:100%;font-family:inherit;resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:1.25rem;justify-content:flex-end;">
+        <button type="button" id="type-cancel-btn" class="secondary">Cancel</button>
+        <button type="button" id="type-save-btn">Save Type</button>
+      </div>
+    </form>
+  </div>
+</div>
 <script type="module" src="/dashboard.js"></script>
 </body>
 </html>

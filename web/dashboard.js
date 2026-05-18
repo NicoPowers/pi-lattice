@@ -1,11 +1,18 @@
 // web/dashboard.ts
 var agentsEl = document.getElementById("agents");
-var parentSelect = document.getElementById("spawn-parent");
-var typeSelect = document.getElementById("spawn-type");
-var extContainer = document.getElementById("spawn-extensions");
 var connDot = document.getElementById("conn-dot");
 var connText = document.getElementById("conn-text");
 var logEl = document.getElementById("global-log");
+var typesListEl = document.getElementById("types-list");
+var newTypeBtn = document.getElementById("new-type-btn");
+var typeModal = document.getElementById("type-modal");
+var typeForm = document.getElementById("type-form");
+var typeNameInput = document.getElementById("type-name");
+var typeDescInput = document.getElementById("type-desc");
+var typeModelSelect = document.getElementById("type-model");
+var typePromptInput = document.getElementById("type-prompt");
+var typeSaveBtn = document.getElementById("type-save-btn");
+var typeCancelBtn = document.getElementById("type-cancel-btn");
 var agents = {};
 function escapeHtml(t) {
   return t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
@@ -18,63 +25,100 @@ function pushLog(text, level = "info") {
   if (logEl.children.length > 100)
     logEl.lastChild?.remove();
 }
-async function loadAgentTypes() {
+var currentEditingType = null;
+var availableModels = [];
+async function loadModelsForEditor() {
+  try {
+    const res = await fetch("/api/models");
+    if (!res.ok)
+      return;
+    availableModels = await res.json();
+  } catch {
+    availableModels = [];
+  }
+}
+async function loadAgentTypesForEditor() {
   try {
     const res = await fetch("/api/agent-types");
     if (!res.ok) {
-      pushLog("Failed to load agent types", "error");
+      typesListEl.innerHTML = '<div style="color:var(--dim);font-size:0.75rem;">Failed to load types</div>';
       return;
     }
     const defs = await res.json();
-    typeSelect.innerHTML = '<option value="">-- select type --</option>';
+    typesListEl.innerHTML = "";
+    if (!defs.length) {
+      typesListEl.innerHTML = '<div style="color:var(--dim);font-size:0.75rem;">No agent types found.</div>';
+      return;
+    }
     for (const d of defs) {
-      const opt = document.createElement("option");
-      opt.value = d.name;
-      opt.textContent = `${d.name} — ${d.description}`;
-      typeSelect.appendChild(opt);
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--border);";
+      row.innerHTML = `
+        <div>
+          <div style="font-weight:600;">${escapeHtml(d.name)}</div>
+          <div style="font-size:0.75rem;color:var(--dim);">${escapeHtml(d.description || "")}</div>
+        </div>
+        <button class="secondary" style="font-size:0.75rem;padding:0.25rem 0.5rem;" data-name="${escapeHtml(d.name)}">Edit</button>
+      `;
+      const editBtn = row.querySelector("button");
+      editBtn.onclick = () => openTypeEditor(d);
+      typesListEl.appendChild(row);
     }
-    pushLog(`Loaded ${defs.length} agent types`);
   } catch (e) {
-    pushLog("Error loading agent types: " + e.message, "error");
+    typesListEl.innerHTML = '<div style="color:var(--error);font-size:0.75rem;">Error loading types</div>';
   }
 }
-async function loadExtensions() {
-  try {
-    const res = await fetch("/api/extensions");
-    if (!res.ok) {
-      extContainer.innerHTML = '<span style="color:var(--dim);font-size:0.75rem;">No extensions found.</span>';
-      return;
-    }
-    const exts = await res.json();
-    extContainer.innerHTML = "";
-    if (!exts.length) {
-      extContainer.innerHTML = '<span style="color:var(--dim);font-size:0.75rem;">No extensions available.</span>';
-      return;
-    }
-    for (const e of exts) {
-      const label = document.createElement("label");
-      label.style.cssText = "display:flex;align-items:center;gap:0.5rem;cursor:pointer;";
-      label.innerHTML = `<input type="checkbox" name="extension" value="${escapeHtml(e.name)}"> <span>${escapeHtml(e.name)} <span style="color:var(--dim);font-size:0.75rem;">(${escapeHtml(e.scope)})</span></span>`;
-      extContainer.appendChild(label);
-    }
-    pushLog(`Loaded ${exts.length} extensions`);
-  } catch (e) {
-    extContainer.innerHTML = '<span style="color:var(--dim);font-size:0.75rem;">Failed to load extensions.</span>';
-    pushLog("Error loading extensions: " + e.message, "error");
-  }
-}
-function updateParentSelect() {
-  const val = parentSelect.value;
-  parentSelect.innerHTML = '<option value="self">self (root / orchestrator)</option>';
-  for (const name of Object.keys(agents)) {
+function openTypeEditor(def) {
+  currentEditingType = def ? def.name : null;
+  typeNameInput.value = def?.name || "";
+  typeDescInput.value = def?.description || "";
+  typePromptInput.value = "";
+  typeModelSelect.innerHTML = '<option value="">-- default --</option>';
+  for (const m of availableModels) {
     const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    parentSelect.appendChild(opt);
+    opt.value = m;
+    opt.textContent = m;
+    if (def?.model === m)
+      opt.selected = true;
+    typeModelSelect.appendChild(opt);
   }
-  if (val === "self" || agents[val])
-    parentSelect.value = val;
+  typeModal.style.display = "block";
+  typeNameInput.focus();
+  if (def)
+    typeNameInput.readOnly = true;
 }
+function closeTypeEditor() {
+  typeModal.style.display = "none";
+  currentEditingType = null;
+  typeNameInput.readOnly = false;
+}
+async function saveType() {
+  const payload = {
+    name: typeNameInput.value.trim(),
+    description: typeDescInput.value.trim(),
+    model: typeModelSelect.value || undefined,
+    prompt: typePromptInput.value.trim() || undefined
+  };
+  if (!payload.name || !payload.description) {
+    alert("Name and description are required");
+    return;
+  }
+  try {
+    const res = await fetch("/api/agent-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok)
+      throw new Error(await res.text());
+    pushLog(`Saved agent type '${payload.name}'`, "success");
+    closeTypeEditor();
+    await loadAgentTypesForEditor();
+  } catch (e) {
+    alert("Failed to save: " + e.message);
+  }
+}
+function updateParentSelect() {}
 function renderAgents() {
   if (!Object.keys(agents).length) {
     agentsEl.innerHTML = '<div class="empty">No agents running.</div>';
@@ -189,45 +233,6 @@ async function killAgent(name) {
     pushLog("Kill " + name + " error: " + e.message, "error");
   }
 }
-document.getElementById("spawn-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const nameInput = document.getElementById("spawn-name");
-  const modelInput = document.getElementById("spawn-model");
-  const name = nameInput.value.trim();
-  const parent = parentSelect.value;
-  const type = typeSelect.value;
-  const model = modelInput.value.trim();
-  const extCheckboxes = document.querySelectorAll('input[name="extension"]:checked');
-  const extensions = Array.from(extCheckboxes).map((cb) => cb.value);
-  if (!type) {
-    pushLog("Please select an agent type.", "warn");
-    return;
-  }
-  try {
-    const res = await fetch("/api/spawn", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name,
-        parent,
-        type,
-        model: model || undefined,
-        extensions: extensions.length ? extensions : undefined
-      })
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok)
-      pushLog("Spawn failed: " + (body.error || res.statusText), "error");
-    else
-      pushLog("Spawned " + name + (extensions.length ? " with " + extensions.length + " ext" : ""));
-  } catch (err) {
-    pushLog("Spawn error: " + err.message, "error");
-  }
-  nameInput.value = "";
-  modelInput.value = "";
-  typeSelect.value = "";
-  loadExtensions();
-});
 function setConnected(c) {
   connDot.className = "dot " + (c ? "connected" : "");
   connText.textContent = c ? "Connected" : "Disconnected";
@@ -289,5 +294,11 @@ function useSSE() {
   };
 }
 useSSE();
-loadAgentTypes();
-loadExtensions();
+loadModelsForEditor();
+loadAgentTypesForEditor();
+if (newTypeBtn)
+  newTypeBtn.onclick = () => openTypeEditor();
+if (typeSaveBtn)
+  typeSaveBtn.onclick = saveType;
+if (typeCancelBtn)
+  typeCancelBtn.onclick = closeTypeEditor;
