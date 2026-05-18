@@ -82,3 +82,51 @@ describe("definition discovery", () => {
     expect(override!.source).toBe("project");
   });
 });
+
+describe("definition saving", () => {
+  let tmpDir: string;
+  let originalHome: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-test-"));
+    originalHome = process.env.HOME || "";
+    process.env.HOME = tmpDir;
+  });
+
+  afterEach(() => {
+    process.env.HOME = originalHome;
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  });
+
+  it("saves a new agent definition to project agents dir", async () => {
+    const { saveAgentDefinition, discoverDefinitions } = await import("../extensions/multi-agent/definitions.js");
+
+    const result = saveAgentDefinition(
+      {
+        name: "test-researcher",
+        description: "A test researcher agent",
+        model: "kimi-k2.6",
+        tools: ["read", "grep"],
+        skills: [],
+        systemPrompt: "You are a helpful researcher.",
+        source: "project",
+        filePath: "",
+      },
+      tmpDir
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.path).toBeDefined();
+
+    // Verify it can be discovered
+    const defs = discoverDefinitions(tmpDir);
+    const saved = defs.find((d) => d.name === "test-researcher");
+    expect(saved).toBeDefined();
+    expect(saved!.description).toBe("A test researcher agent");
+    expect(saved!.model).toBe("kimi-k2.6");
+  });
+});

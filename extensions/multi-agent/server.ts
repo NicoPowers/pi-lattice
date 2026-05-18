@@ -212,6 +212,41 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // POST /api/agent-types (save / update)
+    if (url.pathname === "/api/agent-types" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      if (!body.name || !body.description) {
+        send(res, errorResponse("name and description are required", 400));
+        return;
+      }
+      const { saveAgentDefinition } = await import("./definitions.js");
+      const result = saveAgentDefinition(
+        {
+          name: body.name,
+          description: body.description,
+          model: body.model,
+          tools: body.tools,
+          skills: body.skills,
+          systemPrompt: body.prompt || body.systemPrompt || "",
+          source: "project",
+          filePath: "",
+        },
+        deps.repoCwd
+      );
+      if (result.success) {
+        send(res, jsonResponse({ success: true, path: result.path }));
+      } else {
+        send(res, errorResponse(result.error || "Failed to save", 500));
+      }
+      return;
+    }
+
     // POST /api/spawn
     if (url.pathname === "/api/spawn" && req.method === "POST") {
       let body: any;

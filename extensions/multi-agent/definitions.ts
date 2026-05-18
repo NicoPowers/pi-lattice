@@ -123,3 +123,40 @@ export function discoverDefinitions(cwd: string): AgentDefinition[] {
 export function getDefinition(name: string, cwd: string): AgentDefinition | undefined {
   return discoverDefinitions(cwd).find((d) => d.name === name);
 }
+
+/**
+ * Saves (creates or updates) an agent definition as a .md file.
+ * Prefers project-level .pi/agents/ when available, otherwise falls back to user agents dir.
+ */
+export function saveAgentDefinition(
+  def: AgentDefinition,
+  cwd: string
+): { success: boolean; path?: string; error?: string } {
+  try {
+    const projectDir = findProjectAgentsDir(cwd);
+    const targetDir = projectDir || path.join(getAgentDir(), "agents");
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const filePath = path.join(targetDir, `${def.name}.md`);
+
+    const frontmatterLines = [
+      `name: ${def.name}`,
+      `description: ${def.description || ""}`,
+    ];
+    if (def.model) frontmatterLines.push(`model: ${def.model}`);
+    if (def.tools && def.tools.length > 0) frontmatterLines.push(`tools: ${def.tools.join(", ")}`);
+    if (def.skills && def.skills.length > 0) frontmatterLines.push(`skills: ${def.skills.join(", ")}`);
+
+    const frontmatter = `---\n${frontmatterLines.join("\n")}\n---`;
+    const body = (def as any).prompt || def.systemPrompt || "";
+    const content = `${frontmatter}\n\n${body}\n`;
+
+    fs.writeFileSync(filePath, content, "utf-8");
+    return { success: true, path: filePath };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
