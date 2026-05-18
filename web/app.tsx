@@ -1,17 +1,18 @@
 import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { AgentInfo, AgentTypeInfo, ExtensionInfo, ModelInfo, ServerEvent, SkillInfo } from "./types.js";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { AgentInfo, AgentTypeInfo, ExtensionInfo, ModelInfo, ServerEvent, SkillDetailInfo, SkillInfo } from "./types.js";
 import { Badge } from "./components/ui/badge.js";
 import { Button } from "./components/ui/button.js";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card.js";
 import { Dialog } from "./components/ui/dialog.js";
 import { Input, Textarea } from "./components/ui/input.js";
 import { Select } from "./components/ui/select.js";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs.js";
 
 type AgentState = AgentInfo & { text?: string };
 type LogLine = { id: number; text: string; level: "info" | "success" | "warn" | "error" };
-type Tab = "agents" | "types" | "skillTemplates" | "extensionTemplates" | "hierarchy" | "log";
+type Tab = "agents" | "types" | "skills" | "skillTemplates" | "extensionTemplates" | "hierarchy" | "log";
 type TemplateInfo = { name: string; description: string; items: string[]; applyToAll?: boolean; source: string; filePath: string };
 
 type StatsEntry = { error?: string; stats?: any; state?: any };
@@ -19,6 +20,7 @@ type StatsEntry = { error?: string; stats?: any; state?: any };
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "agents", label: "Live Agents" },
   { id: "types", label: "Agent Types" },
+  { id: "skills", label: "Skill Library" },
   { id: "skillTemplates", label: "Skill Templates" },
   { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
@@ -227,29 +229,30 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/85 px-6 py-4 backdrop-blur">
-        <h1 className="text-xl font-semibold tracking-tight">🧠 Pi Orchestrator</h1>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-2 text-sm text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-muted-foreground"}`} /> {connected ? "Connected" : "Disconnected"}</span>
-          <Button variant="destructive" onClick={emergencyStop}>🛑 Emergency Stop</Button>
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/85 px-4 py-3 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <h1 className="whitespace-nowrap text-xl font-semibold tracking-tight">🧠 Pi Orchestrator</h1>
+            <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-md border border-border bg-card/50 p-1" aria-label="Dashboard sections">
+              {tabs.map((tab) => <button key={tab.id} type="button" className={`whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition ${activeTab === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setActiveTab(tab.id)}>{tab.label}</button>)}
+            </nav>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="flex items-center gap-2 text-sm text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-muted-foreground"}`} /> {connected ? "Connected" : "Disconnected"}</span>
+            <Button variant="destructive" onClick={emergencyStop}>🛑 Emergency Stop</Button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-screen-2xl p-6">
-        <Tabs>
-          <TabsList className="mb-4 w-full">
-            {tabs.map((tab) => <TabsTrigger key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}>{tab.label}</TabsTrigger>)}
-          </TabsList>
-          <TabsContent>
-            {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
-            {activeTab === "types" && <AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large />}
-            {activeTab === "skillTemplates" && <TemplatesPanel kind="skill" templates={skillTemplates} onNew={() => setEditingTemplate({ kind: "skill" })} onEdit={(template) => setEditingTemplate({ kind: "skill", template })} onDeleted={refreshTemplates} pushLog={pushLog} />}
-            {activeTab === "extensionTemplates" && <TemplatesPanel kind="extension" templates={extensionTemplates} onNew={() => setEditingTemplate({ kind: "extension" })} onEdit={(template) => setEditingTemplate({ kind: "extension", template })} onDeleted={refreshTemplates} pushLog={pushLog} />}
-            {activeTab === "hierarchy" && <HierarchyPanel agents={agents} />}
-            {activeTab === "log" && <EventLog logs={logs} />}
-          </TabsContent>
-        </Tabs>
+      <main className="flex-1 overflow-hidden p-4">
+        {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
+        {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
+        {activeTab === "skills" && <SkillLibraryPanel skills={skills} onChanged={refreshTemplates} />}
+        {activeTab === "skillTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="skill" templates={skillTemplates} onNew={() => setEditingTemplate({ kind: "skill" })} onEdit={(template) => setEditingTemplate({ kind: "skill", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
+        {activeTab === "extensionTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="extension" templates={extensionTemplates} onNew={() => setEditingTemplate({ kind: "extension" })} onEdit={(template) => setEditingTemplate({ kind: "extension", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
+        {activeTab === "hierarchy" && <PageFrame mode="wide"><HierarchyPanel agents={agents} /></PageFrame>}
+        {activeTab === "log" && <PageFrame mode="wide"><EventLog logs={logs} /></PageFrame>}
       </main>
 
       <TypeEditorDialog open={editingType !== undefined} typeDef={editingType ?? undefined} models={models} skillTemplates={skillTemplates} extensionTemplates={extensionTemplates} onClose={() => setEditingType(undefined)} onSaved={() => { setEditingType(undefined); refreshTypes(); pushLog("Saved agent type", "success"); }} />
@@ -259,6 +262,11 @@ function App() {
       </Dialog>
     </div>
   );
+}
+
+function PageFrame({ mode, children }: { mode: "centered" | "wide"; children: React.ReactNode }) {
+  const className = mode === "centered" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-7xl";
+  return <div className={className}>{children}</div>;
 }
 
 function AgentsPanel({ agents, stats, onInspect, pushLog }: { agents: Record<string, AgentState>; stats: Record<string, StatsEntry>; onInspect: (name: string) => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
@@ -348,15 +356,15 @@ function Stats({ stats }: { stats?: StatsEntry }) {
 function AgentTypesPanel({ types, onNew, onEdit, large }: { types: AgentTypeInfo[]; onNew: () => void; onEdit: (type: AgentTypeInfo) => void; large?: boolean }) {
   return (
     <Card className={large ? "min-h-[70vh]" : ""}>
-      <CardHeader><CardTitle>Agent Types</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        {!types.length ? <p className="text-sm text-muted-foreground">No agent types found.</p> : types.map((type) => (
-          <div key={type.name} className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-0">
-            <div><div className="text-sm font-semibold">{type.name}</div><div className="text-xs text-muted-foreground">{type.description}</div></div>
-            <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => onEdit(type)}>Edit</Button>
-          </div>
-        ))}
-        <Button variant="secondary" className="w-full" onClick={onNew}>+ New Type</Button>
+      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Agent Types</CardTitle><Button variant="secondary" className="px-2 py-1 text-xs" onClick={onNew}>+ New Type</Button></div></CardHeader>
+      <CardContent className="pt-4">
+        {!types.length ? <p className="text-sm text-muted-foreground">No agent types found.</p> : <div className="grid gap-3 md:grid-cols-2">
+          {types.map((type) => (
+            <div key={type.name} className="rounded-md border border-border p-3">
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-sm font-semibold">{type.name}</div><div className="mt-1 line-clamp-3 text-xs text-muted-foreground">{type.description}</div></div><Button variant="secondary" className="shrink-0 px-2 py-1 text-xs" onClick={() => onEdit(type)}>Edit</Button></div>
+            </div>
+          ))}
+        </div>}
       </CardContent>
     </Card>
   );
@@ -384,6 +392,179 @@ function HierarchyPanel({ agents }: { agents: Record<string, AgentState> }) {
 
 function EventLog({ logs }: { logs: LogLine[] }) {
   return <Card className="min-h-[70vh]"><CardHeader><CardTitle>Event Log</CardTitle></CardHeader><CardContent className="max-h-[70vh] space-y-1 overflow-auto font-mono text-xs text-muted-foreground">{logs.length ? logs.map((line) => <div key={line.id} className={`border-l-2 pl-2 ${line.level === "error" ? "border-destructive" : line.level === "success" ? "border-emerald-400" : line.level === "warn" ? "border-amber-400" : "border-primary"}`}>{line.text}</div>) : "Waiting for events…"}</CardContent></Card>;
+}
+
+function skillScopeLabel(skill: SkillInfo): string {
+  return skill.scope || skill.source || "unknown";
+}
+
+function normalizeSkillName(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
+}
+
+function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChanged: () => void }) {
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [detail, setDetail] = useState<SkillDetailInfo | null>(null);
+  const [detailView, setDetailView] = useState<"preview" | "raw" | "metadata">("preview");
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const scopes = useMemo(() => Array.from(new Set(skills.map(skillScopeLabel))).sort(), [skills]);
+  const selectedSkill = useMemo(() => skills.find((skill) => skill.id === selectedId) || skills[0], [selectedId, skills]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return skills.filter((skill) => {
+      if (scope !== "all" && skillScopeLabel(skill) !== scope) return false;
+      if (!q) return true;
+      return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
+    });
+  }, [query, scope, skills]);
+
+  useEffect(() => {
+    if (!selectedSkill?.id) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await responseErrorText(res));
+        return res.json();
+      })
+      .then((data) => { if (!cancelled) { setDetail(data); setEditContent(data.content || ""); setEditing(false); setSaveError(""); } })
+      .catch((err) => { if (!cancelled) { setDetail(null); setError(err.message); } })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedSkill?.id]);
+
+  useEffect(() => {
+    if (selectedId && skills.some((skill) => skill.id === selectedId)) return;
+    setSelectedId(skills[0]?.id);
+  }, [selectedId, skills]);
+
+  const saveEdit = async () => {
+    if (!detail?.skill.id) return;
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
+    if (!res.ok) return setSaveError(await responseErrorText(res));
+    const next = await res.json();
+    setDetail(next);
+    setEditContent(next.content || "");
+    setEditing(false);
+    onChanged();
+  };
+  const deleteSelected = async () => {
+    if (!detail?.skill.id) return;
+    if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`)) return;
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "DELETE" });
+    if (!res.ok) return setSaveError(await responseErrorText(res));
+    setDetail(null);
+    setEditing(false);
+    setSelectedId(undefined);
+    onChanged();
+  };
+
+  return <div className="grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(320px,400px)_1fr]">
+    <Card className="min-h-0 overflow-hidden">
+      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Skill Library</CardTitle><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCreating(true)}>+ New Skill</Button></div></CardHeader>
+      <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search skills…" />
+        <Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="all">All sources</option>{scopes.map((value) => <option key={value} value={value}>{value}</option>)}</Select>
+        <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
+          {!filtered.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No skills found.</div> : filtered.map((skill) => {
+            const active = skill.id === selectedSkill?.id;
+            return <button key={skill.id || skill.path} className={`w-full rounded-md border p-3 text-left transition ${active ? "border-primary bg-primary/10" : "border-border hover:bg-white/5"}`} onClick={() => setSelectedId(skill.id)}>
+              <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{skill.name}</span><div className="flex gap-1"><Badge variant="outline">{skillScopeLabel(skill)}</Badge>{skill.editable && <Badge variant="success">editable</Badge>}</div></div>
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{skill.description || "No description."}</div>
+              <div className="mt-2 truncate text-[11px] text-muted-foreground" title={skill.path}>{shortPath(skill.path)}</div>
+            </button>;
+          })}
+        </div>
+      </CardContent>
+    </Card>
+    <Card className="min-h-0 overflow-hidden">
+      <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(detail?.content || ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
+      <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
+        {!selectedSkill ? <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No skills discovered.</div> : <>
+          <div className="flex flex-wrap gap-2"><Badge variant="outline">{skillScopeLabel(selectedSkill)}</Badge><Badge variant="outline">{selectedSkill.kind || "skill"}</Badge>{selectedSkill.editable ? <Badge variant="success">editable</Badge> : <Badge variant="warning">read-only</Badge>}</div>
+          <div className="break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground">{selectedSkill.path}</div>
+          {loading && <div className="text-sm text-muted-foreground">Loading preview…</div>}
+          {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+          {saveError && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{saveError}</div>}
+          {detail && <div className="min-h-0 flex-1 overflow-hidden">
+            {editing ? <div className="grid h-full gap-3 xl:grid-cols-2"><Textarea className="h-full resize-none font-mono text-xs" value={editContent} onChange={(e) => setEditContent(e.target.value)} /><MarkdownPreview content={parseMarkdownBody(editContent)} /></div> : <>
+              {detailView === "preview" && <MarkdownPreview content={detail.body || detail.content} />}
+              {detailView === "raw" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{detail.content}</pre>}
+              {detailView === "metadata" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{JSON.stringify({ skill: detail.skill, frontmatter: detail.frontmatter, mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)}</pre>}
+            </>}
+          </div>}
+        </>}
+      </CardContent>
+    </Card>
+    <CreateSkillDialog open={creating} onClose={() => setCreating(false)} onCreated={(created) => { setCreating(false); setSelectedId(created.skill.id); setDetail(created); setEditContent(created.content); onChanged(); }} />
+  </div>;
+}
+
+function parseMarkdownBody(content: string): string {
+  const match = content.match(/^---\s*\n[\s\S]*?\n---\s*\n?/);
+  return match ? content.slice(match[0].length) : content;
+}
+
+function CreateSkillDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (detail: SkillDetailInfo) => void }) {
+  const [scope, setScope] = useState("project");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [body, setBody] = useState("");
+  const [serverError, setServerError] = useState("");
+  useEffect(() => { if (open) { setScope("project"); setName(""); setDescription(""); setBody(""); setServerError(""); } }, [open]);
+  const savedName = normalizeSkillName(name);
+  const errors = [!savedName ? "Name is required." : undefined, !description.trim() ? "Description is required." : undefined].filter(Boolean) as string[];
+  const create = async () => {
+    setServerError("");
+    if (errors.length) return;
+    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim(), body: body.trim() || undefined }) });
+    if (!res.ok) return setServerError(await responseErrorText(res));
+    onCreated(await res.json());
+  };
+  return <Dialog open={open} title="New Skill" onOpenChange={onClose} className="max-w-3xl">
+    <div className="space-y-3">
+      <FieldLabel required>Scope</FieldLabel><Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="project">Project (.pi/skills)</option><option value="global">Global (~/.pi/agent/skills)</option></Select>
+      <FieldLabel required>Name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} />
+      <FormMessage tone={savedName ? "success" : "muted"}>Will be saved as: <code className="rounded bg-muted px-1 py-0.5 text-foreground">{savedName || "—"}</code></FormMessage>
+      <FieldLabel required>Description</FieldLabel><Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <FieldLabel optional>Initial body</FieldLabel><Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# My Skill\n\n## Workflow\n\n1. ..." />
+      <ValidationSummary errors={errors} serverError={serverError} />
+      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} disabled={!!errors.length}>Create Skill</Button></div>
+    </div>
+  </Dialog>;
+}
+
+function MarkdownPreview({ content }: { content: string }) {
+  return <div className="h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6">
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+      h1: ({ children }) => <h1 className="mb-3 border-b border-border pb-2 text-2xl font-semibold">{children}</h1>,
+      h2: ({ children }) => <h2 className="mb-2 mt-4 text-xl font-semibold">{children}</h2>,
+      h3: ({ children }) => <h3 className="mb-2 mt-3 text-lg font-semibold">{children}</h3>,
+      p: ({ children }) => <p className="mb-3 text-foreground/90">{children}</p>,
+      a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{children}</a>,
+      ul: ({ children }) => <ul className="mb-3 list-disc pl-5">{children}</ul>,
+      ol: ({ children }) => <ol className="mb-3 list-decimal pl-5">{children}</ol>,
+      code: ({ children, className }) => className ? <code className={className}>{children}</code> : <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{children}</code>,
+      pre: ({ children }) => <pre className="mb-3 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">{children}</pre>,
+      blockquote: ({ children }) => <blockquote className="mb-3 border-l-2 border-border pl-3 text-muted-foreground">{children}</blockquote>,
+      table: ({ children }) => <div className="mb-3 overflow-auto"><table className="w-full border-collapse text-xs">{children}</table></div>,
+      th: ({ children }) => <th className="border border-border px-2 py-1 text-left font-semibold">{children}</th>,
+      td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
+    }}>{content}</ReactMarkdown>
+  </div>;
 }
 
 function splitItems(text: string): string[] {
@@ -442,15 +623,16 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }: 
     pushLog(`Deleted template '${name}'`, "warn");
     onDeleted();
   };
-  return <Card className="min-h-[70vh]"><CardHeader><CardTitle>{label}</CardTitle></CardHeader><CardContent className="space-y-3">
-    {!templates.length ? <p className="text-sm text-muted-foreground">No {label.toLowerCase()} found.</p> : templates.map((template) => <div key={template.name} className="rounded-md border border-border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div><div className="flex items-center gap-2 text-sm font-semibold">{template.name}{template.applyToAll && <Badge variant="default">apply to all</Badge>}</div><div className="text-xs text-muted-foreground">{template.description}</div></div>
-        <div className="flex gap-2"><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => onEdit(template)}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={() => deleteTemplate(template.name)}>Delete</Button></div>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1">{template.items.length ? template.items.map((item) => <Badge key={item} variant="outline">{item}</Badge>) : <span className="text-xs text-muted-foreground">No items.</span>}</div>
-    </div>)}
-    <Button variant="secondary" className="w-full" onClick={onNew}>+ New {kind === "skill" ? "Skill" : "Extension"} Template</Button>
+  return <Card className="min-h-[70vh]"><CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>{label}</CardTitle><Button variant="secondary" className="px-2 py-1 text-xs" onClick={onNew}>+ New {kind === "skill" ? "Skill" : "Extension"} Template</Button></div></CardHeader><CardContent className="pt-4">
+    {!templates.length ? <p className="text-sm text-muted-foreground">No {label.toLowerCase()} found.</p> : <div className="grid gap-3 md:grid-cols-2">
+      {templates.map((template) => <div key={template.name} className="rounded-md border border-border p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-sm font-semibold">{template.name}{template.applyToAll && <Badge variant="default">apply to all</Badge>}</div><div className="mt-1 line-clamp-3 text-xs text-muted-foreground">{template.description}</div></div>
+          <div className="flex shrink-0 gap-2"><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => onEdit(template)}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={() => deleteTemplate(template.name)}>Delete</Button></div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1">{template.items.length ? template.items.map((item) => <Badge key={item} variant="outline">{item}</Badge>) : <span className="text-xs text-muted-foreground">No items.</span>}</div>
+      </div>)}
+    </div>}
   </CardContent></Card>;
 }
 

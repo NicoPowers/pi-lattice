@@ -72,7 +72,7 @@ function errorResponse(message: string, status = 400) {
 function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }
@@ -205,10 +205,53 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
-    // GET /api/skills
+    // Skill library API
     if (url.pathname === "/api/skills" && req.method === "GET") {
       const { discoverSkills } = await import("./skill-discovery.js");
       send(res, jsonResponse(await discoverSkills(deps.repoCwd)));
+      return;
+    }
+    if (url.pathname === "/api/skills" && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { createSkill } = await import("./skill-discovery.js");
+      const result = await createSkill({ scope: body.scope, name: body.name, description: body.description, body: body.body }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.detail));
+      else send(res, errorResponse(result.error || "Failed to create skill", result.status || 400));
+      return;
+    }
+    const skillMatch = url.pathname.match(/^\/api\/skills\/([^/]+)$/);
+    if (skillMatch && req.method === "GET") {
+      const { getSkillDetail } = await import("./skill-discovery.js");
+      const detail = await getSkillDetail(decodeURIComponent(skillMatch[1]), deps.repoCwd);
+      if (detail) send(res, jsonResponse(detail));
+      else send(res, errorResponse("Skill not found", 404));
+      return;
+    }
+    if (skillMatch && req.method === "PUT") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { updateSkill } = await import("./skill-discovery.js");
+      const result = await updateSkill(decodeURIComponent(skillMatch[1]), { content: body.content, expectedHash: body.expectedHash }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.detail));
+      else send(res, errorResponse(result.error || "Failed to update skill", result.status || 400));
+      return;
+    }
+    if (skillMatch && req.method === "DELETE") {
+      const { deleteSkill } = await import("./skill-discovery.js");
+      const result = await deleteSkill(decodeURIComponent(skillMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ success: true }));
+      else send(res, errorResponse(result.error || "Failed to delete skill", result.status || 400));
       return;
     }
 

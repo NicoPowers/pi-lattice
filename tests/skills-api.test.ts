@@ -15,6 +15,10 @@ describe("skill discovery API", () => {
       const demo = skills.find((skill) => skill.name === "demo");
       expect(demo?.description).toBe("Demo skill");
       expect(demo?.path).toEndWith(path.join("demo", "SKILL.md"));
+      expect(demo?.id).toBeString();
+      expect(demo?.baseDir).toEndWith("demo");
+      expect(demo?.kind).toBe("directory");
+      expect(demo?.editable).toBe(true);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

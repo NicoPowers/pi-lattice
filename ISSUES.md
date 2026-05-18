@@ -2,9 +2,9 @@
 
 ## Current Direction
 
-The next major direction is to make the dashboard capable of managing richer orchestration templates without turning into a pile of hand-written DOM code.
+Phases 1–6 are complete. The dashboard now has React/Tailwind UI, agent type editing, skill/extension templates, runtime tool reporting, and validated template/type forms.
 
-We will migrate the dashboard to **React + TypeScript + Tailwind + shadcn-style local components** first, while preserving current behavior. After that foundation is stable, we will add skill templates and extension templates phase by phase.
+The next major direction is a first-class **Skill Library**: a dashboard and agent-tool workflow for discovering, previewing, creating, and editing Pi skills across project, global, and package sources.
 
 ## Current Working Architecture
 
@@ -15,525 +15,634 @@ We will migrate the dashboard to **React + TypeScript + Tailwind + shadcn-style 
 - Root agents get ephemeral `/tmp/pi-worktree-*` git worktrees.
 - Child agents share the parent/root worktree.
 - Dashboard uses REST + SSE; no WebSockets.
-- Dashboard is the human control surface for monitoring, templates, inspection, stats, and emergency stop.
+- Dashboard is served as static assets from `web/` by the multi-agent extension HTTP server.
+- Skills are currently discovered through Pi's `DefaultResourceLoader` via `GET /api/skills`.
 
-## Key Decisions From Planning
+## Skill Library Design Principles
 
-- Dashboard migration should not change backend behavior.
-- Use shadcn-style components locally; do not introduce Next.js or a runtime dev server dependency.
-- Build output should stay static and be served by the existing extension HTTP server.
-- Template changes will apply to **newly spawned agents only** for now.
-- Skill and extension assignment will eventually happen via templates, not direct per-agent lists in the main UI.
-- No hardcoded `common` template. Any template may later be marked `applyToAll`.
-- Extension expected-tool metadata is not standardized in Pi. Treat static metadata as optional/best-effort.
-- Actual running-agent tools should eventually be reported by the child agent itself and shown in the dashboard.
+- Treat skills as first-class resources, not just names in templates.
+- Prefer directory skills with `SKILL.md` over root `.md` skills for newly created skills.
+- Support progressive disclosure:
+  - discovery list shows name/description/source
+  - `SKILL.md` acts as the index/workflow
+  - related markdown, scripts, references, and assets live beside it
+- Package skills are preview/read-only by default.
+- Project/global skills may be editable only when they are inside approved skill roots.
+- Never let dashboard endpoints become arbitrary file read/write APIs.
+- Use path-derived opaque IDs for skills; do not rely on skill names as unique identifiers.
+- Markdown preview must not execute or render unsafe HTML.
+- Editing should use hash/mtime guards to prevent silent overwrite.
+- Global skill edits must be visually called out because they affect every project.
+
+## Pi Skill Rules To Respect
+
+From Pi docs:
+
+- Skills can be:
+  - directory skills: `some-skill/SKILL.md`
+  - direct root `.md` files in selected locations
+- Skill locations include:
+  - global `~/.pi/agent/skills/`
+  - global `~/.agents/skills/`
+  - project `.pi/skills/`
+  - project/ancestor `.agents/skills/`
+  - packages via `skills/` or `pi.skills`
+  - settings and CLI-provided paths
+- `SKILL.md` frontmatter requires:
+  - `name`
+  - `description`
+- Skill names should be lowercase letters, numbers, hyphens only, max 64 chars, no leading/trailing hyphen, no consecutive hyphens.
+- Skills may reference co-located files via relative paths from the skill directory:
+  - `references/api.md`
+  - `scripts/process.sh`
+  - `assets/template.json`
+- Skills may include executable scripts; the model may invoke them through normal tools such as `bash`, so skill content should be reviewed before use.
 
 ---
 
-# Phase 1 — React/shadcn Dashboard Migration
+# Phase 7A — Read-only Skill Library
+
+**Status:** Implemented.
 
 ## Goal
 
-Replace the current hand-authored `web/dashboard.ts` DOM manipulation with a React + TypeScript dashboard, preserving the existing user-visible behavior.
-
-This phase is intentionally a migration, not a feature expansion.
-
-## Regression Checklist
-
-Before Phase 1 is considered complete, verify:
-
-- `/dashboard` serves the dashboard successfully.
-- SSE connects and reconnects.
-- Existing agents sync on page load.
-- Agent cards show:
-  - name
-  - status
-  - type
-  - parent/root
-  - turns
-  - worktree path
-  - Copy Path button
-  - context/token/cost stats
-- Hierarchy panel renders parent/child relationships.
-- Agent Type editor still works:
-  - list types
-  - create/edit type
-  - model dropdown populated from `/api/models`
-  - thinking dropdown only appears for reasoning-capable models
-  - save persists `.md` definition
-- Inspect modal works:
-  - lifecycle/tool events visible
-  - text deltas coalesced
-  - accumulated assistant text visible
-- Emergency Stop button works.
-- Event log still receives important dashboard/system events.
-- `bun run check` passes.
-
----
+Add a dashboard tab for browsing all discovered skills and previewing each skill's `SKILL.md` content without allowing edits yet.
 
 ## Tracer Bullet Issues
 
-### Issue 1: React Build Scaffold
+### Issue 7A.1: Enhance skill discovery metadata
 
-**Goal**: Add React/Tailwind/shadcn-style build foundation without changing dashboard behavior yet.
-
-**What to do:**
-- Add React + React DOM dependencies.
-- Add Tailwind dependencies/config.
-- Add minimal shadcn-style component structure under `web/components/ui/`.
-- Add a React entrypoint, likely `web/app.tsx`.
-- Keep `bun build` producing static assets into `web/`.
-- Keep existing `web/index.html` served by the current HTTP server.
-- Do not remove the old dashboard implementation yet.
-
-**Validation:**
-- `bun run build` works.
-- Existing dashboard still works.
-- No runtime server/framework dependency introduced.
-
----
-
-### Issue 2: React Shell Mirrors Current Layout
-
-**Goal**: Render the current dashboard layout in React with static/dummy data first.
+**Goal**: Return enough data from `/api/skills` to drive a real library UI.
 
 **What to do:**
-- Create top-level React app shell.
-- Add tabs or layout slots for:
-  - Live Agents
-  - Agent Types
-  - Hierarchy
-  - Event Log
-- Add basic local UI components:
-  - Button
-  - Card
-  - Badge
-  - Dialog
-  - Tabs
-  - Select
-  - Textarea/Input
-- Keep styles close to current dark UI, but cleaner.
+- Update `extensions/multi-agent/skill-discovery.ts` to include:
+  - opaque `id` derived from canonical `filePath`
+  - `name`
+  - `description`
+  - `filePath`
+  - `baseDir`
+  - `source`
+  - `scope`
+  - `kind`: `directory` or `file`
+  - `editable`: initially computed but not used for writes yet
+- Preserve existing fields used by template editor.
+- Sort by name, then scope/source.
 
 **Validation:**
-- React app renders without wiring APIs yet.
-- Layout is visually comparable or better than current dashboard.
+- Existing skill template editor still lists discovered skills.
+- `GET /api/skills` returns valid JSON when no skills exist.
+- Project, global, and package skills are distinguishable in the response.
 
----
+### Issue 7A.2: Add skill content endpoint
 
-### Issue 3: Port Agent Data/SSE Logic to React
-
-**Goal**: Move live agent state, SSE connection, and event handling into React state/hooks.
+**Goal**: Load a selected skill's `SKILL.md` for preview.
 
 **What to do:**
-- Port `/events` EventSource logic.
-- Port initial `init` event handling.
-- Port agent lifecycle handling:
-  - `agent-spawned`
-  - `agent-killed`
-  - `agent-start`
-  - `agent-end`
-  - `agent-delta`
-  - `agent-exit`
-- Port event log state.
-- Preserve reconnect behavior.
+- Add `GET /api/skills/:id`.
+- Resolve `id` only against discovered skills from the current repo cwd.
+- Return:
+  - skill metadata
+  - raw markdown content
+  - parsed frontmatter if easy/reliable
+  - body if easy/reliable
+  - `mtimeMs`
+  - content hash
+- Reject unknown IDs with 404.
+- Do not accept arbitrary paths from clients.
 
 **Validation:**
-- Spawn agents from terminal/orchestrator.
-- Dashboard updates without refresh.
-- Existing active agents appear on page load.
+- Can fetch a discovered skill by ID.
+- Cannot fetch a non-discovered local file by path.
+- Package skill content can be previewed.
 
----
+### Issue 7A.3: Add dashboard Skill Library tab
 
-### Issue 4: Port Agent Cards, Stats, Worktree Helpers
-
-**Goal**: Recreate current agent cards in React.
+**Goal**: Create a read-only UI for discovered skills.
 
 **What to do:**
-- Show name/status/type/parent/turns/worktree.
-- Copy Path button.
-- Poll `/api/agent-stats` every 5 seconds.
-- Render context usage + cost.
-- Keep send/kill controls only if we still want them in current parity.
+- Add `Skill Library` tab in `web/app.tsx`.
+- Add searchable/filterable skill list.
+- Group or badge skills by source/scope:
+  - project
+  - global
+  - package
+  - settings/other
+- Show empty state when no skills exist.
+- Show selected skill details and path.
 
 **Validation:**
-- Agent metadata is no longer blank for tool-spawned agents.
-- Stats populate after a few seconds.
-- Copy Path works or logs fallback.
+- Dashboard loads without runtime errors.
+- Skill list remains usable with many skills.
+- Existing tabs still work.
 
----
+### Issue 7A.4: Markdown preview for SKILL.md
 
-### Issue 5: Port Hierarchy View
-
-**Goal**: Recreate collapsible parent/child hierarchy in React.
+**Goal**: Render selected skill markdown safely.
 
 **What to do:**
-- Derive children from both `children` arrays and `parent` fields.
-- Support expand/collapse.
-- Show type/status badge.
+- Add markdown preview dependency, likely `react-markdown` + `remark-gfm`.
+- Render raw markdown in a styled preview panel.
+- Do not enable unsafe HTML execution/rendering.
+- Preserve code blocks and tables.
+- Include a fallback raw-text view if preview rendering fails.
 
 **Validation:**
-- Root agents and children display correctly.
-- Hierarchy remains accurate when agents spawn/exit.
-
----
-
-### Issue 6: Port Agent Type Editor
-
-**Goal**: Recreate the Agent Type Library editor in React.
-
-**What to do:**
-- Load `/api/agent-types`.
-- Load `/api/models`.
-- Create/edit agent type modal/dialog.
-- Model dropdown uses rich model info.
-- Thinking dropdown appears only when selected model supports thinking.
-- Save via `POST /api/agent-types`.
-
-**Validation:**
-- Create a new type.
-- Edit an existing type.
-- Saved frontmatter includes model/thinking when selected.
-
----
-
-### Issue 7: Port Inspect Modal
-
-**Goal**: Recreate agent inspection in React.
-
-**What to do:**
-- Fetch `/api/agents/:name/events`.
-- Show status/worktree.
-- Show lifecycle/tool events.
-- Coalesce text deltas into readable assistant text blocks.
-- Show accumulated assistant text.
-
-**Validation:**
-- Inspect active `lead`/`reviewer` agents.
-- No spammy per-token rows.
-
----
-
-### Issue 8: Port Emergency Stop
-
-**Goal**: Recreate safety controls in React.
-
-**What to do:**
-- Add prominent Emergency Stop button.
-- Confirm before action.
-- Call `POST /api/emergency-stop`.
-- Clear local dashboard state after success.
-
-**Validation:**
-- Start multiple agents.
-- Emergency stop kills agents and dashboard clears.
-
----
-
-### Issue 9: Remove Old Dashboard Implementation
-
-**Goal**: Once React parity is complete, delete old hand-written dashboard code.
-
-**What to do:**
-- Remove old DOM-driven `dashboard.ts` implementation or fully replace it.
-- Ensure generated/built assets are correct.
-- Update package scripts if needed.
-- Update README/dashboard docs.
-
-**Validation:**
-- `bun run check` passes.
-- Manual regression checklist passes.
-- No stale DOM element IDs or dead code remain.
-
----
-
-# Later Phases (Not Yet Broken Down)
-
-## Phase 2 — Template Backend
-
-**Goal**: Add backend persistence and APIs for reusable skill and extension templates. This phase is backend-only; templates are not applied to spawned agents until Phase 4 and do not need dashboard UI until Phase 6.
-
-### Issue 1: Template Data Model
-
-**What to do:**
-- Define common template shape: `name`, `description`, `items`, `applyToAll`, `source`, `filePath`.
-- Expose separate skill and extension template types.
-
-**Validation:**
-- Types compile with `bun run lint`.
-
-### Issue 2: Project-local Template File Layout
-
-**What to do:**
-- Store skill templates under `.pi/skill-templates/*.md`.
-- Store extension templates under `.pi/extension-templates/*.md`.
-- Use markdown frontmatter consistent with agent definitions.
-
-**Validation:**
-- Saving creates the expected project-local files.
-- Discovery returns saved templates.
-
-### Issue 3: Template Discovery Modules
-
-**What to do:**
-- Add separate backend modules for skill templates and extension templates.
-- Include list/get/save/delete helpers.
-- Keep shared parsing/validation in a common helper if useful.
-
-**Validation:**
-- Unit tests cover discovery, save, get, and delete.
-
-### Issue 4: CRUD REST APIs
-
-**What to do:**
-- Add `GET /api/skill-templates`.
-- Add `POST /api/skill-templates`.
-- Add `GET /api/skill-templates/:name`.
-- Add `DELETE /api/skill-templates/:name`.
-- Add equivalent `/api/extension-templates` routes.
-
-**Validation:**
-- API routes return JSON and correct error statuses.
-
-### Issue 5: Validation and Name Safety
-
-**What to do:**
-- Validate required `name` and `description`.
-- Reject path traversal and unsafe filenames.
-- Normalize/dedupe item lists on save.
-
-**Validation:**
-- Tests prove unsafe names cannot write outside template dirs.
-
-### Issue 6: Docs and Regression
-
-**What to do:**
-- Document template layout/API basics.
-- Keep Phase 2 backend-only; do not wire templates into spawn resolution yet.
-
-**Validation:**
+- `SKILL.md` headings, lists, code blocks, and tables render well.
+- Embedded HTML does not execute scripts.
 - `bun run check` passes.
 
-## Phase 3 — Static Extension Metadata
+---
 
-**Goal**: Add optional, best-effort static metadata for discovered extensions so later UI phases can preview expected tools without executing extension code.
+# Phase 7A.5 — Dashboard App Shell and Skill Library Layout Refresh
 
-### Issue 1: Metadata Shape
+**Status:** Implemented.
 
-**What to do:**
-- Extend discovered extension info with optional `description`, `expectedTools`, `metadataStatus`, and `metadataSource`.
-- Treat metadata as advisory only.
+## Goal
 
-**Validation:**
-- Existing extension discovery still works when no metadata exists.
+Refactor the dashboard layout so primary navigation lives in the header, tab/page content can use the full viewport, and the Skill Library has enough horizontal and vertical space for markdown preview. This should happen before Phase 7B so all future skill editing work builds on the right shell.
 
-### Issue 2: Static Metadata Convention
+## Layout Direction
 
-**What to do:**
-- Support an optional source comment convention in extension `.ts`/`.js` files:
-  - `// pi-orchestrator: { "description": "...", "expectedTools": ["tool_a"] }`
-  - or block comment equivalent.
-- Parse metadata without importing or executing extension code.
+- Treat top-level sections as pages in an app shell, not as tabs inside a centered content card.
+- Move primary navigation into the sticky header next to `Pi Orchestrator`.
+- Let `<main>` use the available viewport width/height.
+- Each page chooses its own layout:
+  - Live Agents: full-width card/grid page.
+  - Agent Types: full-width now, possible master/detail later.
+  - Skill Library: persistent left browser + large right detail panel.
+  - Templates: full-width now, possible master/detail later.
+  - Hierarchy: full-width tree now, possible split detail later.
+  - Event Log: full-width log viewer.
+- Avoid forcing every page into a side nav. Use side panels only where the page naturally needs master/detail navigation.
 
-**Validation:**
-- Tests cover metadata present, absent, and invalid.
+## Tracer Bullet Issues
 
-### Issue 3: API Exposure
+### Issue 7A.5.1: Move primary navigation into the header
 
-**What to do:**
-- Include metadata fields in `GET /api/extensions` output.
-- Unknown metadata should return `metadataStatus: "unknown"`, not an error.
-- Invalid metadata should not break discovery.
-
-**Validation:**
-- `GET /api/extensions` remains JSON and tolerant of missing metadata.
-
-### Issue 4: Docs and Regression
+**Goal**: Free vertical space and make the dashboard feel like an app shell.
 
 **What to do:**
-- Document the static metadata convention.
-- Do not add runtime extension introspection.
-- Do not wire metadata into spawn behavior yet.
+- Remove the top-level `TabsList` from inside `<main>`.
+- Render primary section buttons/links in the header next to the dashboard title.
+- Preserve existing active tab state and labels.
+- Keep connection status and Emergency Stop on the right side.
+- Make the header responsive:
+  - wraps or scrolls horizontally on narrow widths
+  - does not hide Emergency Stop
 
 **Validation:**
+- All existing sections are reachable from the header.
+- Active section is visually obvious.
+- Dashboard still works on narrower windows.
+- Smoke test still passes.
+
+### Issue 7A.5.2: Expand main content to use the viewport
+
+**Goal**: Stop constraining page content to a centered, cramped max-width container.
+
+**What to do:**
+- Replace the centered `max-w-screen-2xl` tab container with a full-width app content area.
+- Use a height model that lets pages fill available space below the sticky header.
+- Keep reasonable padding/gutters.
+- Avoid nested scroll traps where possible; page-specific panels can scroll internally when useful.
+
+**Validation:**
+- Skill Library preview has substantially more room.
+- Live Agents grid can use wide screens.
+- Event Log and Hierarchy remain readable.
+- No horizontal body overflow at common desktop sizes.
+
+### Issue 7A.5.3: Convert Skill Library to master/detail page layout
+
+**Goal**: Make the skill browser and preview area feel purpose-built instead of squeezed into generic cards.
+
+**What to do:**
+- Use a two-pane layout:
+  - left pane: search, source filter, skill list
+  - right pane: selected skill detail
+- Keep the left pane at a stable width, around 320–420px.
+- Let the right pane fill remaining space.
+- Let both panes use most of the viewport height.
+- Keep selected skill state and API loading behavior.
+
+**Validation:**
+- Selecting skills remains fast and obvious.
+- Skill list can scroll independently.
+- Detail panel has enough room for long markdown documents.
+
+### Issue 7A.5.4: Make preview the primary Skill Library detail view
+
+**Goal**: Avoid splitting read-only mode into two cramped columns.
+
+**What to do:**
+- In read-only Skill Library mode, show rendered markdown preview as the default full-width detail content.
+- Move raw markdown behind a lightweight view toggle, such as:
+  - `Preview`
+  - `Raw`
+  - `Metadata`
+- Keep raw markdown available for inspection.
+- Keep metadata/path/source badges visible above the content.
+
+**Validation:**
+- Long `SKILL.md` files are comfortable to read.
+- Raw markdown remains accessible.
+- Markdown tables/code blocks remain readable.
+
+### Issue 7A.5.5: Preserve current page behavior during shell refactor
+
+**Goal**: Avoid regressing non-skill pages while changing the app frame.
+
+**What to do:**
+- Keep existing Live Agents, Agent Types, Templates, Hierarchy, and Event Log behavior unchanged except for available space.
+- Do not add new backend APIs in this phase.
+- Do not start Phase 7B editing behavior yet.
+- Keep existing dialog behavior for type/template editing.
+
+**Validation:**
+- Agent cards still send/inspect/kill.
+- Agent type dialog still opens/saves.
+- Skill/extension template dialogs still open/save/delete.
+- Hierarchy and log still render.
 - `bun run check` passes.
-
-## Phase 4 — Agent Definition Resolution
-
-**Goal**: Resolve saved skill/extension templates into agent spawn configuration for newly spawned agents only.
-
-### Issue 1: Agent Definition Frontmatter
-
-**What to do:**
-- Add optional `skillTemplates:` and `extensionTemplates:` frontmatter fields to agent definitions.
-- Parse comma-separated template names during definition discovery.
-- Preserve existing direct `skills:` and direct extension selection behavior.
-
-**Validation:**
-- Definition tests cover template fields.
-
-### Issue 2: Capability Resolution Helper
-
-**What to do:**
-- Add a backend resolver that combines:
-  - direct definition skills
-  - all `applyToAll` skill templates
-  - selected `skillTemplates`
-  - direct requested extensions
-  - all `applyToAll` extension templates
-  - selected `extensionTemplates`
-- Dedupe while preserving order.
-- Resolve extension template items by discovered extension name.
-
-**Validation:**
-- Unit tests cover apply-to-all plus selected templates.
-
-### Issue 3: Spawn Integration
-
-**What to do:**
-- Use resolved skills/extensions when spawning from `create_sub_agent`.
-- Use resolved skills/extensions when spawning from dashboard/API.
-- Apply resolution at spawn time only; existing running agents are unchanged.
-
-**Validation:**
-- Spawning an agent uses resolved skills/extensions without changing stored definitions.
-
-### Issue 4: API/Preview Surface
-
-**What to do:**
-- Include template fields in `/api/agent-types` output so later UI phases can preview them.
-- Do not build full capability preview UI yet.
-
-**Validation:**
-- API output remains backwards compatible.
-
-### Issue 5: Docs and Regression
-
-**What to do:**
-- Document `skillTemplates:` and `extensionTemplates:` frontmatter.
-- Keep runtime tool reporting out of scope.
-
-**Validation:**
-- `bun run check` passes.
-
-## Phase 5 — Actual Runtime Tool Reporting
-
-**Goal**: Capture actual tools available inside each spawned child Pi session and expose them to the dashboard/API.
-
-### Issue 1: Runtime Tool Snapshot Format
-
-**What to do:**
-- Define a serializable runtime tool snapshot with `active`, `all`, `reportedAt`, and per-tool `name`, `description`, `sourceInfo`.
-- Store snapshots under the agent worktree comms area.
-
-**Validation:**
-- Snapshot parsing tolerates missing or malformed files.
-
-### Issue 2: Child Agent Reporter
-
-**What to do:**
-- Update the child-loaded delegate extension to call `pi.getActiveTools()` and `pi.getAllTools()` from inside the child session.
-- Write the snapshot without executing or introspecting extension code externally.
-
-**Validation:**
-- Reporter code compiles and writes only serializable fields.
-
-### Issue 3: Broker/API Exposure
-
-**What to do:**
-- Read runtime tool snapshots from each agent worktree.
-- Include runtime tool data in serialized agent info and `/api/agents/:name/events` inspection payload.
-- Keep missing snapshots as unknown, not an error.
-
-**Validation:**
-- Unit tests cover missing, valid, and malformed snapshots.
-
-### Issue 4: Dashboard Display
-
-**What to do:**
-- Show runtime active/all tool names on agent cards when reported.
-- Show detailed runtime tools in Inspect modal.
-- Use unknown/empty state when no snapshot has been reported yet.
-
-**Validation:**
-- Dashboard bundle smoke test passes.
-
-### Issue 5: Docs and Regression
-
-**What to do:**
-- Document runtime tool reporting as best-effort and child-reported.
-
-**Validation:**
-- `bun run check` passes.
-
-## Phase 6 — Template UI
-
-**Goal**: Add dashboard UI for creating, editing, deleting, and inspecting skill/extension templates backed by the Phase 2 APIs.
-
-### Issue 1: Dashboard Template Data Hooks
-
-**What to do:**
-- Load `/api/skill-templates` and `/api/extension-templates` in React.
-- Load `/api/extensions` for extension template selection hints.
-- Refresh template lists after save/delete.
-
-**Validation:**
-- Dashboard smoke test still loads without runtime errors.
-
-### Issue 2: Skill Templates Tab
-
-**What to do:**
-- Add a Skill Templates tab.
-- List templates with name, description, `applyToAll`, and selected skills.
-- Add create/edit/delete dialog using comma/newline skill entry.
-
-**Validation:**
-- Can create/edit/delete skill templates through REST APIs.
-
-### Issue 3: Extension Templates Tab
-
-**What to do:**
-- Add an Extension Templates tab.
-- List templates with name, description, `applyToAll`, and selected extensions.
-- Add create/edit/delete dialog.
-- Show discovered extensions as selectable hints/checklist where possible.
-
-**Validation:**
-- Can create/edit/delete extension templates through REST APIs.
-
-### Issue 4: Agent Type Template Fields
-
-**What to do:**
-- Extend Agent Type editor with `skillTemplates` and `extensionTemplates` comma/newline fields.
-- Save fields through existing `/api/agent-types` POST.
-
-**Validation:**
-- Saved agent definitions include template frontmatter.
-
-### Issue 5: UX and Regression
-
-**What to do:**
-- Keep UI simple: no drag/drop.
-- Use clear unknown/empty states.
-- Do not add runtime tool reporting changes here.
-
-**Validation:**
-- `bun run check` passes.
-
-## Phase 7 — Agent Type Capability Preview
-
-- Show resolved templates, skills, extensions, expected tools, and actual runtime tools where available
 
 ---
 
-## Current Useful Commands
+# Phase 7B — Create and Edit SKILL.md Files
 
-```text
-/orchestrate
-/orchestrate off
-/orchestrate status
-/dashboard
-/agents
-/worktrees
-/kill all
-/logs
-```
+**Status:** Implemented.
+
+## Goal
+
+Allow users to create and edit project/global skills safely from the dashboard, limited to approved skill roots and only editing the main `SKILL.md` file for now.
+
+## Tracer Bullet Issues
+
+### Issue 7B.1: Editable-root classification
+
+**Goal**: Decide which skills can be edited.
+
+**What to do:**
+- Classify skills as editable only if their `filePath` is under:
+  - project `.pi/skills/`
+  - project `.agents/skills/` if discovered for current repo
+  - global `~/.pi/agent/skills/`
+  - global `~/.agents/skills/`
+- Mark package, settings-external, and CLI-provided skills read-only unless they fall under approved roots.
+- Use canonical resolved paths to prevent symlink/path traversal surprises.
+
+**Validation:**
+- Package skills display read-only.
+- Project `.pi/skills/*/SKILL.md` displays editable.
+- Global skills display editable with a warning badge.
+
+### Issue 7B.2: Create skill endpoint
+
+**Goal**: Create a new directory-style skill scaffold.
+
+**What to do:**
+- Add `POST /api/skills`.
+- Payload:
+  - `scope`: `project` or `global`
+  - `name`
+  - `description`
+  - optional initial markdown body
+- Normalize/validate skill name according to Pi skill rules.
+- Create directory:
+  - project: `.pi/skills/<name>/SKILL.md`
+  - global: `~/.pi/agent/skills/<name>/SKILL.md`
+- Default generated file:
+  - frontmatter with name/description
+  - heading
+  - usage section
+  - references section placeholder
+- Refuse overwrite unless explicitly supported later.
+
+**Validation:**
+- Creating `my skill` previews/saves as `my-skill`.
+- Missing name/description returns 400.
+- Duplicate skill path returns conflict.
+- Newly created skill appears after refresh.
+
+### Issue 7B.3: Save SKILL.md endpoint
+
+**Goal**: Save edits to existing editable `SKILL.md` files safely.
+
+**What to do:**
+- Add `PUT /api/skills/:id`.
+- Payload:
+  - `content`
+  - `expectedHash` or `expectedMtimeMs`
+- Resolve ID through discovery; reject non-editable skills.
+- Validate frontmatter still has valid `name` and `description`.
+- Reject stale writes when hash/mtime does not match.
+- Return updated metadata/hash.
+
+**Validation:**
+- Editing project skill persists to disk.
+- Editing package skill returns 403.
+- Concurrent/stale edit returns 409.
+- Invalid frontmatter returns 400 with useful error.
+
+### Issue 7B.4: Dashboard editor with live preview
+
+**Goal**: Let users edit `SKILL.md` with preview beside it.
+
+**What to do:**
+- Add edit mode for editable skills.
+- Layout:
+  - left: markdown textarea/editor
+  - right: preview
+- Show required frontmatter guidance.
+- Disable save when content is invalid.
+- Show unsaved changes indicator.
+- Warn for global skill edits.
+
+**Validation:**
+- User can edit project/global skill and save.
+- User sees server validation errors inline.
+- User cannot edit read-only/package skill.
+- Preview updates as markdown changes.
+
+---
+
+# Phase 7C — Agent Skill Management Tools
+
+## Goal
+
+Let the root Pi agent bootstrap and maintain skills through extension tools, so the interactive shell can help users create/edit skills instead of requiring manual dashboard edits.
+
+## Tracer Bullet Issues
+
+### Issue 7C.1: `skill_list` tool
+
+**Goal**: Expose discovered skills to the agent.
+
+**What to do:**
+- Register `skill_list` in `extensions/multi-agent/index.ts`.
+- Return discovered skills with:
+  - id
+  - name
+  - description
+  - scope/source
+  - editable
+  - file path summary
+- Support optional filters:
+  - `scope`
+  - `editableOnly`
+  - search text
+
+**Validation:**
+- Agent can list skills in current project.
+- Tool output is concise but includes details payload.
+
+### Issue 7C.2: `skill_read` tool
+
+**Goal**: Let the agent inspect full skill content.
+
+**What to do:**
+- Register `skill_read`.
+- Accept `id` or exact `name` when unambiguous.
+- Return `SKILL.md` content and metadata.
+- If name is ambiguous, return candidates and ask for ID.
+
+**Validation:**
+- Agent can read project/global/package skills.
+- Ambiguous names are handled safely.
+
+### Issue 7C.3: `skill_create` tool
+
+**Goal**: Let the agent create project/global skills.
+
+**What to do:**
+- Register `skill_create`.
+- Accept:
+  - scope
+  - name
+  - description
+  - optional markdown body
+- Reuse the same backend helpers as dashboard API.
+- Prefer project scope by default unless user asks global.
+
+**Validation:**
+- Agent can create a project skill scaffold.
+- Tool refuses invalid names/descriptions.
+- Created skill appears in dashboard.
+
+### Issue 7C.4: `skill_update` tool
+
+**Goal**: Let the agent update editable skills safely.
+
+**What to do:**
+- Register `skill_update`.
+- Require:
+  - id
+  - full replacement content
+  - expected hash from `skill_read`
+- Reject package/read-only skills.
+- Validate frontmatter.
+
+**Validation:**
+- Agent can update a project skill after reading it.
+- Stale hash returns a useful error.
+- Package skill update is rejected.
+
+---
+
+# Phase 7D — Skill Library UX Integrations
+
+## Goal
+
+Connect the Skill Library to templates and discovery diagnostics so it becomes useful in everyday orchestration workflows.
+
+## Tracer Bullet Issues
+
+### Issue 7D.1: Add skill to template shortcut
+
+**Goal**: Let users add a skill directly to a skill template from the library.
+
+**What to do:**
+- On skill detail panel, add `Add to Template` action.
+- Let user choose existing skill template or create a new one.
+- Save through existing skill template APIs.
+- Preserve de-duplication.
+
+**Validation:**
+- Skill can be added to existing template.
+- Duplicate addition does not duplicate item.
+- Template editor reflects change after refresh.
+
+### Issue 7D.2: Show templates using this skill
+
+**Goal**: Make relationships visible.
+
+**What to do:**
+- In skill detail view, show skill templates that include the selected skill name.
+- Link/open template editor from this list.
+
+**Validation:**
+- A skill included in multiple templates shows all matches.
+- Empty state is clear.
+
+### Issue 7D.3: Surface Pi skill diagnostics
+
+**Goal**: Show validation/discovery warnings from Pi's loader.
+
+**What to do:**
+- Include skill diagnostics in `/api/skills` response or a sibling endpoint.
+- Show warnings in Skill Library.
+- Attach path/name-specific diagnostics to skill rows when possible.
+
+**Validation:**
+- Invalid skill names/descriptions show warnings.
+- Missing description skills are discoverable as diagnostics even if not loaded.
+
+### Issue 7D.4: Improve search/filter ergonomics
+
+**Goal**: Make the library scale to many skills.
+
+**What to do:**
+- Search by name, description, path, source.
+- Filters:
+  - source/scope
+  - editable/read-only
+  - referenced by template / unreferenced
+- Optional sorting:
+  - name
+  - source
+  - recently modified
+
+**Validation:**
+- Search/filter state is predictable.
+- Large lists remain responsive.
+
+---
+
+# Phase 7E — Directory Skill File Tree and Linked Markdown
+
+## Goal
+
+Support rich directory skills where `SKILL.md` references co-located markdown, scripts, assets, and examples. This phase happens after 7D.
+
+## Tracer Bullet Issues
+
+### Issue 7E.1: Skill directory tree endpoint
+
+**Goal**: Browse files inside a directory-style skill.
+
+**What to do:**
+- Add `GET /api/skills/:id/tree`.
+- Only expose files under the skill `baseDir`.
+- Return relative paths, file types, sizes, and editability.
+- Exclude dangerous/noisy directories by default:
+  - `.git`
+  - `node_modules`
+  - large binary blobs
+- Include limits for max files and max file size.
+
+**Validation:**
+- Directory skill shows `SKILL.md`, `references/*`, `scripts/*`, `assets/*`.
+- Path traversal attempts fail.
+- Huge trees are capped gracefully.
+
+### Issue 7E.2: Read file within skill directory
+
+**Goal**: Preview supporting markdown and inspect scripts/assets.
+
+**What to do:**
+- Add `GET /api/skills/:id/files/:relativePath` or query-based equivalent.
+- Resolve only within `baseDir`.
+- Return text content for safe text files.
+- Return metadata/download-disabled message for binary files.
+- Support markdown preview for `.md` files.
+
+**Validation:**
+- Can read `references/api.md` from selected skill.
+- Cannot read `../../package.json`.
+- Binary file is not dumped into UI.
+
+### Issue 7E.3: Linked markdown navigation
+
+**Goal**: Make relative links in previews navigate inside the skill library.
+
+**What to do:**
+- Intercept markdown links that point to relative `.md` files.
+- Resolve them against the current file's directory inside `baseDir`.
+- Open target markdown in the preview/editor panel.
+- External links open normally in a new tab.
+- Broken links show a clear error.
+
+**Validation:**
+- Link from `SKILL.md` to `references/foo.md` opens in the dashboard.
+- Nested relative links work.
+- External URLs are not routed through file API.
+
+### Issue 7E.4: Create rich directory skill scaffold
+
+**Goal**: Make new skills ready for multi-file context.
+
+**What to do:**
+- Update create skill flow to optionally scaffold:
+  - `SKILL.md`
+  - `references/README.md`
+  - `scripts/README.md`
+  - `assets/README.md`
+  - `examples/README.md`
+- `SKILL.md` should include relative links to these files.
+- Let user choose minimal vs rich scaffold.
+
+**Validation:**
+- Rich scaffold creates co-located markdown folders.
+- Links in generated `SKILL.md` work in preview.
+- Agent can read linked files via normal `read` tool paths.
+
+### Issue 7E.5: Edit supporting markdown files
+
+**Goal**: Allow editing of co-located markdown docs, not just `SKILL.md`.
+
+**What to do:**
+- Allow save for editable text files under editable skill roots.
+- Restrict writes to safe text extensions first:
+  - `.md`
+  - `.txt`
+  - `.json`
+  - `.yaml`
+  - `.yml`
+- Use hash guard for every save.
+- Keep package skills read-only.
+
+**Validation:**
+- Project skill `references/foo.md` can be edited.
+- Package skill support files remain read-only.
+- Stale edit returns 409.
+
+### Issue 7E.6: Optional script visibility and safety warnings
+
+**Goal**: Make bundled scripts inspectable without encouraging blind execution.
+
+**What to do:**
+- Show scripts in file tree with warning icon/badge.
+- Preview script text when small enough.
+- Add warning copy: scripts can be invoked by agents through normal tools.
+- Do not add a dashboard `Run script` button in this phase.
+
+**Validation:**
+- `scripts/process.sh` is visible and previewable.
+- UI clearly communicates execution risk.
+- No browser endpoint executes scripts.
+
+---
+
+# Phase 7F — Future Enhancements / Parking Lot
+
+These are intentionally not part of 7A–7E unless explicitly pulled forward.
+
+- Delete/archive skills from dashboard.
+- Rename/move skills with reference updates.
+- Import skills from remote repositories.
+- Package skill marketplace/browser.
+- Diff view before save.
+- CodeMirror or Monaco markdown editor.
+- Skill usage telemetry: which agents loaded or used a skill.
+- Skill validation autofix.
+- Prompt action: “turn this conversation into a skill.”
+- Generate tests/examples for skill scripts.

@@ -48,11 +48,25 @@ export interface ModelInfo {
 }
 
 export interface SkillInfo {
+  id?: string;
   name: string;
   description?: string;
   path: string;
+  filePath?: string;
+  baseDir?: string;
   source?: string;
   scope?: string;
+  kind?: "directory" | "file";
+  editable?: boolean;
+}
+
+export interface SkillDetailInfo {
+  skill: SkillInfo;
+  content: string;
+  frontmatter: Record<string, unknown>;
+  body: string;
+  mtimeMs: number;
+  hash: string;
 }
 
 export interface ExtensionInfo {
