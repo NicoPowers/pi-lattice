@@ -169,6 +169,15 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // GET /api/extensions
+    if (url.pathname === "/api/extensions" && req.method === "GET") {
+      const exts = deps.discoverExtensions(deps.repoCwd);
+      send(res, jsonResponse(
+        exts.map((e) => ({ name: e.name, scope: e.scope }))
+      ));
+      return;
+    }
+
     // GET /api/agent-types
     if (url.pathname === "/api/agent-types" && req.method === "GET") {
       const defs = deps.discoverDefinitions(deps.repoCwd);
