@@ -190,13 +190,14 @@ let currentCtx: ExtensionContext | undefined;
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 let spinnerIndex = 0;
 let spinnerTimer: NodeJS.Timeout | undefined;
+let lastPanelHash = "";
 
 function ensureSpinner() {
   if (spinnerTimer) return;
   spinnerTimer = setInterval(() => {
     spinnerIndex = (spinnerIndex + 1) % SPINNER_FRAMES.length;
     refreshPanel();
-  }, 120);
+  }, 500);
 }
 
 function stopSpinnerIfIdle() {
@@ -207,8 +208,20 @@ function stopSpinnerIfIdle() {
   }
 }
 
+function agentPanelHash(): string {
+  const statuses = Array.from(agents.entries())
+    .map(([n, a]) => `${n}:${a.status}:${spinnerIndex}`)
+    .join("|");
+  return `${agents.size}:${statuses}`;
+}
+
 function refreshPanel() {
   if (!currentCtx?.hasUI) return;
+
+  const hash = agentPanelHash();
+  if (hash === lastPanelHash) return;
+  lastPanelHash = hash;
+
   const theme = currentCtx.ui.theme;
   const lines: string[] = [];
 
@@ -243,6 +256,7 @@ function refreshPanel() {
 
 function clearPanel() {
   if (!currentCtx?.hasUI) return;
+  lastPanelHash = "";
   currentCtx.ui.setWidget("multi-agent", undefined);
   currentCtx.ui.setStatus("multi-agent", undefined);
 }
