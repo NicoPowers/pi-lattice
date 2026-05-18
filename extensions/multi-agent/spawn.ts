@@ -133,7 +133,11 @@ export async function spawnAgent(
 
   const piArgs = ["--mode", "rpc", "--no-session"];
   if (effectiveModel) piArgs.push("--model", effectiveModel);
-  if (effectiveTools.length > 0) piArgs.push("--tools", effectiveTools.join(","));
+  // Only restrict tools when no extensions are loaded. Extensions may register
+  // their own tools (e.g. web_search) that wouldn't be in the whitelist.
+  if (effectiveTools.length > 0 && (!extensions || extensions.length === 0)) {
+    piArgs.push("--tools", effectiveTools.join(","));
+  }
   if (promptInsideBwrap) piArgs.push("--system-prompt", promptInsideBwrap);
   if (delegatePromptInsideBwrap) piArgs.push("--append-system-prompt", delegatePromptInsideBwrap);
   if (definition?.skills) {
