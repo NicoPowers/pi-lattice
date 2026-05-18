@@ -1,6 +1,16 @@
 # pi-agent-orchestrator
 
-Multi-agent orchestration extension for [Pi](https://pi.dev). Spawn specialized sub-agents with isolated context windows, custom prompts, and targeted skills. Manage your agent fleet from the terminal **or** a real-time web dashboard — no TUI modifications required.
+Multi-agent orchestration extension for [Pi](https://pi.dev).
+
+The **orchestrator** (your interactive Pi session) intelligently creates and manages sub-agents. You define agent types and prompts via the dashboard; the orchestrator decides when to spawn specialists (researcher, implementer, reviewer, etc.) and routes work to them.
+
+Key features:
+- Orchestrator-driven spawning (`create_sub_agent` tool)
+- Real models from your Pi environment (`pi --list-models`)
+- Agent Type Library editor in the dashboard
+- Emergency Stop for safety
+- bwrap isolation + shared git worktrees
+- No TUI modifications — terminal stays clean
 
 ## Architecture
 
