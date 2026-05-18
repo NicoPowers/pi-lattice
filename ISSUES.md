@@ -1,200 +1,211 @@
-# pi-agent-orchestrator — Current Vision & Roadmap
+# pi-agent-orchestrator — Current State & Next Roadmap
 
-## Current Goal
+## Current Vision
 
-Build a lightweight, orchestrator-driven multi-agent system inside Pi.
+`pi-agent-orchestrator` is now an explicit orchestration mode for Pi.
 
-- The user explicitly enters orchestration mode with `/orchestrate`; only then does the root Pi interactive session act as the orchestrator.
-- Child agents can request help, but the request is routed back to the orchestrator, which decides whether to spawn, what type, which model, and why.
-- The **dashboard** is a supporting tool, not the driver:
-  - Agent Type Library editor (prompts, skills, extensions, model assignment)
-  - Simple collapsible hierarchy view for monitoring
-  - Emergency stop button for when things go off the rails
-- Models are discovered dynamically from the user’s actual Pi environment (`pi --list-models`).
-- A small set of canonical agent types ship with good defaults; users can edit or add more.
-- Everything stays simple, bwrap-isolated, and deeply integrated with Pi.
+Normal Pi usage stays normal. When the user runs:
 
-## How It Works (High Level)
+```text
+/orchestrate
+```
 
-- Root agent gets its own git worktree + bwrap sandbox.
-- Sub-agents share the parent’s worktree (same `/tmp/workspace` inside bwrap).
-- All agents run `pi --mode rpc --no-session` inside their sandbox.
-- Communication uses JSONL over stdout/stdin + a shared `comms/` directory for `delegate` tool.
-- The orchestrator exposes a `create_sub_agent` tool that only works when orchestration mode is enabled.
-- Dashboard talks to the extension via REST + SSE on ports 18765–18767 (or ephemeral).
-- All output is logged; live terminal is hidden by default behind expand/collapse.
+the current Pi interactive session becomes the root orchestrator. The orchestrator can create isolated specialist agents, delegate work, monitor them, steer them if stuck, and report results back to the user.
+
+The dashboard is not meant to be the primary driver of work. It is the human control surface for:
+
+- editing agent type templates
+- monitoring active agents
+- inspecting what agents are doing
+- copying/opening worktree paths
+- watching token/context/cost usage
+- emergency stopping the fleet
+
+## Implemented Architecture
+
+- Agents run as `pi --mode rpc --no-session` child processes.
+- Every agent is isolated with `bwrap`.
+- Root agents get their own git worktree under `/tmp/pi-worktree-*`.
+- Child agents share their parent/root worktree.
+- The orchestrator process owns all child processes and is the only place where agents are actually spawned.
+- Sub-agent communication uses:
+  - RPC stdin/stdout JSONL
+  - per-worktree `.pi/comms/{requests,responses}` for the `delegate` tool
+- Dashboard uses:
+  - REST for actions
+  - SSE for server → browser events
+  - no WebSockets
+- Dashboard port probing uses `18765–18767`, then OS ephemeral fallback.
+- Terminal remains vanilla Pi — no widgets, no panels, no spinners.
+
+## Current Features
+
+### Orchestration Mode
+
+- `/orchestrate` enables orchestration mode.
+- `/orchestrate off` disables it.
+- `/orchestrate status` reports current state.
+- `create_sub_agent` refuses to run unless orchestration mode is enabled.
+
+### Agent Management
+
+- `agent_spawn` remains available for manual/dev use.
+- `create_sub_agent` is the preferred orchestrator tool.
+- `agent_send` queues normal tasks.
+- `agent_steer` sends mid-turn steering messages to stuck/running agents.
+- `agent_status` reports active agents.
+- `agent_kill` kills one agent.
+- `/kill all` kills all agents and removes worktrees.
+- `/worktrees` lists active worktree paths and VS Code open commands.
+
+### Dashboard
+
+- Agent Type Library editor.
+- Real model dropdown populated from `pi --list-models`.
+- Thinking-level dropdown shown only for models that support reasoning.
+- Agent hierarchy tree.
+- Active agent cards with:
+  - type
+  - parent/root
+  - turns
+  - worktree path + Copy Path
+  - context usage
+  - token totals
+  - running cost
+- Inspect modal with:
+  - status
+  - worktree path
+  - recent lifecycle/tool events
+  - coalesced assistant text
+- Emergency Stop button.
+
+### Agent Definitions
+
+Agent type `.md` frontmatter supports:
+
+```yaml
+name: implementer
+description: Focused implementation specialist
+model: kimi-k2.6
+thinking: medium
+tools: read, write, edit, bash, grep, find, ls
+skills: tdd
+```
+
+Seeded package definitions:
+
+- `orchestrator`
+- `researcher`
+- `implementer`
+- `reviewer`
+
+### Testing / Validation
+
+- Unit tests cover:
+  - definition discovery/saving
+  - port probing
+  - SSE formatting
+  - model parser behavior with noisy extension startup output
+- E2E manual test fixture:
+  - `tests/fixtures/todo-project/`
+  - `tests/e2e-todo-app.md`
+
+## Important Lessons / Current Constraints
+
+- Worktrees are ephemeral. If Pi exits with `/quit`, session shutdown removes active worktrees.
+- Users should inspect active worktrees before killing agents, or we need an explicit export/apply workflow.
+- `ISSUES.md` should stay short and current. Completed tracer bullets should be removed or summarized here, not left as long stale TODOs.
 
 ---
 
-## Tracer Bullet Issues
+## Next Candidate Issues
 
-### Issue 1: Model Discovery Endpoint
+### Issue 1: Export / Apply Agent Worktree
 
-**Goal**: Expose the models the user actually has access to so the dashboard can offer real choices when editing agent types.
+**Goal**: Make it safe and easy to preserve completed agent work before cleanup.
 
-**What to do:**
-- Add a helper that runs `pi --list-models` (or equivalent) and parses the output.
-- Expose `GET /api/models` returning a simple list of model ids/names.
-- Cache the result for the lifetime of the session (no need to re-query constantly).
-- Update the dashboard’s agent-type editor to use this list for the “Model” dropdown.
+Possible shape:
 
-**Why first**: It’s small, independent, and unlocks the type editor work.
+- Dashboard button: `Export Worktree` or `Apply to Project`
+- Terminal command: `/export-worktree <agent>`
+- Options:
+  - copy files back to source repo
+  - create patch file
+  - create branch from worktree
+  - open worktree in VS Code
 
-**Test:**
+**Why**: Current worktrees disappear on shutdown/kill, which is dangerous once agents produce useful work.
+
+---
+
+### Issue 2: Better Agent Readiness / Health
+
+**Goal**: Replace magic sleeps with explicit readiness/health checks.
+
+Possible work:
+
+- Detect RPC child readiness more reliably.
+- Track last event timestamp.
+- Mark agents stale if no events arrive for too long while streaming.
+- Dashboard indicator for healthy / stale / exited.
+
+---
+
+### Issue 3: Agent Session Export / HTML Preview
+
+**Goal**: Let users inspect an agent session like a Pi session transcript.
+
+Possible work:
+
+- Use RPC `export_html` per agent.
+- Dashboard `Export Session` / `Open Transcript` button.
+- Store exported transcript path in worktree or `/tmp`.
+
+---
+
+### Issue 4: Dashboard Steering UX
+
+**Goal**: Expose safe human steering in the dashboard without turning the dashboard into the primary driver.
+
+Possible work:
+
+- Add optional `Steer` button in Inspect modal.
+- Label it clearly as intervention/debug only.
+- Log all steering events.
+
+---
+
+### Issue 5: Agent Type Editor Completeness
+
+**Goal**: Finish type editing beyond model/thinking/prompt.
+
+Possible work:
+
+- Edit tools.
+- Edit skills.
+- Edit extensions.
+- Delete custom types.
+- Protect built-in/root types.
+
+---
+
+## How to Use Current Version
+
 ```bash
-curl http://localhost:18765/api/models
+cd <some-git-repo>
+pi
+/orchestrate
+/dashboard
 ```
-Should return something like:
-```json
-["anthropic/claude-3-5-sonnet-20241022", "openai/gpt-4o", "github-copilot/claude-3-5-sonnet", ...]
+
+Then ask Pi for a high-level task. The orchestrator can spawn specialists as needed.
+
+Useful commands:
+
+```text
+/orchestrate status
+/agents
+/worktrees
+/kill all
+/logs
 ```
-
----
-
-### Issue 2: Agent Type Library Editor
-
-**Goal**: Replace the old manual spawn form with a clean editor for agent types.
-
-**What to do:**
-- Remove the spawn form (name, parent, type, model, extensions) from the dashboard.
-- Add a new “Agent Types” section that lists all discovered `.md` definitions.
-- Clicking a type opens a simple editor:
-  - Prompt body (textarea)
-  - Skills (multi-select or comma list)
-  - Extensions (checkboxes from `/api/extensions`)
-  - Model (dropdown from `/api/models`)
-- “Save” writes the changes back to the `.md` file (frontmatter + body).
-- “New Type” creates a fresh `.md` with sensible defaults.
-- Protect the root orchestrator type from deletion (or at least warn strongly).
-
-**Test:**
-- Edit an existing type, change its model and add an extension, save.
-- Create a new type called “researcher”.
-- Verify the `.md` files are updated on disk.
-
----
-
-### Issue 3: `create_sub_agent` Tool (Orchestrator Only)
-
-**Goal**: Give the orchestrator the ability to spawn sub-agents programmatically.
-
-**What to do:**
-- Add a new tool `create_sub_agent` that only the root orchestrator can call.
-- Parameters: `name`, `type`, `reason`, optional `model`, optional `extensions`.
-- Internally re-uses the existing `spawnAgent` logic.
-- Records who requested it and why (for logging/audit).
-- Child agents are **not** allowed to call this tool (enforce at the tool level).
-
-**Test:**
-- In the terminal, ask the orchestrator to create a researcher sub-agent for a specific task.
-- Verify the agent appears in `/api/agents` and in the dashboard tree.
-
----
-
-### Issue 4: Update Orchestrator System Prompt
-
-**Goal**: Teach the orchestrator when and how to create sub-agents.
-
-**What to do:**
-- Update the root agent’s prompt (or the delegate instructions) to include guidance like:
-  > “If a task would benefit from focused research, parallel implementation, or specialized review, consider creating a sub-agent using the `create_sub_agent` tool. Always provide a clear reason.”
-- Make sure the new `create_sub_agent` tool is available in the orchestrator’s tool list.
-- Keep the existing `delegate` tool for routing work after agents exist.
-
-**Test:**
-- Give the orchestrator a multi-step task and observe whether it chooses to create a sub-agent.
-
----
-
-### Issue 5: Collapsible Agent Hierarchy View
-
-**Goal**: Simple monitoring tree in the dashboard without flooding it with live output.
-
-**What to do:**
-- Add a “Live Agents” or “Hierarchy” panel.
-- Show parent → child relationships as a tree or indented list.
-- Each node shows: name, type, status, model.
-- No live terminal output by default.
-- Add a small “Inspect” / expand button that reveals the accumulated text for that agent (read-only).
-- All output continues to be written to log files for later inspection by the orchestrator.
-
-**Test:**
-- Spawn a small tree via the orchestrator.
-- Open the dashboard and verify the hierarchy is visible and collapsible.
-
----
-
-### Issue 6: Emergency Stop Button
-
-**Goal**: Give the human a reliable way to shut everything down when things go wrong.
-
-**What to do:**
-- Add a prominent “Emergency Stop” button in the dashboard.
-- Endpoint: `POST /api/emergency-stop`
-- Behavior:
-  1. Kill every running agent process
-  2. Remove all worktrees
-  3. Clear in-memory state
-  4. Optionally restart the HTTP server cleanly
-- Also expose a terminal command `/emergency-stop` as a backup.
-
-**Test:**
-- Start several agents.
-- Click Emergency Stop.
-- Verify no processes remain, no worktrees left under `/tmp/pi-worktree-*`, and the dashboard shows an empty state.
-
----
-
-### Issue 7: Seed Canonical Agent Types
-
-**Goal**: Ship a small set of useful starter types so users have good examples.
-
-**What to do:**
-- Create `agents/researcher.md`, `agents/implementer.md`, `agents/reviewer.md`, `agents/tester.md` (or similar) with solid prompts, appropriate tools, and sensible default models.
-- Make sure these are discovered alongside any user-created types.
-- Document in the type editor that these are examples and can be edited or deleted.
-
-**Test:**
-- Fresh install shows the canonical types in the library.
-- Using one of them via the orchestrator works end-to-end.
-
----
-
-### Issue 8: Protect Root Orchestrator Type
-
-**Goal**: Prevent accidental deletion of the root orchestrator definition.
-
-**What to do:**
-- In the type library editor, disable the delete button (or show a strong warning) for any type named “orchestrator” or marked as `root: true`.
-- The orchestrator instance itself (the one running the Pi shell) should never be killable from the dashboard either.
-
-**Test:**
-- Attempt to delete the orchestrator type → blocked or warned.
-- Attempt to kill the root agent from the dashboard → blocked.
-
----
-
-### Issue 9: Polish, Logging & Documentation
-
-**Goal**: Make sure the system is pleasant to use and well documented.
-
-**What to do:**
-- Ensure all new flows have clear log messages.
-- Update `README.md` with the new vision and basic usage.
-- Add a short “How to get started” section that shows the orchestrator creating its first sub-agent.
-- Verify no dead code or old spawn-form references remain.
-
-**Test:**
-- Run through a full session: start Pi, open dashboard, let orchestrator create a researcher, inspect via dashboard, emergency stop.
-
----
-
-## How to Resume
-
-1. `cd` into a git repository (not `~/.pi/`)
-2. Start `pi`
-3. `/reload`
-4. Run `/orchestrate` to enable orchestration mode
-5. Open the dashboard (`/dashboard`) to manage agent types or hit Emergency Stop if required
-
-Let’s keep this file focused and actionable. When an issue is done, we can mark it complete and move on.
