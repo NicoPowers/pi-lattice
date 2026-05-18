@@ -396,6 +396,43 @@ function toggleItemText(text: string, item: string): string {
   return next.join("\n");
 }
 
+function normalizeTemplateName(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^[^a-zA-Z0-9]+/, "")
+    .replace(/[._-]+$/, "");
+}
+
+async function responseErrorText(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.error || text;
+  } catch {
+    return text;
+  }
+}
+
+function FieldLabel({ children, required, optional }: { children: React.ReactNode; required?: boolean; optional?: boolean }) {
+  return <label className="block text-xs uppercase tracking-wide text-muted-foreground">{children} {required && <span className="text-destructive">*</span>}{optional && <span className="normal-case text-muted-foreground/70">(optional)</span>}</label>;
+}
+
+function FormMessage({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "error" | "success" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return <p className={`text-xs ${className}`}>{children}</p>;
+}
+
+function ValidationSummary({ errors, serverError }: { errors: string[]; serverError?: string }) {
+  if (!errors.length && !serverError) return null;
+  return <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+    {serverError && <div>{serverError}</div>}
+    {!!errors.length && <ul className="list-disc pl-5">{errors.map((error) => <li key={error}>{error}</li>)}</ul>}
+  </div>;
+}
+
 function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }: { kind: "skill" | "extension"; templates: TemplateInfo[]; onNew: () => void; onEdit: (template: TemplateInfo) => void; onDeleted: () => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
   const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
   const deleteTemplate = async (name: string) => {
@@ -422,30 +459,44 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
   const [description, setDescription] = useState("");
   const [applyToAll, setApplyToAll] = useState(false);
   const [itemsText, setItemsText] = useState("");
+  const [serverError, setServerError] = useState("");
   useEffect(() => {
     if (!open) return;
     setName(template?.name || "");
     setDescription(template?.description || "");
     setApplyToAll(!!template?.applyToAll);
     setItemsText((template?.items || []).join("\n"));
+    setServerError("");
   }, [open, template]);
   const field = kind === "skill" ? "skills" : "extensions";
+  const savedName = template ? name.trim() : normalizeTemplateName(name);
+  const templateLabel = kind === "skill" ? "skill" : "extension";
+  const errors = [
+    !savedName ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined,
+  ].filter(Boolean) as string[];
   const save = async () => {
-    const payload = { name: name.trim(), description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
+    setServerError("");
+    if (errors.length) return;
+    const payload = { name: savedName, description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
     const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok) return alert("Failed to save: " + await res.text());
+    if (!res.ok) return setServerError("Failed to save: " + await responseErrorText(res));
     onSaved();
   };
   const title = `${template ? "Edit" : "New"} ${kind === "skill" ? "Skill" : "Extension"} Template`;
   return <Dialog open={open} title={title} onOpenChange={onClose}>
     <div className="space-y-3">
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Name</label><Input value={name} onChange={(e) => setName(e.target.value)} readOnly={!!template} />
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Description</label><Input value={description} onChange={(e) => setDescription(e.target.value)} />
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} /> Apply to all newly spawned agents</label>
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">{kind === "skill" ? "Skills" : "Extensions"} (comma or newline separated)</label><Textarea rows={7} value={itemsText} onChange={(e) => setItemsText(e.target.value)} />
+      <FieldLabel required>Name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} readOnly={!!template} aria-invalid={!savedName} className={!savedName ? "border-destructive/60" : undefined} />
+      {!template && <FormMessage tone={savedName ? "success" : "muted"}>Will be saved as: <code className="rounded bg-muted px-1 py-0.5 text-foreground">{savedName || "—"}</code></FormMessage>}
+      <FormMessage>Required. Spaces and unsupported characters are converted to dashes; saved names may contain letters, numbers, dot, underscore, and dash.</FormMessage>
+      <FieldLabel required>Description</FieldLabel><Input value={description} onChange={(e) => setDescription(e.target.value)} aria-invalid={!description.trim()} className={!description.trim() ? "border-destructive/60" : undefined} />
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} /> Apply to all newly spawned agents <span className="text-xs text-muted-foreground">(optional)</span></label>
+      <FieldLabel optional>{kind === "skill" ? "Skills" : "Extensions"}</FieldLabel><Textarea rows={7} value={itemsText} onChange={(e) => setItemsText(e.target.value)} placeholder={`Optional ${templateLabel} names, comma or newline separated`} />
+      <FormMessage>Optional. Leave empty to create a template shell and add {field} later.</FormMessage>
       {kind === "skill" && <div className="space-y-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Discovered skills</div><div className="flex flex-wrap gap-1">{availableSkills.length ? availableSkills.map((skill) => <button key={skill.name} title={skill.description || skill.path} className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setItemsText((prev) => splitItems(`${prev}\n${skill.name}`).join("\n"))}>{skill.name}</button>) : <span className="text-xs text-muted-foreground">No skills discovered.</span>}</div></div>}
       {kind === "extension" && <div className="space-y-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Discovered extensions</div><div className="flex flex-wrap gap-1">{availableExtensions.length ? availableExtensions.map((ext) => <button key={ext.name} className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setItemsText((prev) => splitItems(`${prev}\n${ext.name}`).join("\n"))}>{ext.name}</button>) : <span className="text-xs text-muted-foreground">No extensions discovered.</span>}</div></div>}
-      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save}>Save Template</Button></div>
+      <ValidationSummary errors={errors} serverError={serverError} />
+      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!!errors.length}>Save Template</Button></div>
     </div>
   </Dialog>;
 }
@@ -466,6 +517,7 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
   const [skillTemplatesText, setSkillTemplatesText] = useState("");
   const [extensionTemplatesText, setExtensionTemplatesText] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [serverError, setServerError] = useState("");
   useEffect(() => {
     if (!open) return;
     setName(typeDef?.name || "");
@@ -475,28 +527,35 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
     setSkillTemplatesText((typeDef?.skillTemplates || []).join("\n"));
     setExtensionTemplatesText((typeDef?.extensionTemplates || []).join("\n"));
     setPrompt("");
+    setServerError("");
   }, [open, typeDef]);
   const selectedModel = models.find((m) => m.id === model);
   const levels = selectedModel?.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  const errors = [
+    !name.trim() ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined,
+  ].filter(Boolean) as string[];
   const save = async () => {
-    if (!name.trim() || !description.trim()) return alert("Name and description are required");
+    setServerError("");
+    if (errors.length) return;
     const payload = { name: name.trim(), description: description.trim(), model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
     const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok) return alert("Failed to save: " + await res.text());
+    if (!res.ok) return setServerError("Failed to save: " + await responseErrorText(res));
     onSaved();
   };
   return <Dialog open={open} title={typeDef ? `Edit ${typeDef.name}` : "New Agent Type"} onOpenChange={onClose}>
     <div className="space-y-3">
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Name</label><Input value={name} onChange={(e) => setName(e.target.value)} readOnly={!!typeDef} />
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Description</label><Input value={description} onChange={(e) => setDescription(e.target.value)} />
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Model</label><Select value={model} onChange={(e) => setModel(e.target.value)}><option value="">-- default --</option>{models.map((m) => <option key={m.id} value={m.id}>{m.provider ? `${m.provider}/${m.id}` : m.id}</option>)}</Select>
-      {selectedModel?.thinking && <><label className="block text-xs uppercase tracking-wide text-muted-foreground">Thinking Level</label><Select value={thinking} onChange={(e) => setThinking(e.target.value)}>{levels.map((level) => <option key={level} value={level}>{level}</option>)}</Select></>}
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Skill Templates</label><Textarea rows={3} value={skillTemplatesText} onChange={(e) => setSkillTemplatesText(e.target.value)} placeholder={skillTemplates.map((template) => template.name).join(", ") || "common, frontend"} />
+      <FieldLabel required>Name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} readOnly={!!typeDef} aria-invalid={!name.trim()} className={!name.trim() ? "border-destructive/60" : undefined} />
+      <FieldLabel required>Description</FieldLabel><Input value={description} onChange={(e) => setDescription(e.target.value)} aria-invalid={!description.trim()} className={!description.trim() ? "border-destructive/60" : undefined} />
+      <FieldLabel optional>Model</FieldLabel><Select value={model} onChange={(e) => setModel(e.target.value)}><option value="">-- default --</option>{models.map((m) => <option key={m.id} value={m.id}>{m.provider ? `${m.provider}/${m.id}` : m.id}</option>)}</Select>
+      {selectedModel?.thinking && <><FieldLabel optional>Thinking Level</FieldLabel><Select value={thinking} onChange={(e) => setThinking(e.target.value)}>{levels.map((level) => <option key={level} value={level}>{level}</option>)}</Select></>}
+      <FieldLabel optional>Skill Templates</FieldLabel><Textarea rows={3} value={skillTemplatesText} onChange={(e) => setSkillTemplatesText(e.target.value)} placeholder={skillTemplates.map((template) => template.name).join(", ") || "common, frontend"} />
       <TemplateChips templates={skillTemplates} selectedText={skillTemplatesText} emptyText="No skill templates defined yet." onToggle={(name) => setSkillTemplatesText((prev) => toggleItemText(prev, name))} />
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Extension Templates</label><Textarea rows={3} value={extensionTemplatesText} onChange={(e) => setExtensionTemplatesText(e.target.value)} placeholder={extensionTemplates.map((template) => template.name).join(", ") || "browser-tools"} />
+      <FieldLabel optional>Extension Templates</FieldLabel><Textarea rows={3} value={extensionTemplatesText} onChange={(e) => setExtensionTemplatesText(e.target.value)} placeholder={extensionTemplates.map((template) => template.name).join(", ") || "browser-tools"} />
       <TemplateChips templates={extensionTemplates} selectedText={extensionTemplatesText} emptyText="No extension templates defined yet." onToggle={(name) => setExtensionTemplatesText((prev) => toggleItemText(prev, name))} />
-      <label className="block text-xs uppercase tracking-wide text-muted-foreground">Prompt / Instructions</label><Textarea rows={7} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save}>Save Type</Button></div>
+      <FieldLabel optional>Prompt / Instructions</FieldLabel><Textarea rows={7} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+      <ValidationSummary errors={errors} serverError={serverError} />
+      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!!errors.length}>Save Type</Button></div>
     </div>
   </Dialog>;
 }

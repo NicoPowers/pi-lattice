@@ -17947,6 +17947,60 @@ function toggleItemText(text, item) {
   return next.join(`
 `);
 }
+function normalizeTemplateName(value) {
+  return value.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/\.{2,}/g, ".").replace(/^[^a-zA-Z0-9]+/, "").replace(/[._-]+$/, "");
+}
+async function responseErrorText(res) {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.error || text;
+  } catch {
+    return text;
+  }
+}
+function FieldLabel({ children, required, optional }) {
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
+    className: "block text-xs uppercase tracking-wide text-muted-foreground",
+    children: [
+      children,
+      " ",
+      required && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+        className: "text-destructive",
+        children: "*"
+      }, undefined, false, undefined, this),
+      optional && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+        className: "normal-case text-muted-foreground/70",
+        children: "(optional)"
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function FormMessage({ children, tone = "muted" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("p", {
+    className: `text-xs ${className}`,
+    children
+  }, undefined, false, undefined, this);
+}
+function ValidationSummary({ errors, serverError }) {
+  if (!errors.length && !serverError)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+    className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+    children: [
+      serverError && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
+        children: serverError
+      }, undefined, false, undefined, this),
+      !!errors.length && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("ul", {
+        className: "list-disc pl-5",
+        children: errors.map((error) => /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("li", {
+          children: error
+        }, error, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
 function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
   const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
   const deleteTemplate = async (name) => {
@@ -18051,6 +18105,7 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
   const [description, setDescription] = import_react.useState("");
   const [applyToAll, setApplyToAll] = import_react.useState(false);
   const [itemsText, setItemsText] = import_react.useState("");
+  const [serverError, setServerError] = import_react.useState("");
   import_react.useEffect(() => {
     if (!open)
       return;
@@ -18059,13 +18114,23 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
     setApplyToAll(!!template?.applyToAll);
     setItemsText((template?.items || []).join(`
 `));
+    setServerError("");
   }, [open, template]);
   const field = kind === "skill" ? "skills" : "extensions";
+  const savedName = template ? name.trim() : normalizeTemplateName(name);
+  const templateLabel = kind === "skill" ? "skill" : "extension";
+  const errors = [
+    !savedName ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
   const save = async () => {
-    const payload = { name: name.trim(), description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
+    setServerError("");
+    if (errors.length)
+      return;
+    const payload = { name: savedName, description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
     const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok)
-      return alert("Failed to save: " + await res.text());
+      return setServerError("Failed to save: " + await responseErrorText(res));
     onSaved();
   };
   const title = `${template ? "Edit" : "New"} ${kind === "skill" ? "Skill" : "Extension"} Template`;
@@ -18076,22 +18141,39 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
     children: /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
       className: "space-y-3",
       children: [
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          required: true,
           children: "Name"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
           value: name,
           onChange: (e) => setName(e.target.value),
-          readOnly: !!template
+          readOnly: !!template,
+          "aria-invalid": !savedName,
+          className: !savedName ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        !template && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FormMessage, {
+          tone: savedName ? "success" : "muted",
+          children: [
+            "Will be saved as: ",
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("code", {
+              className: "rounded bg-muted px-1 py-0.5 text-foreground",
+              children: savedName || "—"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FormMessage, {
+          children: "Required. Spaces and unsupported characters are converted to dashes; saved names may contain letters, numbers, dot, underscore, and dash."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          required: true,
           children: "Description"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
           value: description,
-          onChange: (e) => setDescription(e.target.value)
+          onChange: (e) => setDescription(e.target.value),
+          "aria-invalid": !description.trim(),
+          className: !description.trim() ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
           className: "flex items-center gap-2 text-sm",
@@ -18101,21 +18183,30 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
               checked: applyToAll,
               onChange: (e) => setApplyToAll(e.target.checked)
             }, undefined, false, undefined, this),
-            " Apply to all newly spawned agents"
+            " Apply to all newly spawned agents ",
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("span", {
+              className: "text-xs text-muted-foreground",
+              children: "(optional)"
+            }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
-          children: [
-            kind === "skill" ? "Skills" : "Extensions",
-            " (comma or newline separated)"
-          ]
-        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          optional: true,
+          children: kind === "skill" ? "Skills" : "Extensions"
+        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
           rows: 7,
           value: itemsText,
-          onChange: (e) => setItemsText(e.target.value)
+          onChange: (e) => setItemsText(e.target.value),
+          placeholder: `Optional ${templateLabel} names, comma or newline separated`
         }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FormMessage, {
+          children: [
+            "Optional. Leave empty to create a template shell and add ",
+            field,
+            " later."
+          ]
+        }, undefined, true, undefined, this),
         kind === "skill" && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
           className: "space-y-2",
           children: [
@@ -18161,6 +18252,10 @@ ${ext.name}`).join(`
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(ValidationSummary, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
           className: "flex justify-end gap-2",
           children: [
@@ -18171,6 +18266,7 @@ ${ext.name}`).join(`
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
               onClick: save,
+              disabled: !!errors.length,
               children: "Save Template"
             }, undefined, false, undefined, this)
           ]
@@ -18218,6 +18314,7 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
   const [skillTemplatesText, setSkillTemplatesText] = import_react.useState("");
   const [extensionTemplatesText, setExtensionTemplatesText] = import_react.useState("");
   const [prompt, setPrompt] = import_react.useState("");
+  const [serverError, setServerError] = import_react.useState("");
   import_react.useEffect(() => {
     if (!open)
       return;
@@ -18230,16 +18327,22 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
     setExtensionTemplatesText((typeDef?.extensionTemplates || []).join(`
 `));
     setPrompt("");
+    setServerError("");
   }, [open, typeDef]);
   const selectedModel = models.find((m) => m.id === model);
   const levels = selectedModel?.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  const errors = [
+    !name.trim() ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
   const save = async () => {
-    if (!name.trim() || !description.trim())
-      return alert("Name and description are required");
+    setServerError("");
+    if (errors.length)
+      return;
     const payload = { name: name.trim(), description: description.trim(), model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
     const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok)
-      return alert("Failed to save: " + await res.text());
+      return setServerError("Failed to save: " + await responseErrorText(res));
     onSaved();
   };
   return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Dialog, {
@@ -18249,25 +18352,29 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
     children: /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
       className: "space-y-3",
       children: [
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          required: true,
           children: "Name"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
           value: name,
           onChange: (e) => setName(e.target.value),
-          readOnly: !!typeDef
+          readOnly: !!typeDef,
+          "aria-invalid": !name.trim(),
+          className: !name.trim() ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          required: true,
           children: "Description"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Input, {
           value: description,
-          onChange: (e) => setDescription(e.target.value)
+          onChange: (e) => setDescription(e.target.value),
+          "aria-invalid": !description.trim(),
+          className: !description.trim() ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          optional: true,
           children: "Model"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Select, {
@@ -18286,8 +18393,8 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
         }, undefined, true, undefined, this),
         selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(jsx_dev_runtime8.Fragment, {
           children: [
-            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-              className: "block text-xs uppercase tracking-wide text-muted-foreground",
+            /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+              optional: true,
               children: "Thinking Level"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Select, {
@@ -18300,8 +18407,8 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          optional: true,
           children: "Skill Templates"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
@@ -18316,8 +18423,8 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
           emptyText: "No skill templates defined yet.",
           onToggle: (name2) => setSkillTemplatesText((prev) => toggleItemText(prev, name2))
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          optional: true,
           children: "Extension Templates"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
@@ -18332,14 +18439,18 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
           emptyText: "No extension templates defined yet.",
           onToggle: (name2) => setExtensionTemplatesText((prev) => toggleItemText(prev, name2))
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("label", {
-          className: "block text-xs uppercase tracking-wide text-muted-foreground",
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(FieldLabel, {
+          optional: true,
           children: "Prompt / Instructions"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Textarea, {
           rows: 7,
           value: prompt,
           onChange: (e) => setPrompt(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(ValidationSummary, {
+          errors,
+          serverError
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("div", {
           className: "flex justify-end gap-2",
@@ -18351,6 +18462,7 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime8.jsxDEV(Button, {
               onClick: save,
+              disabled: !!errors.length,
               children: "Save Type"
             }, undefined, false, undefined, this)
           ]
