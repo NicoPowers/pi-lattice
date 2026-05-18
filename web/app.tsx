@@ -14,6 +14,9 @@ type AgentState = AgentInfo & { text?: string };
 type LogLine = { id: number; text: string; level: "info" | "success" | "warn" | "error" };
 type Tab = "agents" | "types" | "skills" | "skillTemplates" | "extensionTemplates" | "hierarchy" | "log";
 type TemplateInfo = { name: string; description: string; items: string[]; applyToAll?: boolean; source: string; filePath: string };
+type SkillDiagnostic = { type: string; message: string; path?: string };
+type SkillFileEntry = { path: string; name: string; type: "file" | "directory"; size?: number; markdown?: boolean; editable: boolean };
+type SkillFileDetail = { path: string; content: string; size: number; mtimeMs: number; hash: string; markdown: boolean; editable: boolean };
 
 type StatsEntry = { error?: string; stats?: any; state?: any };
 
@@ -57,6 +60,7 @@ function App() {
   const [skillTemplates, setSkillTemplates] = useState<TemplateInfo[]>([]);
   const [extensionTemplates, setExtensionTemplates] = useState<TemplateInfo[]>([]);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [skillDiagnostics, setSkillDiagnostics] = useState<SkillDiagnostic[]>([]);
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<{ kind: "skill" | "extension"; template?: TemplateInfo } | null>(null);
   const [editingType, setEditingType] = useState<AgentTypeInfo | null | undefined>(undefined);
@@ -120,6 +124,11 @@ function App() {
       if (skillsRes.ok) {
         const data = await skillsRes.json();
         setSkills(Array.isArray(data) ? data : []);
+      }
+      const diagnosticsRes = await fetch("/api/skill-diagnostics");
+      if (diagnosticsRes.ok) {
+        const data = await diagnosticsRes.json();
+        setSkillDiagnostics(Array.isArray(data) ? data : []);
       }
     } catch (e: any) {
       pushLog(`Failed to load templates: ${e.message}`, "error");
@@ -248,7 +257,7 @@ function App() {
       <main className="flex-1 overflow-hidden p-4">
         {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
         {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
-        {activeTab === "skills" && <SkillLibraryPanel skills={skills} onChanged={refreshTemplates} />}
+        {activeTab === "skills" && <SkillLibraryPanel skills={skills} diagnostics={skillDiagnostics} skillTemplates={skillTemplates} onEditTemplate={(template) => setEditingTemplate({ kind: "skill", template })} onChanged={refreshTemplates} />}
         {activeTab === "skillTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="skill" templates={skillTemplates} onNew={() => setEditingTemplate({ kind: "skill" })} onEdit={(template) => setEditingTemplate({ kind: "skill", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "extensionTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="extension" templates={extensionTemplates} onNew={() => setEditingTemplate({ kind: "extension" })} onEdit={(template) => setEditingTemplate({ kind: "extension", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "hierarchy" && <PageFrame mode="wide"><HierarchyPanel agents={agents} /></PageFrame>}
@@ -394,24 +403,36 @@ function EventLog({ logs }: { logs: LogLine[] }) {
   return <Card className="min-h-[70vh]"><CardHeader><CardTitle>Event Log</CardTitle></CardHeader><CardContent className="max-h-[70vh] space-y-1 overflow-auto font-mono text-xs text-muted-foreground">{logs.length ? logs.map((line) => <div key={line.id} className={`border-l-2 pl-2 ${line.level === "error" ? "border-destructive" : line.level === "success" ? "border-emerald-400" : line.level === "warn" ? "border-amber-400" : "border-primary"}`}>{line.text}</div>) : "Waiting for events…"}</CardContent></Card>;
 }
 
+function displayScopeLabel(scope?: string): string {
+  if (scope === "user") return "global";
+  return scope || "unknown";
+}
+
 function skillScopeLabel(skill: SkillInfo): string {
-  return skill.scope || skill.source || "unknown";
+  return displayScopeLabel(skill.scope || skill.source);
 }
 
 function normalizeSkillName(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
 
-function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChanged: () => void }) {
+function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate, onChanged }: { skills: SkillInfo[]; diagnostics: SkillDiagnostic[]; skillTemplates: TemplateInfo[]; onEditTemplate: (template: TemplateInfo) => void; onChanged: () => void }) {
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [detail, setDetail] = useState<SkillDetailInfo | null>(null);
   const [detailView, setDetailView] = useState<"preview" | "raw" | "metadata">("preview");
+  const [tree, setTree] = useState<SkillFileEntry[]>([]);
+  const [selectedFile, setSelectedFile] = useState("SKILL.md");
+  const [fileDetail, setFileDetail] = useState<SkillFileDetail | null>(null);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saveError, setSaveError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [addTemplateName, setAddTemplateName] = useState("");
+  const [templateError, setTemplateError] = useState("");
+  const [editableFilter, setEditableFilter] = useState("all");
+  const [referenceFilter, setReferenceFilter] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const scopes = useMemo(() => Array.from(new Set(skills.map(skillScopeLabel))).sort(), [skills]);
@@ -420,10 +441,17 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
     const q = query.trim().toLowerCase();
     return skills.filter((skill) => {
       if (scope !== "all" && skillScopeLabel(skill) !== scope) return false;
+      if (editableFilter === "editable" && !skill.editable) return false;
+      if (editableFilter === "readonly" && skill.editable) return false;
+      const referenced = skillTemplates.some((template) => template.items.includes(skill.name));
+      if (referenceFilter === "referenced" && !referenced) return false;
+      if (referenceFilter === "unreferenced" && referenced) return false;
       if (!q) return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
-  }, [query, scope, skills]);
+  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  const templatesUsingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
 
   useEffect(() => {
     if (!selectedSkill?.id) {
@@ -438,7 +466,7 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
         if (!res.ok) throw new Error(await responseErrorText(res));
         return res.json();
       })
-      .then((data) => { if (!cancelled) { setDetail(data); setEditContent(data.content || ""); setEditing(false); setSaveError(""); } })
+      .then((data) => { if (!cancelled) { setDetail(data); setSelectedFile("SKILL.md"); setFileDetail(null); setEditContent(data.content || ""); setEditing(false); setSaveError(""); } })
       .catch((err) => { if (!cancelled) { setDetail(null); setError(err.message); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -449,9 +477,44 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
     setSelectedId(skills[0]?.id);
   }, [selectedId, skills]);
 
+  useEffect(() => {
+    if (!selectedSkill?.id) { setTree([]); return; }
+    let cancelled = false;
+    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await responseErrorText(res));
+        return res.json();
+      })
+      .then((data) => { if (!cancelled) setTree(Array.isArray(data.files) ? data.files : []); })
+      .catch(() => { if (!cancelled) setTree([]); });
+    return () => { cancelled = true; };
+  }, [selectedSkill?.id]);
+
+  const openSkillFile = useCallback(async (relativePath: string) => {
+    if (!selectedSkill?.id) return;
+    if (relativePath === "SKILL.md") { setSelectedFile("SKILL.md"); setFileDetail(null); return; }
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/files?path=${encodeURIComponent(relativePath)}`);
+    if (!res.ok) return setSaveError(await responseErrorText(res));
+    const file = await res.json();
+    setSelectedFile(file.path);
+    setFileDetail(file);
+    setEditing(false);
+    setDetailView("preview");
+  }, [selectedSkill?.id]);
+
   const saveEdit = async () => {
     if (!detail?.skill.id) return;
     setSaveError("");
+    if (fileDetail) {
+      const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: fileDetail.hash }) });
+      if (!res.ok) return setSaveError(await responseErrorText(res));
+      const next = await res.json();
+      setFileDetail(next);
+      setEditContent(next.content || "");
+      setEditing(false);
+      return;
+    }
     const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
     if (!res.ok) return setSaveError(await responseErrorText(res));
     const next = await res.json();
@@ -460,6 +523,9 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
     setEditing(false);
     onChanged();
   };
+  const displayedContent = fileDetail?.content ?? detail?.content ?? "";
+  const displayedBody = fileDetail ? fileDetail.content : (detail?.body || detail?.content || "");
+
   const deleteSelected = async () => {
     if (!detail?.skill.id) return;
     if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`)) return;
@@ -471,13 +537,29 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
     setSelectedId(undefined);
     onChanged();
   };
+  const addToTemplate = async () => {
+    if (!selectedSkill || !addTemplateName) return;
+    const template = skillTemplates.find((candidate) => candidate.name === addTemplateName);
+    if (!template) return;
+    setTemplateError("");
+    const skills = Array.from(new Set([...template.items, selectedSkill.name]));
+    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, applyToAll: !!template.applyToAll, skills }) });
+    if (!res.ok) return setTemplateError(await responseErrorText(res));
+    setAddTemplateName("");
+    onChanged();
+  };
 
-  return <div className="grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(320px,400px)_1fr]">
+  return <div className="grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(380px,460px)_1fr]">
     <Card className="min-h-0 overflow-hidden">
       <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Skill Library</CardTitle><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCreating(true)}>+ New Skill</Button></div></CardHeader>
       <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search skills…" />
-        <Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="all">All sources</option>{scopes.map((value) => <option key={value} value={value}>{value}</option>)}</Select>
+        <div className="grid gap-2">
+          <Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="all">All sources</option>{scopes.map((value) => <option key={value} value={value}>{value}</option>)}</Select>
+          <Select value={editableFilter} onChange={(e) => setEditableFilter(e.target.value)}><option value="all">Editable + read-only</option><option value="editable">Editable only</option><option value="readonly">Read-only only</option></Select>
+          <Select value={referenceFilter} onChange={(e) => setReferenceFilter(e.target.value)}><option value="all">All template usage</option><option value="referenced">In a template</option><option value="unreferenced">Not in templates</option></Select>
+        </div>
+        {!!diagnostics.length && <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-200">{diagnostics.length} skill diagnostic{diagnostics.length === 1 ? "" : "s"}. Select Metadata or inspect invalid skill files for details.</div>}
         <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
           {!filtered.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No skills found.</div> : filtered.map((skill) => {
             const active = skill.id === selectedSkill?.id;
@@ -491,20 +573,31 @@ function SkillLibraryPanel({ skills, onChanged }: { skills: SkillInfo[]; onChang
       </CardContent>
     </Card>
     <Card className="min-h-0 overflow-hidden">
-      <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(detail?.content || ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
+      <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(fileDetail?.content ?? detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(fileDetail?.content ?? detail?.content ?? ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
       <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
         {!selectedSkill ? <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No skills discovered.</div> : <>
           <div className="flex flex-wrap gap-2"><Badge variant="outline">{skillScopeLabel(selectedSkill)}</Badge><Badge variant="outline">{selectedSkill.kind || "skill"}</Badge>{selectedSkill.editable ? <Badge variant="success">editable</Badge> : <Badge variant="warning">read-only</Badge>}</div>
           <div className="break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground">{selectedSkill.path}</div>
+          <div className="rounded-md border border-border bg-background p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Skill templates using this skill</div>{!!templatesMissingSkill.length && <div className="flex gap-2"><Select value={addTemplateName} onChange={(e) => setAddTemplateName(e.target.value)} className="py-1 text-xs"><option value="">Add to template…</option>{templatesMissingSkill.map((template) => <option key={template.name} value={template.name}>{template.name}</option>)}</Select><Button variant="secondary" className="px-2 py-1 text-xs" onClick={addToTemplate} disabled={!addTemplateName}>Add</Button></div>}</div>
+            <div className="flex flex-wrap gap-1">{templatesUsingSkill.length ? templatesUsingSkill.map((template) => <button key={template.name} type="button" onClick={() => onEditTemplate(template)} title="Edit template" className="rounded-full"><Badge variant="default">{template.name}</Badge></button>) : <span className="text-xs text-muted-foreground">No skill templates include this skill yet.</span>}</div>
+            {templateError && <div className="mt-2 text-xs text-destructive">{templateError}</div>}
+          </div>
           {loading && <div className="text-sm text-muted-foreground">Loading preview…</div>}
           {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           {saveError && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{saveError}</div>}
-          {detail && <div className="min-h-0 flex-1 overflow-hidden">
-            {editing ? <div className="grid h-full gap-3 xl:grid-cols-2"><Textarea className="h-full resize-none font-mono text-xs" value={editContent} onChange={(e) => setEditContent(e.target.value)} /><MarkdownPreview content={parseMarkdownBody(editContent)} /></div> : <>
-              {detailView === "preview" && <MarkdownPreview content={detail.body || detail.content} />}
-              {detailView === "raw" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{detail.content}</pre>}
-              {detailView === "metadata" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{JSON.stringify({ skill: detail.skill, frontmatter: detail.frontmatter, mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)}</pre>}
-            </>}
+          {detail && <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]">
+            <div className="min-h-0 overflow-auto rounded-md border border-border bg-background p-2">
+              <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Files</div>
+              {tree.length ? tree.map((file) => <button key={file.path} type="button" disabled={file.type === "directory"} className={`block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} style={{ paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` }} onClick={() => file.type === "file" && openSkillFile(file.path)}>{file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• "}{file.name}</button>) : <div className="text-xs text-muted-foreground">No file tree available.</div>}
+            </div>
+            <div className="min-h-0 overflow-hidden">
+              {editing ? <div className="grid h-full gap-3 xl:grid-cols-2"><Textarea className="h-full resize-none font-mono text-xs" value={editContent} onChange={(e) => setEditContent(e.target.value)} /><MarkdownPreview content={parseMarkdownBody(editContent)} /></div> : <>
+                {detailView === "preview" && <MarkdownPreview content={displayedBody} basePath={selectedFile} onOpenRelative={openSkillFile} />}
+                {detailView === "raw" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{displayedContent}</pre>}
+                {detailView === "metadata" && <pre className="h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6">{JSON.stringify({ skill: detail.skill, selectedFile, file: fileDetail, frontmatter: detail.frontmatter, diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath), mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)}</pre>}
+              </>}
+            </div>
           </div>}
         </>}
       </CardContent>
@@ -523,23 +616,25 @@ function CreateSkillDialog({ open, onClose, onCreated }: { open: boolean; onClos
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
+  const [scaffold, setScaffold] = useState("minimal");
   const [serverError, setServerError] = useState("");
-  useEffect(() => { if (open) { setScope("project"); setName(""); setDescription(""); setBody(""); setServerError(""); } }, [open]);
+  useEffect(() => { if (open) { setScope("project"); setName(""); setDescription(""); setBody(""); setScaffold("minimal"); setServerError(""); } }, [open]);
   const savedName = normalizeSkillName(name);
   const errors = [!savedName ? "Name is required." : undefined, !description.trim() ? "Description is required." : undefined].filter(Boolean) as string[];
   const create = async () => {
     setServerError("");
     if (errors.length) return;
-    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim(), body: body.trim() || undefined }) });
+    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold }) });
     if (!res.ok) return setServerError(await responseErrorText(res));
     onCreated(await res.json());
   };
   return <Dialog open={open} title="New Skill" onOpenChange={onClose} className="max-w-3xl">
     <div className="space-y-3">
-      <FieldLabel required>Scope</FieldLabel><Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="project">Project (.pi/skills)</option><option value="global">Global (~/.pi/agent/skills)</option></Select>
+      <FieldLabel required>Scope</FieldLabel><Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="project">Project (.pi/skills)</option><option value="global">Global / all repos (~/.pi/agent/skills)</option></Select>
       <FieldLabel required>Name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} />
       <FormMessage tone={savedName ? "success" : "muted"}>Will be saved as: <code className="rounded bg-muted px-1 py-0.5 text-foreground">{savedName || "—"}</code></FormMessage>
       <FieldLabel required>Description</FieldLabel><Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <FieldLabel optional>Scaffold</FieldLabel><Select value={scaffold} onChange={(e) => setScaffold(e.target.value)}><option value="minimal">Minimal SKILL.md only</option><option value="rich">Rich directory with references/scripts/assets/examples</option></Select>
       <FieldLabel optional>Initial body</FieldLabel><Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# My Skill\n\n## Workflow\n\n1. ..." />
       <ValidationSummary errors={errors} serverError={serverError} />
       <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} disabled={!!errors.length}>Create Skill</Button></div>
@@ -547,14 +642,35 @@ function CreateSkillDialog({ open, onClose, onCreated }: { open: boolean; onClos
   </Dialog>;
 }
 
-function MarkdownPreview({ content }: { content: string }) {
+function resolveRelativeMarkdownLink(basePath: string, href?: string): string | undefined {
+  if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href)) return undefined;
+  const clean = href.split("#")[0].split("?")[0];
+  if (!clean.toLowerCase().endsWith(".md")) return undefined;
+  const baseParts = basePath.includes("/") ? basePath.split("/").slice(0, -1) : [];
+  const parts: string[] = [];
+  for (const part of [...baseParts, ...clean.split("/")]) {
+    if (!part || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function escapeXmlLikeBlocks(content: string): string {
+  return content.replace(/^<([a-z][\w-]*)([^>]*)>$/gim, "`<$1$2>`").replace(/^<\/([a-z][\w-]*)>$/gim, "`</$1>`");
+}
+
+function MarkdownPreview({ content, basePath = "SKILL.md", onOpenRelative }: { content: string; basePath?: string; onOpenRelative?: (path: string) => void }) {
   return <div className="h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6">
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
       h1: ({ children }) => <h1 className="mb-3 border-b border-border pb-2 text-2xl font-semibold">{children}</h1>,
       h2: ({ children }) => <h2 className="mb-2 mt-4 text-xl font-semibold">{children}</h2>,
       h3: ({ children }) => <h3 className="mb-2 mt-3 text-lg font-semibold">{children}</h3>,
       p: ({ children }) => <p className="mb-3 text-foreground/90">{children}</p>,
-      a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{children}</a>,
+      a: ({ href, children }) => {
+        const relative = resolveRelativeMarkdownLink(basePath, href);
+        return <a href={href} target={relative ? undefined : "_blank"} rel={relative ? undefined : "noreferrer"} className="text-primary underline underline-offset-2" onClick={(e) => { if (relative && onOpenRelative) { e.preventDefault(); onOpenRelative(relative); } }}>{children}</a>;
+      },
       ul: ({ children }) => <ul className="mb-3 list-disc pl-5">{children}</ul>,
       ol: ({ children }) => <ol className="mb-3 list-decimal pl-5">{children}</ol>,
       code: ({ children, className }) => className ? <code className={className}>{children}</code> : <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{children}</code>,
@@ -563,7 +679,7 @@ function MarkdownPreview({ content }: { content: string }) {
       table: ({ children }) => <div className="mb-3 overflow-auto"><table className="w-full border-collapse text-xs">{children}</table></div>,
       th: ({ children }) => <th className="border border-border px-2 py-1 text-left font-semibold">{children}</th>,
       td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
-    }}>{content}</ReactMarkdown>
+    }}>{escapeXmlLikeBlocks(content)}</ReactMarkdown>
   </div>;
 }
 

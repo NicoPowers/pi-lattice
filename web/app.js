@@ -29892,6 +29892,7 @@ function App() {
   const [skillTemplates, setSkillTemplates] = import_react2.useState([]);
   const [extensionTemplates, setExtensionTemplates] = import_react2.useState([]);
   const [skills, setSkills] = import_react2.useState([]);
+  const [skillDiagnostics, setSkillDiagnostics] = import_react2.useState([]);
   const [extensions, setExtensions] = import_react2.useState([]);
   const [editingTemplate, setEditingTemplate] = import_react2.useState(null);
   const [editingType, setEditingType] = import_react2.useState(undefined);
@@ -29951,6 +29952,11 @@ function App() {
       if (skillsRes.ok) {
         const data = await skillsRes.json();
         setSkills(Array.isArray(data) ? data : []);
+      }
+      const diagnosticsRes = await fetch("/api/skill-diagnostics");
+      if (diagnosticsRes.ok) {
+        const data = await diagnosticsRes.json();
+        setSkillDiagnostics(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       pushLog(`Failed to load templates: ${e.message}`, "error");
@@ -30128,6 +30134,9 @@ function App() {
           }, undefined, false, undefined, this),
           activeTab === "skills" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillLibraryPanel, {
             skills,
+            diagnostics: skillDiagnostics,
+            skillTemplates,
+            onEditTemplate: (template) => setEditingTemplate({ kind: "skill", template }),
             onChanged: refreshTemplates
           }, undefined, false, undefined, this),
           activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
@@ -30560,22 +30569,34 @@ function EventLog({ logs }) {
     ]
   }, undefined, true, undefined, this);
 }
+function displayScopeLabel(scope) {
+  if (scope === "user")
+    return "global";
+  return scope || "unknown";
+}
 function skillScopeLabel(skill) {
-  return skill.scope || skill.source || "unknown";
+  return displayScopeLabel(skill.scope || skill.source);
 }
 function normalizeSkillName(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
-function SkillLibraryPanel({ skills, onChanged }) {
+function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate, onChanged }) {
   const [query, setQuery] = import_react2.useState("");
   const [scope, setScope] = import_react2.useState("all");
   const [selectedId, setSelectedId] = import_react2.useState();
   const [detail, setDetail] = import_react2.useState(null);
   const [detailView, setDetailView] = import_react2.useState("preview");
+  const [tree, setTree] = import_react2.useState([]);
+  const [selectedFile, setSelectedFile] = import_react2.useState("SKILL.md");
+  const [fileDetail, setFileDetail] = import_react2.useState(null);
   const [editing, setEditing] = import_react2.useState(false);
   const [editContent, setEditContent] = import_react2.useState("");
   const [saveError, setSaveError] = import_react2.useState("");
   const [creating, setCreating] = import_react2.useState(false);
+  const [addTemplateName, setAddTemplateName] = import_react2.useState("");
+  const [templateError, setTemplateError] = import_react2.useState("");
+  const [editableFilter, setEditableFilter] = import_react2.useState("all");
+  const [referenceFilter, setReferenceFilter] = import_react2.useState("all");
   const [loading, setLoading] = import_react2.useState(false);
   const [error, setError] = import_react2.useState("");
   const scopes = import_react2.useMemo(() => Array.from(new Set(skills.map(skillScopeLabel))).sort(), [skills]);
@@ -30585,11 +30606,22 @@ function SkillLibraryPanel({ skills, onChanged }) {
     return skills.filter((skill) => {
       if (scope !== "all" && skillScopeLabel(skill) !== scope)
         return false;
+      if (editableFilter === "editable" && !skill.editable)
+        return false;
+      if (editableFilter === "readonly" && skill.editable)
+        return false;
+      const referenced = skillTemplates.some((template) => template.items.includes(skill.name));
+      if (referenceFilter === "referenced" && !referenced)
+        return false;
+      if (referenceFilter === "unreferenced" && referenced)
+        return false;
       if (!q)
         return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
-  }, [query, scope, skills]);
+  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   import_react2.useEffect(() => {
     if (!selectedSkill?.id) {
       setDetail(null);
@@ -30605,6 +30637,8 @@ function SkillLibraryPanel({ skills, onChanged }) {
     }).then((data) => {
       if (!cancelled) {
         setDetail(data);
+        setSelectedFile("SKILL.md");
+        setFileDetail(null);
         setEditContent(data.content || "");
         setEditing(false);
         setSaveError("");
@@ -30627,10 +30661,59 @@ function SkillLibraryPanel({ skills, onChanged }) {
       return;
     setSelectedId(skills[0]?.id);
   }, [selectedId, skills]);
+  import_react2.useEffect(() => {
+    if (!selectedSkill?.id) {
+      setTree([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`).then(async (res) => {
+      if (!res.ok)
+        throw new Error(await responseErrorText(res));
+      return res.json();
+    }).then((data) => {
+      if (!cancelled)
+        setTree(Array.isArray(data.files) ? data.files : []);
+    }).catch(() => {
+      if (!cancelled)
+        setTree([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkill?.id]);
+  const openSkillFile = import_react2.useCallback(async (relativePath) => {
+    if (!selectedSkill?.id)
+      return;
+    if (relativePath === "SKILL.md") {
+      setSelectedFile("SKILL.md");
+      setFileDetail(null);
+      return;
+    }
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/files?path=${encodeURIComponent(relativePath)}`);
+    if (!res.ok)
+      return setSaveError(await responseErrorText(res));
+    const file = await res.json();
+    setSelectedFile(file.path);
+    setFileDetail(file);
+    setEditing(false);
+    setDetailView("preview");
+  }, [selectedSkill?.id]);
   const saveEdit = async () => {
     if (!detail?.skill.id)
       return;
     setSaveError("");
+    if (fileDetail) {
+      const res2 = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: fileDetail.hash }) });
+      if (!res2.ok)
+        return setSaveError(await responseErrorText(res2));
+      const next2 = await res2.json();
+      setFileDetail(next2);
+      setEditContent(next2.content || "");
+      setEditing(false);
+      return;
+    }
     const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
     if (!res.ok)
       return setSaveError(await responseErrorText(res));
@@ -30640,6 +30723,8 @@ function SkillLibraryPanel({ skills, onChanged }) {
     setEditing(false);
     onChanged();
   };
+  const displayedContent = fileDetail?.content ?? detail?.content ?? "";
+  const displayedBody = fileDetail ? fileDetail.content : detail?.body || detail?.content || "";
   const deleteSelected = async () => {
     if (!detail?.skill.id)
       return;
@@ -30654,8 +30739,22 @@ function SkillLibraryPanel({ skills, onChanged }) {
     setSelectedId(undefined);
     onChanged();
   };
+  const addToTemplate = async () => {
+    if (!selectedSkill || !addTemplateName)
+      return;
+    const template = skillTemplates.find((candidate) => candidate.name === addTemplateName);
+    if (!template)
+      return;
+    setTemplateError("");
+    const skills2 = Array.from(new Set([...template.items, selectedSkill.name]));
+    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, applyToAll: !!template.applyToAll, skills: skills2 }) });
+    if (!res.ok)
+      return setTemplateError(await responseErrorText(res));
+    setAddTemplateName("");
+    onChanged();
+  };
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(320px,400px)_1fr]",
+    className: "grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(380px,460px)_1fr]",
     children: [
       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
         className: "min-h-0 overflow-hidden",
@@ -30685,18 +30784,68 @@ function SkillLibraryPanel({ skills, onChanged }) {
                 onChange: (e) => setQuery(e.target.value),
                 placeholder: "Search skills…"
               }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                value: scope,
-                onChange: (e) => setScope(e.target.value),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "grid gap-2",
                 children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                    value: "all",
-                    children: "All sources"
-                  }, undefined, false, undefined, this),
-                  scopes.map((value) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                    value,
-                    children: value
-                  }, value, false, undefined, this))
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                    value: scope,
+                    onChange: (e) => setScope(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "all",
+                        children: "All sources"
+                      }, undefined, false, undefined, this),
+                      scopes.map((value) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value,
+                        children: value
+                      }, value, false, undefined, this))
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                    value: editableFilter,
+                    onChange: (e) => setEditableFilter(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "all",
+                        children: "Editable + read-only"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "editable",
+                        children: "Editable only"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "readonly",
+                        children: "Read-only only"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                    value: referenceFilter,
+                    onChange: (e) => setReferenceFilter(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "all",
+                        children: "All template usage"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "referenced",
+                        children: "In a template"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "unreferenced",
+                        children: "Not in templates"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              !!diagnostics.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-200",
+                children: [
+                  diagnostics.length,
+                  " skill diagnostic",
+                  diagnostics.length === 1 ? "" : "s",
+                  ". Select Metadata or inspect invalid skill files for details."
                 ]
               }, undefined, true, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -30769,7 +30918,7 @@ function SkillLibraryPanel({ skills, onChanged }) {
                           variant: "secondary",
                           className: "px-2 py-1 text-xs",
                           onClick: () => {
-                            setEditContent(detail.content);
+                            setEditContent(fileDetail?.content ?? detail.content);
                             setEditing(true);
                             setDetailView("preview");
                           },
@@ -30790,7 +30939,7 @@ function SkillLibraryPanel({ skills, onChanged }) {
                           className: "px-2 py-1 text-xs",
                           onClick: () => {
                             setEditing(false);
-                            setEditContent(detail?.content || "");
+                            setEditContent(fileDetail?.content ?? detail?.content ?? "");
                             setSaveError("");
                           },
                           children: "Cancel"
@@ -30847,6 +30996,67 @@ function SkillLibraryPanel({ skills, onChanged }) {
                   className: "break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground",
                   children: selectedSkill.path
                 }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "rounded-md border border-border bg-background p-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "mb-2 flex flex-wrap items-center justify-between gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "text-xs uppercase tracking-wide text-muted-foreground",
+                          children: "Skill templates using this skill"
+                        }, undefined, false, undefined, this),
+                        !!templatesMissingSkill.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "flex gap-2",
+                          children: [
+                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                              value: addTemplateName,
+                              onChange: (e) => setAddTemplateName(e.target.value),
+                              className: "py-1 text-xs",
+                              children: [
+                                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                                  value: "",
+                                  children: "Add to template…"
+                                }, undefined, false, undefined, this),
+                                templatesMissingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                                  value: template.name,
+                                  children: template.name
+                                }, template.name, false, undefined, this))
+                              ]
+                            }, undefined, true, undefined, this),
+                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                              variant: "secondary",
+                              className: "px-2 py-1 text-xs",
+                              onClick: addToTemplate,
+                              disabled: !addTemplateName,
+                              children: "Add"
+                            }, undefined, false, undefined, this)
+                          ]
+                        }, undefined, true, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "flex flex-wrap gap-1",
+                      children: templatesUsingSkill.length ? templatesUsingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
+                        type: "button",
+                        onClick: () => onEditTemplate(template),
+                        title: "Edit template",
+                        className: "rounded-full",
+                        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                          variant: "default",
+                          children: template.name
+                        }, undefined, false, undefined, this)
+                      }, template.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                        className: "text-xs text-muted-foreground",
+                        children: "No skill templates include this skill yet."
+                      }, undefined, false, undefined, this)
+                    }, undefined, false, undefined, this),
+                    templateError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "mt-2 text-xs text-destructive",
+                      children: templateError
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
                 loading && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                   className: "text-sm text-muted-foreground",
                   children: "Loading preview…"
@@ -30860,35 +31070,65 @@ function SkillLibraryPanel({ skills, onChanged }) {
                   children: saveError
                 }, undefined, false, undefined, this),
                 detail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "min-h-0 flex-1 overflow-hidden",
-                  children: editing ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "grid h-full gap-3 xl:grid-cols-2",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-                        className: "h-full resize-none font-mono text-xs",
-                        value: editContent,
-                        onChange: (e) => setEditContent(e.target.value)
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
-                        content: parseMarkdownBody(editContent)
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-                    children: [
-                      detailView === "preview" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
-                        content: detail.body || detail.content
-                      }, undefined, false, undefined, this),
-                      detailView === "raw" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-                        className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
-                        children: detail.content
-                      }, undefined, false, undefined, this),
-                      detailView === "metadata" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-                        className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
-                        children: JSON.stringify({ skill: detail.skill, frontmatter: detail.frontmatter, mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this)
-                }, undefined, false, undefined, this)
+                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "min-h-0 overflow-auto rounded-md border border-border bg-background p-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "mb-2 text-xs uppercase tracking-wide text-muted-foreground",
+                          children: "Files"
+                        }, undefined, false, undefined, this),
+                        tree.length ? tree.map((file) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
+                          type: "button",
+                          disabled: file.type === "directory",
+                          className: `block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
+                          style: { paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` },
+                          onClick: () => file.type === "file" && openSkillFile(file.path),
+                          children: [
+                            file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• ",
+                            file.name
+                          ]
+                        }, file.path, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "text-xs text-muted-foreground",
+                          children: "No file tree available."
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "min-h-0 overflow-hidden",
+                      children: editing ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "grid h-full gap-3 xl:grid-cols-2",
+                        children: [
+                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
+                            className: "h-full resize-none font-mono text-xs",
+                            value: editContent,
+                            onChange: (e) => setEditContent(e.target.value)
+                          }, undefined, false, undefined, this),
+                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
+                            content: parseMarkdownBody(editContent)
+                          }, undefined, false, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
+                        children: [
+                          detailView === "preview" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
+                            content: displayedBody,
+                            basePath: selectedFile,
+                            onOpenRelative: openSkillFile
+                          }, undefined, false, undefined, this),
+                          detailView === "raw" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
+                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
+                            children: displayedContent
+                          }, undefined, false, undefined, this),
+                          detailView === "metadata" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
+                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
+                            children: JSON.stringify({ skill: detail.skill, selectedFile, file: fileDetail, frontmatter: detail.frontmatter, diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath), mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)
+                          }, undefined, false, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this)
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
               ]
             }, undefined, true, undefined, this)
           }, undefined, false, undefined, this)
@@ -30917,6 +31157,7 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
   const [name2, setName] = import_react2.useState("");
   const [description, setDescription] = import_react2.useState("");
   const [body, setBody] = import_react2.useState("");
+  const [scaffold, setScaffold] = import_react2.useState("minimal");
   const [serverError, setServerError] = import_react2.useState("");
   import_react2.useEffect(() => {
     if (open) {
@@ -30924,6 +31165,7 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
       setName("");
       setDescription("");
       setBody("");
+      setScaffold("minimal");
       setServerError("");
     }
   }, [open]);
@@ -30933,7 +31175,7 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
     setServerError("");
     if (errors.length)
       return;
-    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim(), body: body.trim() || undefined }) });
+    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold }) });
     if (!res.ok)
       return setServerError(await responseErrorText(res));
     onCreated(await res.json());
@@ -30960,7 +31202,7 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
               value: "global",
-              children: "Global (~/.pi/agent/skills)"
+              children: "Global / all repos (~/.pi/agent/skills)"
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
@@ -30990,6 +31232,24 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
           value: description,
           onChange: (e) => setDescription(e.target.value)
         }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+          optional: true,
+          children: "Scaffold"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+          value: scaffold,
+          onChange: (e) => setScaffold(e.target.value),
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+              value: "minimal",
+              children: "Minimal SKILL.md only"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+              value: "rich",
+              children: "Rich directory with references/scripts/assets/examples"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
           optional: true,
           children: "Initial body"
@@ -31023,7 +31283,28 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function MarkdownPreview({ content: content3 }) {
+function resolveRelativeMarkdownLink(basePath, href) {
+  if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href))
+    return;
+  const clean = href.split("#")[0].split("?")[0];
+  if (!clean.toLowerCase().endsWith(".md"))
+    return;
+  const baseParts = basePath.includes("/") ? basePath.split("/").slice(0, -1) : [];
+  const parts = [];
+  for (const part of [...baseParts, ...clean.split("/")]) {
+    if (!part || part === ".")
+      continue;
+    if (part === "..")
+      parts.pop();
+    else
+      parts.push(part);
+  }
+  return parts.join("/");
+}
+function escapeXmlLikeBlocks(content3) {
+  return content3.replace(/^<([a-z][\w-]*)([^>]*)>$/gim, "`<$1$2>`").replace(/^<\/([a-z][\w-]*)>$/gim, "`</$1>`");
+}
+function MarkdownPreview({ content: content3, basePath = "SKILL.md", onOpenRelative }) {
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
     className: "h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6",
     children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Markdown, {
@@ -31045,13 +31326,22 @@ function MarkdownPreview({ content: content3 }) {
           className: "mb-3 text-foreground/90",
           children
         }, undefined, false, undefined, this),
-        a: ({ href, children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("a", {
-          href,
-          target: "_blank",
-          rel: "noreferrer",
-          className: "text-primary underline underline-offset-2",
-          children
-        }, undefined, false, undefined, this),
+        a: ({ href, children }) => {
+          const relative = resolveRelativeMarkdownLink(basePath, href);
+          return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("a", {
+            href,
+            target: relative ? undefined : "_blank",
+            rel: relative ? undefined : "noreferrer",
+            className: "text-primary underline underline-offset-2",
+            onClick: (e) => {
+              if (relative && onOpenRelative) {
+                e.preventDefault();
+                onOpenRelative(relative);
+              }
+            },
+            children
+          }, undefined, false, undefined, this);
+        },
         ul: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ul", {
           className: "mb-3 list-disc pl-5",
           children
@@ -31091,7 +31381,7 @@ function MarkdownPreview({ content: content3 }) {
           children
         }, undefined, false, undefined, this)
       },
-      children: content3
+      children: escapeXmlLikeBlocks(content3)
     }, undefined, false, undefined, this)
   }, undefined, false, undefined, this);
 }

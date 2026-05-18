@@ -138,6 +138,15 @@ describe("skill library API", () => {
       expect(created.skill.editable).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "my-skill", "SKILL.md"))).toBe(true);
 
+      const richRes = await fetch(`${handle.url}/api/skills`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "project", name: "Rich Skill", description: "Rich scaffold", scaffold: "rich" }),
+      });
+      expect(richRes.status).toBe(200);
+      expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "rich-skill", "references", "README.md"))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "rich-skill", "scripts", "README.md"))).toBe(true);
+
       const detailRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(created.skill.id)}`);
       const detail = await detailRes.json();
       const updatedContent = `---\nname: my-skill\ndescription: Helps with tests\n---\n# My Skill\n\nUpdated body.`;
@@ -203,6 +212,29 @@ describe("skill library API", () => {
       expect(detail.body).toContain("See [Reference]");
       expect(detail.hash).toBeString();
       expect(detail.mtimeMs).toBeGreaterThan(0);
+
+      fs.mkdirSync(path.join(skillDir, "references"), { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "references", "ref.md"), "# Reference\n\nDetails", "utf-8");
+      const treeRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(demo.id)}/tree`);
+      expect(treeRes.status).toBe(200);
+      const tree = await treeRes.json();
+      expect(tree.files.some((file: any) => file.path === "references/ref.md")).toBe(true);
+
+      const fileRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(demo.id)}/files?path=${encodeURIComponent("references/ref.md")}`);
+      expect(fileRes.status).toBe(200);
+      const fileDetail = await fileRes.json();
+      expect(fileDetail.content).toContain("# Reference");
+
+      const updateFileRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(demo.id)}/files?path=${encodeURIComponent("references/ref.md")}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "# Reference\n\nUpdated details", expectedHash: fileDetail.hash }),
+      });
+      expect(updateFileRes.status).toBe(200);
+      expect((await updateFileRes.json()).content).toContain("Updated details");
+
+      const traversalRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(demo.id)}/files?path=${encodeURIComponent("../../package.json")}`);
+      expect(traversalRes.status).toBe(400);
 
       const missingRes = await fetch(`${handle.url}/api/skills/not-a-real-id`);
       expect(missingRes.status).toBe(404);

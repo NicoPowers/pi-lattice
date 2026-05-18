@@ -211,6 +211,11 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       send(res, jsonResponse(await discoverSkills(deps.repoCwd)));
       return;
     }
+    if (url.pathname === "/api/skill-diagnostics" && req.method === "GET") {
+      const { discoverSkillDiagnostics } = await import("./skill-discovery.js");
+      send(res, jsonResponse(await discoverSkillDiagnostics(deps.repoCwd)));
+      return;
+    }
     if (url.pathname === "/api/skills" && req.method === "POST") {
       let body: any;
       try {
@@ -220,12 +225,42 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         return;
       }
       const { createSkill } = await import("./skill-discovery.js");
-      const result = await createSkill({ scope: body.scope, name: body.name, description: body.description, body: body.body }, deps.repoCwd);
+      const result = await createSkill({ scope: body.scope, name: body.name, description: body.description, body: body.body, scaffold: body.scaffold }, deps.repoCwd);
       if (result.success) send(res, jsonResponse(result.detail));
       else send(res, errorResponse(result.error || "Failed to create skill", result.status || 400));
       return;
     }
     const skillMatch = url.pathname.match(/^\/api\/skills\/([^/]+)$/);
+    const skillTreeMatch = url.pathname.match(/^\/api\/skills\/([^/]+)\/tree$/);
+    if (skillTreeMatch && req.method === "GET") {
+      const { getSkillTree } = await import("./skill-discovery.js");
+      const result = await getSkillTree(decodeURIComponent(skillTreeMatch[1]), deps.repoCwd);
+      if (result.success) send(res, jsonResponse({ files: result.files }));
+      else send(res, errorResponse(result.error || "Failed to load skill tree", result.status || 400));
+      return;
+    }
+    const skillFileMatch = url.pathname.match(/^\/api\/skills\/([^/]+)\/files$/);
+    if (skillFileMatch && req.method === "GET") {
+      const { getSkillFile } = await import("./skill-discovery.js");
+      const result = await getSkillFile(decodeURIComponent(skillFileMatch[1]), url.searchParams.get("path") || "", deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.file));
+      else send(res, errorResponse(result.error || "Failed to load skill file", result.status || 400));
+      return;
+    }
+    if (skillFileMatch && req.method === "PUT") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { updateSkillFile } = await import("./skill-discovery.js");
+      const result = await updateSkillFile(decodeURIComponent(skillFileMatch[1]), url.searchParams.get("path") || "", { content: body.content, expectedHash: body.expectedHash }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.file));
+      else send(res, errorResponse(result.error || "Failed to update skill file", result.status || 400));
+      return;
+    }
     if (skillMatch && req.method === "GET") {
       const { getSkillDetail } = await import("./skill-discovery.js");
       const detail = await getSkillDetail(decodeURIComponent(skillMatch[1]), deps.repoCwd);

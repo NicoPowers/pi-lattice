@@ -33,6 +33,7 @@ The next major direction is a first-class **Skill Library**: a dashboard and age
 - Markdown preview must not execute or render unsafe HTML.
 - Editing should use hash/mtime guards to prevent silent overwrite.
 - Global skill edits must be visually called out because they affect every project.
+- In user-facing UI/tool output, `global` means Pi's user/global skills directory (`~/.pi/agent/skills`) shared across repos. Pi resource metadata may call this scope `user`; display it as `global` for clarity.
 
 ## Pi Skill Rules To Respect
 
@@ -367,6 +368,8 @@ Allow users to create and edit project/global skills safely from the dashboard, 
 
 # Phase 7C — Agent Skill Management Tools
 
+**Status:** Implemented.
+
 ## Goal
 
 Let the root Pi agent bootstrap and maintain skills through extension tools, so the interactive shell can help users create/edit skills instead of requiring manual dashboard edits.
@@ -450,6 +453,8 @@ Let the root Pi agent bootstrap and maintain skills through extension tools, so 
 
 # Phase 7D — Skill Library UX Integrations
 
+**Status:** Implemented.
+
 ## Goal
 
 Connect the Skill Library to templates and discovery diagnostics so it becomes useful in everyday orchestration workflows.
@@ -457,6 +462,8 @@ Connect the Skill Library to templates and discovery diagnostics so it becomes u
 ## Tracer Bullet Issues
 
 ### Issue 7D.1: Add skill to template shortcut
+
+**Status:** Implemented.
 
 **Goal**: Let users add a skill directly to a skill template from the library.
 
@@ -473,6 +480,8 @@ Connect the Skill Library to templates and discovery diagnostics so it becomes u
 
 ### Issue 7D.2: Show templates using this skill
 
+**Status:** Implemented.
+
 **Goal**: Make relationships visible.
 
 **What to do:**
@@ -484,6 +493,8 @@ Connect the Skill Library to templates and discovery diagnostics so it becomes u
 - Empty state is clear.
 
 ### Issue 7D.3: Surface Pi skill diagnostics
+
+**Status:** Implemented.
 
 **Goal**: Show validation/discovery warnings from Pi's loader.
 
@@ -497,6 +508,8 @@ Connect the Skill Library to templates and discovery diagnostics so it becomes u
 - Missing description skills are discoverable as diagnostics even if not loaded.
 
 ### Issue 7D.4: Improve search/filter ergonomics
+
+**Status:** Implemented.
 
 **Goal**: Make the library scale to many skills.
 
@@ -519,6 +532,8 @@ Connect the Skill Library to templates and discovery diagnostics so it becomes u
 
 # Phase 7E — Directory Skill File Tree and Linked Markdown
 
+**Status:** Implemented.
+
 ## Goal
 
 Support rich directory skills where `SKILL.md` references co-located markdown, scripts, assets, and examples. This phase happens after 7D.
@@ -526,6 +541,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 ## Tracer Bullet Issues
 
 ### Issue 7E.1: Skill directory tree endpoint
+
+**Status:** Implemented.
 
 **Goal**: Browse files inside a directory-style skill.
 
@@ -546,6 +563,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 
 ### Issue 7E.2: Read file within skill directory
 
+**Status:** Implemented.
+
 **Goal**: Preview supporting markdown and inspect scripts/assets.
 
 **What to do:**
@@ -562,6 +581,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 
 ### Issue 7E.3: Linked markdown navigation
 
+**Status:** Implemented.
+
 **Goal**: Make relative links in previews navigate inside the skill library.
 
 **What to do:**
@@ -577,6 +598,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 - External URLs are not routed through file API.
 
 ### Issue 7E.4: Create rich directory skill scaffold
+
+**Status:** Implemented.
 
 **Goal**: Make new skills ready for multi-file context.
 
@@ -597,6 +620,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 
 ### Issue 7E.5: Edit supporting markdown files
 
+**Status:** Implemented.
+
 **Goal**: Allow editing of co-located markdown docs, not just `SKILL.md`.
 
 **What to do:**
@@ -616,6 +641,8 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 - Stale edit returns 409.
 
 ### Issue 7E.6: Optional script visibility and safety warnings
+
+**Status:** Implemented. Scripts are visible/previewable as text when small and no run action is exposed.
 
 **Goal**: Make bundled scripts inspectable without encouraging blind execution.
 

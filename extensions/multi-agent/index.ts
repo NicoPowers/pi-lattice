@@ -14,6 +14,11 @@ import { readRuntimeToolSnapshot } from "./runtime-tools.js";
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
 
+function displaySkillScope(scope?: string): string {
+  if (scope === "user") return "global";
+  return scope || "unknown";
+}
+
 function serializeAgentForDashboard(agent: import("./state.js").Agent) {
   agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
   return {
@@ -100,6 +105,105 @@ export default function (pi: ExtensionAPI) {
           },
         ],
         details: { definitions: defs.map((d) => ({ name: d.name, source: d.source, description: d.description })) },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "skill_list",
+    label: "List Skills",
+    description: "List discovered Pi skills with source, editability, and file metadata.",
+    parameters: Type.Object({
+      scope: Type.Optional(Type.String({ description: "Optional scope/source filter, e.g. project, global, package" })),
+      editableOnly: Type.Optional(Type.Boolean({ description: "Only return skills editable by this project/dashboard" })),
+      search: Type.Optional(Type.String({ description: "Optional search text for name, description, or path" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const { discoverSkills } = await import("./skill-discovery.js");
+      const q = params.search?.trim().toLowerCase();
+      const skills = (await discoverSkills(ctx.cwd)).filter((skill) => {
+        if (params.editableOnly && !skill.editable) return false;
+        if (params.scope && skill.scope !== params.scope && skill.source !== params.scope) return false;
+        if (!q) return true;
+        return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
+      });
+      const lines = skills.map((skill) => `- ${skill.name} [${displaySkillScope(skill.scope || skill.source)}${skill.editable ? ", editable" : ", read-only"}] ${skill.description || ""}`);
+      return {
+        content: [{ type: "text", text: lines.length ? `Discovered skills:\n${lines.join("\n")}` : "No matching skills found." }],
+        details: { skills },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "skill_read",
+    label: "Read Skill",
+    description: "Read full SKILL.md content for a discovered skill by id, or by unambiguous exact name.",
+    parameters: Type.Object({
+      id: Type.Optional(Type.String({ description: "Skill id from skill_list" })),
+      name: Type.Optional(Type.String({ description: "Exact skill name, only allowed when unambiguous" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const { discoverSkills, getSkillDetail } = await import("./skill-discovery.js");
+      let id = params.id;
+      if (!id && params.name) {
+        const matches = (await discoverSkills(ctx.cwd)).filter((skill) => skill.name === params.name);
+        if (matches.length !== 1) {
+          return {
+            content: [{ type: "text", text: matches.length ? `Skill name '${params.name}' is ambiguous. Use one of these ids: ${matches.map((skill) => skill.id).join(", ")}` : `Skill '${params.name}' not found.` }],
+            isError: true,
+            details: { matches },
+          };
+        }
+        id = matches[0].id;
+      }
+      if (!id) return { content: [{ type: "text", text: "Provide either id or name." }], isError: true, details: {} };
+      const detail = await getSkillDetail(id, ctx.cwd);
+      if (!detail) return { content: [{ type: "text", text: `Skill '${id}' not found.` }], isError: true, details: {} };
+      return {
+        content: [{ type: "text", text: detail.content }],
+        details: { detail },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "skill_create",
+    label: "Create Skill",
+    description: "Create a project or global directory-style Pi skill scaffold.",
+    parameters: Type.Object({
+      scope: Type.Optional(Type.String({ description: "project or global. Defaults to project." })),
+      name: Type.String({ description: "Skill name. Will be normalized to lowercase-hyphen format." }),
+      description: Type.String({ description: "Skill description used by Pi to decide when to load it." }),
+      body: Type.Optional(Type.String({ description: "Optional markdown body after frontmatter." })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const { createSkill } = await import("./skill-discovery.js");
+      const result = await createSkill({ scope: params.scope === "global" ? "global" : "project", name: params.name, description: params.description, body: params.body }, ctx.cwd);
+      if (!result.success || !result.detail) return { content: [{ type: "text", text: result.error || "Failed to create skill." }], isError: true, details: result };
+      return {
+        content: [{ type: "text", text: `Created ${displaySkillScope(result.detail.skill.scope || result.detail.skill.source || "project")} skill '${result.detail.skill.name}' at ${result.detail.skill.path}.` }],
+        details: { skill: result.detail.skill, detail: result.detail },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "skill_update",
+    label: "Update Skill",
+    description: "Update an editable skill using full replacement SKILL.md content and an expected hash from skill_read.",
+    parameters: Type.Object({
+      id: Type.String({ description: "Skill id from skill_list or skill_read" }),
+      content: Type.String({ description: "Full replacement SKILL.md content including frontmatter" }),
+      expectedHash: Type.Optional(Type.String({ description: "Expected current content hash from skill_read" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const { updateSkill } = await import("./skill-discovery.js");
+      const result = await updateSkill(params.id, { content: params.content, expectedHash: params.expectedHash }, ctx.cwd);
+      if (!result.success || !result.detail) return { content: [{ type: "text", text: result.error || "Failed to update skill." }], isError: true, details: result };
+      return {
+        content: [{ type: "text", text: `Updated skill '${result.detail.skill.name}'.` }],
+        details: { detail: result.detail },
       };
     },
   });

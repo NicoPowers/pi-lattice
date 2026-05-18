@@ -4,6 +4,21 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 describe("skill discovery API", () => {
+  it("returns discovery diagnostics for invalid skills", async () => {
+    const { discoverSkillDiagnostics } = await import("../extensions/multi-agent/skill-discovery.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skills-diagnostics-"));
+    try {
+      const skillDir = path.join(tmpDir, ".pi", "skills", "bad");
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: Bad Skill\ndescription: Bad name\n---\nBody.`, "utf-8");
+      const diagnostics = await discoverSkillDiagnostics(tmpDir);
+      expect(diagnostics.length).toBeGreaterThan(0);
+      expect(diagnostics.some((diagnostic) => diagnostic.message.toLowerCase().includes("invalid"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("discovers project skills", async () => {
     const { discoverSkills } = await import("../extensions/multi-agent/skill-discovery.js");
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skills-api-"));
