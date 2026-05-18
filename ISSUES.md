@@ -275,6 +275,38 @@ extensions/
 
 ### Issue 7: HTTP REST API
 
+**Status**: ✅ Completed
+
+**Goal**: Add a headless HTTP server to the extension. REST endpoints + SSE stream scaffold.
+
+**What changed:**
+- `extensions/multi-agent/server.ts` created with `Bun.serve()`
+- Port probing: tries `[18765, 18766, 18767]`, falls back to OS-assigned ephemeral
+- REST endpoints:
+  - `GET /api/agents` — list all agents JSON
+  - `GET /api/agent-types` — list available definitions
+  - `POST /api/spawn` — body `{ name, parent, type?, model? }`
+  - `POST /api/agents/:name/send` — body `{ message }`
+  - `POST /api/agents/:name/kill` — kill agent + children
+- `GET /events` — SSE stream with initial agent state
+- Static file serving: `GET /` returns `web/index.html`
+- CORS headers on all responses
+- `/dashboard` command prints URL and attempts to open browser
+- Bidirectional sync: web actions call `notifyTerminal` → `pi.sendUserMessage(..., {deliverAs: "steer"})`
+
+**Test:**
+```bash
+curl http://localhost:18765/api/agents
+curl -X POST http://localhost:18765/api/spawn -H "Content-Type: application/json" -d '{"name":"lead","parent":"self","type":"coder"}'
+curl http://localhost:18765/api/agents
+curl http://localhost:18765/events  # SSE stream
+curl -X POST http://localhost:18765/api/agents/lead/kill
+```
+
+---
+
+### Issue 8: SSE Event Stream
+
 **Status**: Not started
 
 **Goal**: Add a headless HTTP server to the extension. REST endpoints only — no web UI yet.

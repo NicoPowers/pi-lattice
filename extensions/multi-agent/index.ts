@@ -14,22 +14,33 @@ export default function (pi: ExtensionAPI) {
 
   cleanupOrphanedWorktrees();
 
+  async function ensureServer(cwd: string) {
+    if (serverHandle) return;
+    try {
+      serverHandle = await startServer({
+        repoCwd: cwd,
+        spawnAgent,
+        sendToAgent,
+        removeWorktree,
+        discoverDefinitions,
+        getDefinition,
+        notifyTerminal: (text: string) => {
+          pi.sendUserMessage(text, { deliverAs: "steer" });
+        },
+      });
+      console.log(`🌐 Dashboard: ${serverHandle.url}`);
+    } catch (err: any) {
+      log("server", `Failed to start dashboard server: ${err.message}`);
+      console.error(`[multi-agent] Dashboard server failed: ${err.message}`);
+    }
+  }
+
   pi.on("session_start", async (_event, ctx) => {
     if (serverHandle) {
       serverHandle.stop();
+      serverHandle = undefined;
     }
-    serverHandle = await startServer({
-      repoCwd: ctx.cwd,
-      spawnAgent,
-      sendToAgent,
-      removeWorktree,
-      discoverDefinitions,
-      getDefinition,
-      notifyTerminal: (text: string) => {
-        pi.sendUserMessage(text, { deliverAs: "steer" });
-      },
-    });
-    console.log(`🌐 Dashboard: ${serverHandle.url}`);
+    await ensureServer(ctx.cwd);
   });
 
   pi.on("session_shutdown", async () => {
@@ -473,7 +484,10 @@ export default function (pi: ExtensionAPI) {
     description: "Print dashboard URL and open browser",
     handler: async (_args, ctx) => {
       if (!serverHandle) {
-        ctx.ui.notify("Dashboard server not running.", "error");
+        await ensureServer(ctx.cwd);
+      }
+      if (!serverHandle) {
+        ctx.ui.notify("Dashboard server failed to start. Check logs.", "error");
         return;
       }
       ctx.ui.notify(`Dashboard: ${serverHandle.url}`, "info");
