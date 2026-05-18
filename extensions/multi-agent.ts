@@ -16,6 +16,9 @@ interface Agent {
   history: Array<{ role: "user" | "assistant"; text: string }>;
   buffer: string;
   definition?: AgentDefinition;
+  worktreePath: string;
+  parent?: string;
+  children: string[];
   _currentSend?: Promise<void>;
   _nextTurn?: { resolve: () => void; reject: (e: Error) => void };
   _turnTimer?: NodeJS.Timeout;
@@ -30,13 +33,13 @@ interface AgentDefinition {
   description: string;
   model?: string;
   tools?: string[];
-  skills?: string[];        // resolved absolute paths to skill dirs
-  systemPrompt: string;     // markdown body after frontmatter
+  skills?: string[];
+  systemPrompt: string;
   source: "user" | "project" | "package";
   filePath: string;
 }
 
-// ── Persistent file logging (doesn't pollute the TUI) ──
+// ── Persistent file logging ──
 
 const LOG_FILE = path.join(os.tmpdir(), "pi-multi-agent.log");
 
@@ -71,8 +74,6 @@ function findProjectAgentsDir(cwd: string): string | null {
   }
 }
 
-// Resolve the package's built-in agents/ directory relative to this extension file.
-// Works when installed via git, npm, or loaded from a local path.
 function getPackageAgentsDir(): string | null {
   try {
     const extDir = __dirname;
@@ -86,34 +87,22 @@ function getPackageAgentsDir(): string | null {
 
 function resolveSkillPath(raw: string, agentFileDir: string, cwd: string): string {
   if (path.isAbsolute(raw)) return raw;
-
-  // 1. Relative to agent definition file
   const relativeToAgent = path.resolve(agentFileDir, raw);
   if (fs.existsSync(relativeToAgent)) return relativeToAgent;
-
-  // 2. Relative to cwd
   const relativeToCwd = path.resolve(cwd, raw);
   if (fs.existsSync(relativeToCwd)) return relativeToCwd;
-
-  // 3. Search Pi global skill dirs by bare name
   const globalSkill = path.join(getAgentDir(), "skills", raw);
   if (fs.existsSync(globalSkill)) return globalSkill;
-
   const globalSkillAlt = path.join(os.homedir(), ".agents", "skills", raw);
   if (fs.existsSync(globalSkillAlt)) return globalSkillAlt;
-
-  // 4. Search project skill dirs by bare name
   const projectSkill = path.join(cwd, ".pi", "skills", raw);
   if (fs.existsSync(projectSkill)) return projectSkill;
-
   const projectSkillAlt = path.join(cwd, ".agents", "skills", raw);
   if (fs.existsSync(projectSkillAlt)) return projectSkillAlt;
-
-  // Fallback to cwd-relative (will fail at spawn time if invalid)
   return relativeToCwd;
 }
 
-function loadDefinitionsFromDir(dir: string, source: "user" | "project", cwd: string): AgentDefinition[] {
+function loadDefinitionsFromDir(dir: string, source: "user" | "project" | "package", cwd: string): AgentDefinition[] {
   const defs: AgentDefinition[] = [];
   if (!fs.existsSync(dir)) return defs;
 
@@ -175,11 +164,8 @@ function discoverDefinitions(cwd: string): AgentDefinition[] {
   const packageDefs = packageDir ? loadDefinitionsFromDir(packageDir, "package", cwd) : [];
 
   const map = new Map<string, AgentDefinition>();
-  // Package defs are the base defaults
   for (const d of packageDefs) map.set(d.name, d);
-  // User defs override package defaults
   for (const d of userDefs) map.set(d.name, d);
-  // Project defs have the highest priority
   for (const d of projectDefs) map.set(d.name, d);
 
   return Array.from(map.values());
@@ -189,7 +175,7 @@ function getDefinition(name: string, cwd: string): AgentDefinition | undefined {
   return discoverDefinitions(cwd).find((d) => d.name === name);
 }
 
-// ── UI panel (widget below editor + footer status) ──
+// ── UI panel ──
 
 let currentCtx: ExtensionContext | undefined;
 
@@ -224,13 +210,14 @@ function refreshPanel() {
     const parts: string[] = [];
     for (const [name, agent] of agents) {
       const defName = agent.definition?.name ? ` (${agent.definition.name})` : "";
+      const parentTag = agent.parent ? theme.fg("dim", `←${agent.parent}`) : "";
       if (agent.status === "streaming") {
         const frame = theme.fg("accent", SPINNER_FRAMES[spinnerIndex]);
-        parts.push(`${frame} ${theme.fg("warning", name)}${theme.fg("dim", defName)}`);
+        parts.push(`${frame} ${theme.fg("warning", name)}${theme.fg("dim", defName)}${parentTag}`);
       } else if (agent.status === "idle") {
-        parts.push(`${theme.fg("success", "●")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}`);
+        parts.push(`${theme.fg("success", "●")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}${parentTag}`);
       } else {
-        parts.push(`${theme.fg("error", "○")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}`);
+        parts.push(`${theme.fg("error", "○")} ${theme.fg("dim", name)}${theme.fg("dim", defName)}${parentTag}`);
       }
     }
     lines.push(parts.join("  "));
@@ -252,6 +239,100 @@ function clearPanel() {
   currentCtx.ui.setStatus("multi-agent", undefined);
 }
 
+// ── Bwrap / worktree helpers ──
+
+function hasBwrap(): boolean {
+  try {
+    const result = spawn.sync("which", ["bwrap"], { encoding: "utf-8" });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+// Serialize git worktree operations
+let worktreeLock = Promise.resolve();
+
+async function createWorktree(id: string, repoCwd: string): Promise<string> {
+  const worktreePath = path.join(os.tmpdir(), `pi-worktree-${id}-${Date.now()}`);
+  const prev = worktreeLock;
+  let result: string = worktreePath;
+
+  worktreeLock = prev.then(async () => {
+    log("worktree", `Creating worktree for '${id}'`, { path: worktreePath, repoCwd });
+    return new Promise<void>((resolve, reject) => {
+      const proc = spawn("git", ["worktree", "add", worktreePath, "HEAD"], {
+        cwd: repoCwd,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      proc.stdout!.on("data", (d) => { stdout += d.toString(); });
+      proc.stderr!.on("data", (d) => { stderr += d.toString(); });
+      proc.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`git worktree add failed: ${stderr || stdout}`));
+        }
+      });
+      proc.on("error", (err) => reject(err));
+    });
+  });
+
+  await worktreeLock;
+  return result;
+}
+
+async function removeWorktree(worktreePath: string): Promise<void> {
+  log("worktree", `Removing worktree`, { path: worktreePath });
+  return new Promise<void>((resolve) => {
+    const proc = spawn("git", ["worktree", "remove", "--force", worktreePath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    proc.on("close", () => {
+      // Also clean up the directory if git didn't fully remove it
+      try {
+        fs.rmSync(worktreePath, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+      resolve();
+    });
+    proc.on("error", () => {
+      try {
+        fs.rmSync(worktreePath, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+      resolve();
+    });
+  });
+}
+
+function cleanupOrphanedWorktrees() {
+  const tmpDir = os.tmpdir();
+  try {
+    const entries = fs.readdirSync(tmpDir);
+    for (const entry of entries) {
+      if (entry.startsWith("pi-worktree-")) {
+        const fullPath = path.join(tmpDir, entry);
+        const isActive = Array.from(agents.values()).some((a) => a.worktreePath === fullPath);
+        if (!isActive) {
+          log("worktree", `Cleaning up orphaned worktree`, { path: fullPath });
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Spawn helper ──
 
 function getPiInvocation(args: string[]): { command: string; args: string[] } {
@@ -268,52 +349,83 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
   return { command: "pi", args };
 }
 
-async function writeTempPrompt(name: string, prompt: string): Promise<string> {
-  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-subagent-"));
-  const safeName = name.replace(/[^\w.-]+/g, "_");
-  const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
-  await fs.promises.writeFile(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
-  return filePath;
-}
-
-function spawnAgent(
+async function spawnAgent(
   id: string,
-  options: { model?: string; cwd?: string; definition?: AgentDefinition } = {}
-): Agent {
-  const { model, cwd, definition } = options;
-  const effectiveModel = definition?.model || model;
-  const effectiveTools = definition?.tools;
+  options: {
+    model?: string;
+    repoCwd: string;
+    definition?: AgentDefinition;
+    parent?: string;
+    worktreePath?: string;
+  }
+): Promise<{ agent: Agent; error?: string }> {
+  const { model, repoCwd, definition, parent, worktreePath: reuseWorktree } = options;
 
-  const invocationArgs = ["--mode", "rpc", "--no-session"];
-  if (effectiveModel) invocationArgs.push("--model", effectiveModel);
-  if (effectiveTools && effectiveTools.length > 0) invocationArgs.push("--tools", effectiveTools.join(","));
-
-  let tmpPromptPath: string | null = null;
-
-  if (definition?.systemPrompt?.trim()) {
-    // Replace template variables and write to temp file
-    const filledPrompt = definition.systemPrompt
-      .replace(/\{\{name\}\}/g, id)
-      .replace(/\{\{type\}\}/g, definition.name);
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-"));
-    const safeName = `${id}_${definition.name}`.replace(/[^\w.-]+/g, "_");
-    tmpPromptPath = path.join(tmpDir, `prompt-${safeName}.md`);
-    fs.writeFileSync(tmpPromptPath, filledPrompt, { encoding: "utf-8", mode: 0o600 });
-    invocationArgs.push("--system-prompt", tmpPromptPath);
+  if (!hasBwrap()) {
+    return { agent: null as any, error: "bwrap is not installed. Install bubblewrap to use agent sandboxing." };
   }
 
-  if (definition?.skills) {
-    invocationArgs.push("--no-skills");
-    for (const skillPath of definition.skills) {
-      invocationArgs.push("--skill", skillPath);
+  // Determine worktree
+  let worktreePath: string;
+  if (reuseWorktree) {
+    worktreePath = reuseWorktree;
+  } else {
+    try {
+      worktreePath = await createWorktree(id, repoCwd);
+    } catch (err: any) {
+      return { agent: null as any, error: `Failed to create worktree: ${err.message}` };
     }
   }
 
-  log("spawn", `Starting agent '${id}'`, { command: "pi", args: invocationArgs });
+  // Ensure comms directory exists in worktree
+  const commsDir = path.join(worktreePath, ".pi", "comms");
+  fs.mkdirSync(commsDir, { recursive: true });
+  fs.mkdirSync(path.join(commsDir, "requests"), { recursive: true });
+  fs.mkdirSync(path.join(commsDir, "responses"), { recursive: true });
 
-  const invocation = getPiInvocation(invocationArgs);
-  const proc = spawn(invocation.command, invocation.args, {
-    cwd: cwd || process.cwd(),
+  // Write prompt into worktree so it's visible inside bwrap
+  let promptInsideBwrap: string | null = null;
+  if (definition?.systemPrompt?.trim()) {
+    const filledPrompt = definition.systemPrompt
+      .replace(/\{\{name\}\}/g, id)
+      .replace(/\{\{type\}\}/g, definition.name);
+    const promptDir = path.join(worktreePath, ".pi", "prompts");
+    fs.mkdirSync(promptDir, { recursive: true });
+    const promptFile = path.join(promptDir, `${id}.md`);
+    fs.writeFileSync(promptFile, filledPrompt, { encoding: "utf-8", mode: 0o600 });
+    promptInsideBwrap = `/workspace/.pi/prompts/${id}.md`;
+  }
+
+  const effectiveModel = definition?.model || model;
+  const effectiveTools = definition?.tools;
+
+  const piArgs = ["--mode", "rpc", "--no-session"];
+  if (effectiveModel) piArgs.push("--model", effectiveModel);
+  if (effectiveTools && effectiveTools.length > 0) piArgs.push("--tools", effectiveTools.join(","));
+  if (promptInsideBwrap) piArgs.push("--system-prompt", promptInsideBwrap);
+  if (definition?.skills) {
+    piArgs.push("--no-skills");
+    for (const skillPath of definition.skills) {
+      piArgs.push("--skill", skillPath);
+    }
+  }
+
+  // Build bwrap command
+  const piInvocation = getPiInvocation(piArgs);
+  const bwrapArgs = [
+    "--ro-bind", "/", "/",
+    "--tmpfs", "/tmp",
+    "--bind", worktreePath, "/workspace",
+    "--chdir", "/workspace",
+    "--share-net",
+    "--setenv", "HOME", os.homedir(),
+    piInvocation.command,
+    ...piInvocation.args,
+  ];
+
+  log("spawn", `Starting agent '${id}' in bwrap`, { worktree: worktreePath, bwrap: `bwrap ${bwrapArgs.join(" ")}` });
+
+  const proc = spawn("bwrap", bwrapArgs, {
     stdio: ["pipe", "pipe", "pipe"],
     env: process.env,
   });
@@ -329,6 +441,9 @@ function spawnAgent(
     history: [],
     buffer: "",
     definition,
+    worktreePath,
+    parent,
+    children: [],
   };
 
   const flush = () => {
@@ -393,10 +508,6 @@ function spawnAgent(
     }
     stopSpinnerIfIdle();
     refreshPanel();
-    if (tmpPromptPath) {
-      try { fs.unlinkSync(tmpPromptPath); } catch { /* ignore */ }
-      try { fs.rmdirSync(path.dirname(tmpPromptPath)); } catch { /* ignore */ }
-    }
   });
 
   proc.on("error", (err) => {
@@ -410,10 +521,10 @@ function spawnAgent(
     refreshPanel();
   });
 
-  return agent;
+  return { agent };
 }
 
-// ── Send helper ──
+// ── Send helper (sync blocking, for sub-agent delegation chains) ──
 
 async function sendToAgent(agent: Agent, message: string, timeoutMs: number, signal?: AbortSignal): Promise<void> {
   log("send", `Agent '${agent.id}' queuing send`);
@@ -476,19 +587,27 @@ async function sendToAgent(agent: Agent, message: string, timeoutMs: number, sig
 export default function (pi: ExtensionAPI) {
   log("init", "multi-agent extension loaded");
 
+  // Cleanup orphaned worktrees from previous sessions
+  cleanupOrphanedWorktrees();
+
   pi.on("session_start", (_event, ctx) => {
     currentCtx = ctx;
     refreshPanel();
   });
 
-  pi.on("session_shutdown", () => {
-    log("lifecycle", "session_shutdown -> killing all child agents");
+  pi.on("session_shutdown", async () => {
+    log("lifecycle", "session_shutdown -> killing all child agents and removing worktrees");
     if (spinnerTimer) {
       clearInterval(spinnerTimer);
       spinnerTimer = undefined;
     }
     for (const [, agent] of agents) {
       if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+    }
+    // Wait a moment for processes to die, then remove worktrees
+    await new Promise((r) => setTimeout(r, 500));
+    for (const [, agent] of agents) {
+      await removeWorktree(agent.worktreePath);
     }
     agents.clear();
     clearPanel();
@@ -514,7 +633,7 @@ export default function (pi: ExtensionAPI) {
             type: "text",
             text: defs.length
               ? `Available agent types:\n${lines.join("\n")}`
-              : "No agent definitions found. Create markdown files in ~/.pi/agent/agents/ or .pi/agents/",
+              : "No agent definitions found.",
           },
         ],
         details: { definitions: defs.map((d) => ({ name: d.name, source: d.source, description: d.description })) },
@@ -526,17 +645,17 @@ export default function (pi: ExtensionAPI) {
     name: "agent_spawn",
     label: "Spawn Agent",
     description: [
-      "Spawn a named sub-agent as a persistent Pi RPC process.",
-      "If 'type' is provided, looks up an agent definition from ~/.pi/agent/agents/ or .pi/agents/",
-      "and applies its model, tools, skills, and system prompt. Otherwise uses raw parameters.",
+      "Spawn a named sub-agent as a persistent Pi RPC process inside a bwrap sandbox.",
+      "Root agents (parent='self') get a new git worktree. Sub-agents share their parent's worktree.",
     ].join(" "),
     parameters: Type.Object({
-      name: Type.String({ description: "Unique instance name, e.g. 'coder_1'" }),
-      type: Type.Optional(Type.String({ description: "Agent definition name, e.g. 'coder' or 'reviewer'" })),
+      name: Type.String({ description: "Unique instance name, e.g. 'lead' or 'scout_1'" }),
+      type: Type.Optional(Type.String({ description: "Agent definition name, e.g. 'coder'" })),
       model: Type.Optional(Type.String({ description: "Override model pattern" })),
+      parent: Type.String({ description: "Parent agent name, or 'self' for root agents" }),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      log("tool", `agent_spawn called`, { name: params.name, type: params.type, model: params.model });
+      log("tool", `agent_spawn called`, { name: params.name, type: params.type, parent: params.parent });
       currentCtx = ctx;
 
       if (agents.has(params.name)) {
@@ -554,10 +673,7 @@ export default function (pi: ExtensionAPI) {
           const available = discoverDefinitions(ctx.cwd).map((d) => d.name).join(", ") || "none";
           return {
             content: [
-              {
-                type: "text",
-                text: `Agent type '${params.type}' not found. Available: ${available}`,
-              },
+              { type: "text", text: `Agent type '${params.type}' not found. Available: ${available}` },
             ],
             isError: true,
             details: {},
@@ -565,43 +681,67 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      // Allow raw model override even when using a definition
-      const spawnOptions: Parameters<typeof spawnAgent>[1] = {
-        cwd: ctx.cwd,
-        definition,
-      };
-      if (params.model) spawnOptions.model = params.model;
+      let worktreePath: string | undefined;
+      if (params.parent !== "self") {
+        const parentAgent = agents.get(params.parent);
+        if (!parentAgent) {
+          return {
+            content: [{ type: "text", text: `Parent agent '${params.parent}' not found.` }],
+            isError: true,
+            details: {},
+          };
+        }
+        worktreePath = parentAgent.worktreePath;
+        parentAgent.children.push(params.name);
+      }
 
-      const agent = spawnAgent(params.name, spawnOptions);
-      agents.set(params.name, agent);
+      const result = await spawnAgent(params.name, {
+        model: params.model,
+        repoCwd: ctx.cwd,
+        definition,
+        parent: params.parent === "self" ? undefined : params.parent,
+        worktreePath,
+      });
+
+      if (result.error || !result.agent) {
+        return {
+          content: [{ type: "text", text: result.error || "Unknown spawn error" }],
+          isError: true,
+          details: {},
+        };
+      }
+
+      agents.set(params.name, result.agent);
       await new Promise((r) => setTimeout(r, 600));
       refreshPanel();
 
-      if (agent.status === "error" || agent.status === "exited") {
+      if (result.agent.status === "error" || result.agent.status === "exited") {
         agents.delete(params.name);
+        await removeWorktree(result.agent.worktreePath);
         return {
           content: [
-            { type: "text", text: `Failed to spawn agent '${params.name}'. Is 'pi' in your PATH?` },
+            { type: "text", text: `Failed to spawn agent '${params.name}'. Check logs.` },
           ],
           isError: true,
           details: {},
         };
       }
 
-      const defInfo = definition ? ` (type: ${definition.name}, source: ${definition.source})` : "";
-      const skillInfo = definition?.skills ? `, skills: ${definition.skills.length}` : "";
+      const defInfo = definition ? ` (type: ${definition.name})` : "";
+      const parentInfo = params.parent === "self" ? "root" : `child of ${params.parent}`;
       return {
         content: [
           {
             type: "text",
-            text: `Spawned agent '${params.name}'${defInfo}${skillInfo} (status: ${agent.status}).`,
+            text: `Spawned agent '${params.name}'${defInfo} (${parentInfo}, worktree: ${result.agent.worktreePath}) (status: ${result.agent.status}).`,
           },
         ],
         details: {
           name: params.name,
-          status: agent.status,
+          status: result.agent.status,
+          worktree: result.agent.worktreePath,
           definition: definition
-            ? { name: definition.name, model: definition.model, tools: definition.tools, skills: definition.skills }
+            ? { name: definition.name, model: definition.model, tools: definition.tools }
             : undefined,
         },
       };
@@ -613,12 +753,11 @@ export default function (pi: ExtensionAPI) {
     label: "Send to Agent",
     description: [
       "Send a message to a spawned agent and wait for its response.",
-      "Agents process one message at a time. Returns the agent's final text.",
-      "To relay between agents: read one agent's reply, then agent_send it to another.",
+      "If the agent has children, this will recursively delegate through the chain.",
     ].join(" "),
     parameters: Type.Object({
       name: Type.String({ description: "Agent instance name" }),
-      message: Type.String({ description: "Message to send. Be explicit about the task." }),
+      message: Type.String({ description: "Message to send" }),
       timeout_seconds: Type.Optional(Type.Number({ default: 300 })),
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -661,7 +800,7 @@ export default function (pi: ExtensionAPI) {
     label: "Agent Status",
     description: "Check the status of all spawned agents or one specific agent.",
     parameters: Type.Object({
-      name: Type.Optional(Type.String({ description: "Optional agent instance name. Omit to list all." })),
+      name: Type.Optional(Type.String({ description: "Optional agent instance name" })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       currentCtx = ctx;
@@ -675,18 +814,19 @@ export default function (pi: ExtensionAPI) {
           };
         const last = agent.history[agent.history.length - 1];
         const def = agent.definition ? ` [type: ${agent.definition.name}]` : "";
+        const parent = agent.parent ? ` [parent: ${agent.parent}]` : " [root]";
         return {
           content: [
             {
               type: "text",
-              text: `Agent '${params.name}'${def}: ${agent.status}, turns: ${Math.floor(agent.history.length / 2)}\nLast: ${last?.text.slice(0, 200) || "(none)"}`,
+              text: `Agent '${params.name}'${def}${parent}: ${agent.status}, turns: ${Math.floor(agent.history.length / 2)}\nLast: ${last?.text.slice(0, 200) || "(none)"}`,
             },
           ],
           details: {
             name: agent.id,
             status: agent.status,
+            worktree: agent.worktreePath,
             turns: Math.floor(agent.history.length / 2),
-            last_response: agent.accumulatedText,
           },
         };
       }
@@ -694,6 +834,8 @@ export default function (pi: ExtensionAPI) {
         name,
         status: a.status,
         type: a.definition?.name,
+        parent: a.parent || "self",
+        worktree: a.worktreePath,
         turns: Math.floor(a.history.length / 2),
       }));
       return {
@@ -708,7 +850,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "agent_kill",
     label: "Kill Agent",
-    description: "Terminate a spawned agent process immediately.",
+    description: "Terminate an agent and its children, removing their worktree if root.",
     parameters: Type.Object({
       name: Type.String({ description: "Agent instance name" }),
     }),
@@ -721,10 +863,31 @@ export default function (pi: ExtensionAPI) {
           isError: true,
           details: {},
         };
+
+      // Kill children recursively
+      for (const childId of agent.children) {
+        const child = agents.get(childId);
+        if (child && !child.proc.killed) child.proc.kill("SIGTERM");
+      }
       if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+
       setTimeout(() => {
         if (!agent.proc.killed) agent.proc.kill("SIGKILL");
       }, 3000);
+
+      // Remove from parent's children list
+      if (agent.parent) {
+        const parent = agents.get(agent.parent);
+        if (parent) {
+          parent.children = parent.children.filter((c) => c !== params.name);
+        }
+      }
+
+      // If root, remove worktree (and implicitly all children's shared files)
+      if (!agent.parent) {
+        await removeWorktree(agent.worktreePath);
+      }
+
       agents.delete(params.name);
       stopSpinnerIfIdle();
       refreshPanel();
@@ -748,12 +911,16 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("spawn", {
-    description: "Spawn a named agent. Usage: /spawn <name> [type|model]",
+    description: "Spawn a named agent. Usage: /spawn <name> <parent|'self'> [type|model]",
     handler: async (args, ctx) => {
-      const [name, typeOrModel] = args.trim().split(/\s+/);
+      const parts = args.trim().split(/\s+/);
+      const name = parts[0];
+      const parent = parts[1];
+      const typeOrModel = parts[2];
       currentCtx = ctx;
-      if (!name) {
-        ctx.ui.notify("Usage: /spawn <name> [type|model]", "error");
+
+      if (!name || !parent) {
+        ctx.ui.notify("Usage: /spawn <name> <parent|'self'> [type|model]", "error");
         return;
       }
       if (agents.has(name)) {
@@ -763,21 +930,40 @@ export default function (pi: ExtensionAPI) {
 
       let definition: AgentDefinition | undefined;
       let overrideModel: string | undefined;
-
       if (typeOrModel) {
         definition = getDefinition(typeOrModel, ctx.cwd);
-        if (!definition) {
-          // Treat as raw model
-          overrideModel = typeOrModel;
-        }
+        if (!definition) overrideModel = typeOrModel;
       }
 
-      const agent = spawnAgent(name, { cwd: ctx.cwd, definition, model: overrideModel });
-      agents.set(name, agent);
+      let worktreePath: string | undefined;
+      if (parent !== "self") {
+        const parentAgent = agents.get(parent);
+        if (!parentAgent) {
+          ctx.ui.notify(`Parent agent '${parent}' not found.`, "error");
+          return;
+        }
+        worktreePath = parentAgent.worktreePath;
+        parentAgent.children.push(name);
+      }
+
+      const result = await spawnAgent(name, {
+        model: overrideModel,
+        repoCwd: ctx.cwd,
+        definition,
+        parent: parent === "self" ? undefined : parent,
+        worktreePath,
+      });
+
+      if (result.error || !result.agent) {
+        ctx.ui.notify(result.error || "Spawn failed", "error");
+        return;
+      }
+
+      agents.set(name, result.agent);
       await new Promise((r) => setTimeout(r, 500));
       refreshPanel();
       const defInfo = definition ? ` (type: ${definition.name})` : "";
-      ctx.ui.notify(`Spawned agent '${name}'${defInfo} (${agent.status}).`, "info");
+      ctx.ui.notify(`Spawned agent '${name}'${defInfo} (parent: ${parent}).`, "info");
     },
   });
 
@@ -818,7 +1004,8 @@ export default function (pi: ExtensionAPI) {
         Array.from(agents.entries())
           .map(([n, a]) => {
             const t = a.definition ? ` (${a.definition.name})` : "";
-            return `${n}${t}: ${a.status}`;
+            const p = a.parent ? ` ←${a.parent}` : " [root]";
+            return `${n}${t}${p}: ${a.status}`;
           })
           .join(", ") || "none";
       ctx.ui.notify(`Agents: ${list}`, "info");
@@ -834,7 +1021,20 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`Agent '${name}' not found.`, "error");
         return;
       }
+
+      for (const childId of agent.children) {
+        const child = agents.get(childId);
+        if (child && !child.proc.killed) child.proc.kill("SIGTERM");
+      }
       if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+
+      if (agent.parent) {
+        const parent = agents.get(agent.parent);
+        if (parent) parent.children = parent.children.filter((c) => c !== name);
+      } else {
+        await removeWorktree(agent.worktreePath);
+      }
+
       agents.delete(name);
       stopSpinnerIfIdle();
       refreshPanel();
