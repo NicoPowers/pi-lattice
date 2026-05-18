@@ -1,6 +1,6 @@
 import { type ExtensionAPI, type ExtensionContext, getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -23,6 +23,14 @@ interface Agent {
   _nextTurn?: { resolve: () => void; reject: (e: Error) => void };
   _turnTimer?: NodeJS.Timeout;
 }
+
+interface PendingTask {
+  name: string;
+  message: string;
+  startTime: number;
+}
+
+const pendingTasks = new Map<string, PendingTask>();
 
 const agents = new Map<string, Agent>();
 
@@ -243,7 +251,7 @@ function clearPanel() {
 
 function hasBwrap(): boolean {
   try {
-    const result = spawn.sync("which", ["bwrap"], { encoding: "utf-8" });
+    const result = spawnSync("which", ["bwrap"], { encoding: "utf-8" });
     return result.status === 0;
   } catch {
     return false;
@@ -393,7 +401,7 @@ async function spawnAgent(
     fs.mkdirSync(promptDir, { recursive: true });
     const promptFile = path.join(promptDir, `${id}.md`);
     fs.writeFileSync(promptFile, filledPrompt, { encoding: "utf-8", mode: 0o600 });
-    promptInsideBwrap = `/workspace/.pi/prompts/${id}.md`;
+    promptInsideBwrap = `/tmp/workspace/.pi/prompts/${id}.md`;
   }
 
   const effectiveModel = definition?.model || model;
@@ -412,13 +420,22 @@ async function spawnAgent(
 
   // Build bwrap command
   const piInvocation = getPiInvocation(piArgs);
+
+  // Make ~/.pi/agent writable so the agent can create lock files / sessions
+  const piAgentDir = path.join(os.homedir(), ".pi", "agent");
+  const agentBindArgs = fs.existsSync(piAgentDir)
+    ? ["--bind", piAgentDir, piAgentDir]
+    : [];
+
   const bwrapArgs = [
     "--ro-bind", "/", "/",
     "--tmpfs", "/tmp",
-    "--bind", worktreePath, "/workspace",
-    "--chdir", "/workspace",
+    "--dev", "/dev",
+    "--bind", worktreePath, "/tmp/workspace",
+    "--chdir", "/tmp/workspace",
     "--share-net",
     "--setenv", "HOME", os.homedir(),
+    ...agentBindArgs,
     piInvocation.command,
     ...piInvocation.args,
   ];
@@ -712,7 +729,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       agents.set(params.name, result.agent);
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 1000));
       refreshPanel();
 
       if (result.agent.status === "error" || result.agent.status === "exited") {
@@ -760,7 +777,7 @@ export default function (pi: ExtensionAPI) {
       message: Type.String({ description: "Message to send" }),
       timeout_seconds: Type.Optional(Type.Number({ default: 300 })),
     }),
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       log("tool", `agent_send called`, { name: params.name });
       currentCtx = ctx;
       const agent = agents.get(params.name);
@@ -773,25 +790,31 @@ export default function (pi: ExtensionAPI) {
           details: {},
         };
       }
-      try {
-        await sendToAgent(agent, params.message, (params.timeout_seconds || 300) * 1000, signal);
-        log("tool", `agent_send result`, { name: params.name, length: agent.accumulatedText.length });
-        return {
-          content: [{ type: "text", text: agent.accumulatedText || "(agent returned empty response)" }],
-          details: {
-            name: params.name,
-            status: agent.status,
-            turns: Math.floor(agent.history.length / 2),
-          },
-        };
-      } catch (err: any) {
-        log("tool", `agent_send error`, { name: params.name, error: err.message });
-        return {
-          content: [{ type: "text", text: `Error: ${err.message}` }],
-          isError: true,
-          details: {},
-        };
-      }
+
+      const taskId = `${params.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      pendingTasks.set(taskId, { name: params.name, message: params.message, startTime: Date.now() });
+
+      // Fire off in background so the orchestrator isn't blocked
+      Promise.resolve().then(async () => {
+        try {
+          await sendToAgent(agent, params.message, (params.timeout_seconds || 300) * 1000);
+          const result = agent.accumulatedText || "(agent returned empty response)";
+          log("tool", `agent_send async result`, { name: params.name, length: result.length });
+          pi.sendUserMessage(`[${params.name}] ${result}`, { deliverAs: "steer" });
+        } catch (err: any) {
+          log("tool", `agent_send async error`, { name: params.name, error: err.message });
+          pi.sendUserMessage(`[${params.name}] Error: ${err.message}`, { deliverAs: "steer" });
+        } finally {
+          pendingTasks.delete(taskId);
+        }
+      });
+
+      return {
+        content: [
+          { type: "text", text: `Queued task for '${params.name}'. Result will be delivered when the agent completes.` },
+        ],
+        details: { queued: true, agent: params.name, taskId },
+      };
     },
   });
 
@@ -960,8 +983,16 @@ export default function (pi: ExtensionAPI) {
       }
 
       agents.set(name, result.agent);
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 800));
       refreshPanel();
+
+      if (result.agent.status === "error" || result.agent.status === "exited") {
+        agents.delete(name);
+        await removeWorktree(result.agent.worktreePath);
+        ctx.ui.notify(`Agent '${name}' exited immediately after spawn. Check logs.`, "error");
+        return;
+      }
+
       const defInfo = definition ? ` (type: ${definition.name})` : "";
       ctx.ui.notify(`Spawned agent '${name}'${defInfo} (parent: ${parent}).`, "info");
     },

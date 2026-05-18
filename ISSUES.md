@@ -18,24 +18,27 @@ Multi-agent orchestration extension for Pi. The orchestrator (broker LLM in your
 
 ### Issue 1: Bwrap + Shared Worktree Per Root Agent ✅
 
-**Status**: Implemented, committed, needs testing in a real git repo.
+**Status**: Implemented, committed, tested and fixed.
 
 **What works:**
 - `agent_spawn` creates root agents with `git worktree add <path> HEAD`
 - Sub-agents reuse parent's worktree
 - Every agent spawned inside `bwrap`:
   ```
-  bwrap --ro-bind / / --tmpfs /tmp --bind <worktree> /workspace --chdir /workspace --share-net pi --mode rpc ...
+  bwrap --ro-bind / / --tmpfs /tmp --bind <worktree> /tmp/workspace --chdir /tmp/workspace --share-net pi --mode rpc ...
   ```
-- Prompts written into worktree at `/workspace/.pi/prompts/<name>.md`
-- Comms directory created: `/workspace/.pi/comms/{requests,responses}/`
+- Prompts written into worktree at `/tmp/workspace/.pi/prompts/<name>.md`
+- Comms directory created: `/tmp/workspace/.pi/comms/{requests,responses}/`
 - Orphaned worktree cleanup on startup (`cleanupOrphanedWorktrees`)
 - Worktree removal on `agent_kill` (root) and `session_shutdown`
 - Serialized worktree creation with mutex (`worktreeLock`)
 - `hasBwrap()` detection using `spawnSync("which", ["bwrap"])`
 
-**Bug fixed:**
+**Bugs fixed:**
 - `spawn.sync` → `spawnSync` (Node API difference)
+- `bwrap: Can't mkdir /workspace: Read-only file system` — changed sandbox mount from `/workspace` to `/tmp/workspace` so bwrap can create the mount point inside the writable `/tmp` tmpfs
+- `/spawn` command now validates the agent actually stayed alive after spawn (was falsely reporting success when the process exited immediately)
+- Added writable bind for `~/.pi/agent` so child pi processes can create lock files
 
 **Test command:**
 ```
@@ -55,28 +58,26 @@ cat /tmp/pi-worktree-lead-*/hello.txt
 
 ---
 
+## Completed
+
+### Issue 2: Async `agent_send` ✅
+
+**Status**: Implemented.
+
+**What changed:**
+- `agent_send` tool now returns immediately with `"Queued task for 'lead'. Result will be delivered when the agent completes."`
+- Background `Promise.resolve().then(...)` fires `sendToAgent` asynchronously
+- When the agent responds, the extension calls:
+  ```ts
+  pi.sendUserMessage(`[${name}] ${result}`, { deliverAs: "steer" })
+  ```
+- Orchestrator receives the result as a new steering message after its current turn finishes
+- Pending tasks are tracked in a `Map<string, PendingTask>` for observability
+- `/ask` command stays blocking (user-facing direct interaction)
+
+---
+
 ## Pending Issues
-
-### Issue 2: Async `agent_send`
-
-**Goal**: `agent_send` tool should return immediately, not block the orchestrator.
-
-**Current behavior**: `sendToAgent` blocks until `agent_end`. Orchestrator can't chat while agent works.
-
-**Desired behavior**:
-1. `agent_send(name, message)` → returns `"Queued task for lead"`
-2. Extension fires off RPC prompt in background
-3. When agent responds, extension calls:
-   ```ts
-   pi.sendUserMessage(`[${name}] ${result}`, { deliverAs: "steer" })
-   ```
-4. Orchestrator receives result as a new message after its current turn
-
-**Implementation notes**:
-- Need `PendingTask` queue in extension state
-- `sendToAgent` stays as internal blocking helper
-- `agent_send` tool wraps it in `Promise.resolve().then(...)` and returns immediately
-- Result delivery uses `pi.sendUserMessage` with `deliverAs: "steer"`
 
 ---
 
