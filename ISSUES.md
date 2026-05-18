@@ -193,6 +193,41 @@ agent_send("lead", "I want to improve this codebase. Have scout review the proje
 
 ---
 
+## Pending Issues
+
+### Issue 6: Per-Agent Cost + Context Usage Tracking
+
+**Goal**: Track and display cost and context window usage for each sub-agent in real-time.
+
+**Motivation**:
+- Sub-agents can burn through tokens quickly (the MVP test showed an 11KB scout response)
+- Context windows fill up over long sessions — need to know when to respawn
+- No visibility into which agent is costing the most
+
+**Data sources**:
+1. `agent_end` events include `usage.cost.total` and `usage.tokens` in assistant messages
+2. RPC `get_session_stats` returns live `contextUsage.percent` and cumulative `cost`
+
+**Implementation plan**:
+1. Add to `Agent` interface: `totalCost: number`, `totalTokens: number`, `contextPercent: number | null`
+2. In `agent_end` handler: accumulate `usage.cost.total` into `agent.totalCost`
+3. Add periodic RPC poll (every 5s for active agents): send `{"type":"get_session_stats"}` to agent stdin, parse response
+4. Update TUI panel to show: `lead ● $0.12 | ctx: 34%` next to each agent
+5. Add warning highlight when `contextPercent > 80%` (orange) or `> 95%` (red)
+6. Add `agent_cost` tool: returns cost breakdown for a specific agent
+7. Add `/costs` command: shows all agent costs in a table
+
+**Display format**:
+```
+● lead (coder) $0.12 | ctx: 34%      ← green, healthy
+◐ scout (reviewer) $0.45 | ctx: 82%   ← orange, warning
+○ qa (reviewer) $0.03 | ctx: 12%      ← idle
+```
+
+**Future**: Auto-respawn agent when context exceeds threshold (configurable)
+
+---
+
 ## Known Limitations / Future Work
 
 - **No team support yet**: Deferred in favor of parent-child hierarchy
@@ -200,6 +235,8 @@ agent_send("lead", "I want to improve this codebase. Have scout review the proje
 - **No logs inspection**: Communication logs not yet written to disk
 - **No PR/push**: Agents are read-write-local only
 - **WSL not tested**: Bwrap requires WSL2 (Linux kernel)
+- **No cost tracking**: Issue 6 pending — per-agent cost and context usage not visible
+- **No auto-respawn**: Agents don't auto-restart when context window fills
 
 ---
 
