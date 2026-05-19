@@ -191,13 +191,50 @@ export async function getSkillDetail(id: string, cwd: string): Promise<SkillDeta
   return detailForSkill(skill);
 }
 
+function targetSkillRoot(scope: "project" | "global" | undefined, cwd: string): string {
+  return scope === "global" ? path.join(getAgentDir(), "skills") : path.join(cwd, ".pi", "skills");
+}
+
+function yamlScalar(value: unknown): string {
+  if (typeof value === "string") return /^[a-z0-9][a-z0-9 .,_/'!?()-]*$/i.test(value) ? value : JSON.stringify(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function serializeFrontmatter(frontmatter: Record<string, unknown>): string {
+  return Object.entries(frontmatter)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}: ${yamlScalar(value)}`)
+    .join("\n");
+}
+
+function copySkillTree(source: DiscoveredSkill, targetDir: string): void {
+  fs.mkdirSync(targetDir, { recursive: true });
+  if (source.kind === "directory") {
+    fs.cpSync(source.baseDir, targetDir, {
+      recursive: true,
+      filter: (src) => {
+        const name = path.basename(src);
+        if ([".git", "node_modules"].includes(name)) return false;
+        try {
+          return !fs.lstatSync(src).isSymbolicLink();
+        } catch {
+          return false;
+        }
+      },
+    });
+  } else {
+    fs.copyFileSync(source.filePath, path.join(targetDir, "SKILL.md"));
+  }
+}
+
 export async function createSkill(input: { scope?: "project" | "global"; name: string; description: string; body?: string; scaffold?: "minimal" | "rich" }, cwd: string): Promise<{ success: boolean; detail?: SkillDetail; error?: string; status?: number }> {
   const name = normalizeSkillName(input.name || "");
   if (!name) return { success: false, error: "name is required", status: 400 };
   if (!input.description?.trim()) return { success: false, error: "description is required", status: 400 };
   if (input.description.length > 1024) return { success: false, error: "description must be at most 1024 characters", status: 400 };
 
-  const root = input.scope === "global" ? path.join(getAgentDir(), "skills") : path.join(cwd, ".pi", "skills");
+  const root = targetSkillRoot(input.scope, cwd);
   const dir = path.join(root, name);
   const filePath = path.join(dir, "SKILL.md");
   if (fs.existsSync(filePath) || fs.existsSync(dir)) return { success: false, error: "skill already exists", status: 409 };
@@ -223,6 +260,47 @@ export async function createSkill(input: { scope?: "project" | "global"; name: s
   const skill = skills.find((candidate) => canonicalPath(candidate.filePath) === canonicalPath(filePath));
   if (!skill) return { success: false, error: "created skill was not discovered", status: 500 };
   return { success: true, detail: detailForSkill(skill) };
+}
+
+export async function copySkill(id: string, input: { scope?: "project" | "global"; name: string; description: string }, cwd: string): Promise<{ success: boolean; detail?: SkillDetail; error?: string; status?: number }> {
+  const skills = await discoverSkills(cwd);
+  const source = skills.find((candidate) => candidate.id === id);
+  if (!source) return { success: false, error: "Skill not found", status: 404 };
+
+  const name = normalizeSkillName(input.name || "");
+  if (!name) return { success: false, error: "name is required", status: 400 };
+  if (name === source.name) return { success: false, error: "new skill name must differ from the source skill name", status: 400 };
+  if (!input.description?.trim()) return { success: false, error: "description is required", status: 400 };
+  if (input.description.length > 1024) return { success: false, error: "description must be at most 1024 characters", status: 400 };
+  if (skills.some((candidate) => candidate.name === name)) {
+    return { success: false, error: `skill name '${name}' already exists; duplicate skill names collide and Pi keeps the first discovered skill`, status: 409 };
+  }
+
+  const root = targetSkillRoot(input.scope, cwd);
+  const dir = path.join(root, name);
+  const filePath = path.join(dir, "SKILL.md");
+  if (fs.existsSync(filePath) || fs.existsSync(dir)) return { success: false, error: "skill already exists", status: 409 };
+
+  try {
+    copySkillTree(source, dir);
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter, body } = parseFrontmatter<Record<string, unknown>>(content);
+    const nextFrontmatter = { ...frontmatter, name, description: input.description.trim() };
+    const nextContent = `---\n${serializeFrontmatter(nextFrontmatter)}\n---\n${body.startsWith("\n") ? body : `\n${body}`}`;
+    const validationError = validateSkillContent(nextContent);
+    if (validationError) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return { success: false, error: validationError, status: 400 };
+    }
+    fs.writeFileSync(filePath, nextContent, "utf-8");
+  } catch (err: any) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return { success: false, error: `failed to copy skill: ${err?.message || String(err)}`, status: 500 };
+  }
+
+  const nextSkill = (await discoverSkills(cwd)).find((candidate) => canonicalPath(candidate.filePath) === canonicalPath(filePath));
+  if (!nextSkill) return { success: false, error: "copied skill was not discovered", status: 500 };
+  return { success: true, detail: detailForSkill(nextSkill) };
 }
 
 export async function getSkillTree(id: string, cwd: string): Promise<{ success: boolean; files?: SkillFileEntry[]; error?: string; status?: number }> {

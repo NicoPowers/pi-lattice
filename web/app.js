@@ -31260,6 +31260,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const [editContent, setEditContent] = import_react2.useState("");
   const [saveError, setSaveError] = import_react2.useState("");
   const [creating, setCreating] = import_react2.useState(false);
+  const [copying, setCopying] = import_react2.useState(null);
   const [addTemplateName, setAddTemplateName] = import_react2.useState("");
   const [templateError, setTemplateError] = import_react2.useState("");
   const [editableFilter, setEditableFilter] = import_react2.useState("all");
@@ -31290,9 +31291,17 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
   import_react2.useEffect(() => {
+    setDetail(null);
+    setTree([]);
+    setSelectedFile("SKILL.md");
+    setFileDetail(null);
+    setEditContent("");
+    setEditing(false);
+    setSaveError("");
     if (!selectedSkill?.id) {
-      setDetail(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -31330,10 +31339,9 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
     setSelectedId(skills[0]?.id);
   }, [selectedId, skills]);
   import_react2.useEffect(() => {
-    if (!selectedSkill?.id) {
-      setTree([]);
+    setTree([]);
+    if (!selectedSkill?.id)
       return;
-    }
     let cancelled = false;
     fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`).then(async (res) => {
       if (!res.ok)
@@ -31394,7 +31402,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const displayedContent = fileDetail?.content ?? detail?.content ?? "";
   const displayedBody = fileDetail ? fileDetail.content : detail?.body || detail?.content || "";
   const deleteSelected = async () => {
-    if (!detail?.skill.id)
+    if (!detail?.skill.id || !detailMatchesSelected)
       return;
     if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`))
       return;
@@ -31580,7 +31588,13 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                 selectedSkill && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                   className: "flex flex-wrap items-center gap-2",
                   children: [
-                    detail?.skill.editable && !editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
+                    !editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: () => setCopying(selectedSkill),
+                      children: "Copy"
+                    }, undefined, false, undefined, this),
+                    detailMatchesSelected && detail?.skill.editable && !editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
                       children: [
                         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
                           variant: "secondary",
@@ -31600,7 +31614,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                         }, undefined, false, undefined, this)
                       ]
                     }, undefined, true, undefined, this),
-                    editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
+                    detailMatchesSelected && editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
                       children: [
                         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
                           variant: "secondary",
@@ -31737,7 +31751,40 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                   className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
                   children: saveError
                 }, undefined, false, undefined, this),
-                detail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                loading && !detailMatchesSelected && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "min-h-0 rounded-md border border-border bg-background p-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "mb-2 h-3 w-16 animate-pulse rounded bg-muted"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "space-y-2",
+                          children: [0, 1, 2, 3].map((idx) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                            className: "h-5 animate-pulse rounded bg-muted/70"
+                          }, idx, false, undefined, this))
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "min-h-0 rounded-md border border-border bg-background p-5",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "mb-4 h-6 w-48 animate-pulse rounded bg-muted"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "space-y-3",
+                          children: [0, 1, 2, 3, 4].map((idx) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                            className: "h-4 animate-pulse rounded bg-muted/70"
+                          }, idx, false, undefined, this))
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                detailMatchesSelected && detail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                   className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
                   children: [
                     /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -31810,6 +31857,17 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
           setSelectedId(created.skill.id);
           setDetail(created);
           setEditContent(created.content);
+          onChanged();
+        }
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CopySkillDialog, {
+        source: copying,
+        onClose: () => setCopying(null),
+        onCopied: (copied) => {
+          setCopying(null);
+          setSelectedId(copied.skill.id);
+          setDetail(copied);
+          setEditContent(copied.content);
           onChanged();
         }
       }, undefined, false, undefined, this)
@@ -31944,6 +32002,143 @@ function CreateSkillDialog({ open, onClose, onCreated }) {
               onClick: create2,
               disabled: !!errors.length,
               children: "Create Skill"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+function CopySkillDialog({ source, onClose, onCopied }) {
+  const [scope, setScope] = import_react2.useState("project");
+  const [name2, setName] = import_react2.useState("");
+  const [description, setDescription] = import_react2.useState("");
+  const [serverError, setServerError] = import_react2.useState("");
+  const open = !!source;
+  import_react2.useEffect(() => {
+    if (source) {
+      setScope("project");
+      setName(`${source.name}-copy`);
+      setDescription(source.description ? `${source.description} (derived copy)` : "Derived copy");
+      setServerError("");
+    }
+  }, [source?.id, source?.name]);
+  const savedName = normalizeSkillName(name2);
+  const errors = [
+    !source?.id ? "Select a source skill." : undefined,
+    !savedName ? "Name is required." : undefined,
+    source && savedName === source.name ? "Choose a new skill name; duplicate names collide and Pi keeps the first discovered skill." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
+  const copy = async () => {
+    if (!source?.id || errors.length)
+      return;
+    setServerError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim() }) });
+    if (!res.ok)
+      return setServerError(await responseErrorText(res));
+    onCopied(await res.json());
+  };
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
+    open,
+    title: source ? `Copy Skill: ${source.name}` : "Copy Skill",
+    onOpenChange: onClose,
+    className: "max-w-2xl",
+    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+          className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100",
+          children: [
+            "Copy creates a new editable skill directory and rewrites ",
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+              children: "SKILL.md"
+            }, undefined, false, undefined, this),
+            " frontmatter. Do not reuse an existing skill name: duplicate names collide during Pi discovery and Pi keeps the first discovered skill."
+          ]
+        }, undefined, true, undefined, this),
+        source && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+          className: "rounded-md border border-border bg-background p-2 text-xs text-muted-foreground",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              children: [
+                "Source: ",
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                  className: "text-foreground",
+                  children: source.name
+                }, undefined, false, undefined, this),
+                " (",
+                skillScopeLabel(source),
+                ")"
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "truncate",
+              title: source.path,
+              children: source.path
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+          required: true,
+          children: "Target scope"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+          value: scope,
+          onChange: (e) => setScope(e.target.value),
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+              value: "project",
+              children: "Project (.pi/skills)"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+              value: "global",
+              children: "Global / all repos (~/.pi/agent/skills)"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+          required: true,
+          children: "New name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+          value: name2,
+          onChange: (e) => setName(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
+          tone: savedName && savedName !== source?.name ? "success" : "muted",
+          children: [
+            "Will be saved as: ",
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+              className: "rounded bg-muted px-1 py-0.5 text-foreground",
+              children: savedName || "—"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+          required: true,
+          children: "New description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ValidationSummary, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+              onClick: copy,
+              disabled: !!errors.length,
+              children: "Copy Skill"
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this)

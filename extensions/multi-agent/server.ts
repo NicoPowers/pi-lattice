@@ -300,6 +300,21 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       else send(res, errorResponse(result.error || "Failed to create skill", result.status || 400));
       return;
     }
+    const skillCopyMatch = url.pathname.match(/^\/api\/skills\/([^/]+)\/copy$/);
+    if (skillCopyMatch && req.method === "POST") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { copySkill } = await import("./skill-discovery.js");
+      const result = await copySkill(decodeURIComponent(skillCopyMatch[1]), { scope: body.scope, name: body.name, description: body.description }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.detail));
+      else send(res, errorResponse(result.error || "Failed to copy skill", result.status || 400));
+      return;
+    }
     const skillMatch = url.pathname.match(/^\/api\/skills\/([^/]+)$/);
     const skillTreeMatch = url.pathname.match(/^\/api\/skills\/([^/]+)\/tree$/);
     if (skillTreeMatch && req.method === "GET") {

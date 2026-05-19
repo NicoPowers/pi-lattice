@@ -286,6 +286,16 @@ describe("skill library API", () => {
       expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "rich-skill", "references", "README.md"))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "rich-skill", "scripts", "README.md"))).toBe(true);
 
+      const copyRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(created.skill.id)}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "project", name: "Copied Skill", description: "Copied description" }),
+      });
+      expect(copyRes.status).toBe(200);
+      const copied = await copyRes.json();
+      expect(copied.skill.name).toBe("copied-skill");
+      expect(fs.readFileSync(path.join(tmpDir, ".pi", "skills", "copied-skill", "SKILL.md"), "utf-8")).toContain("description: Copied description");
+
       const detailRes = await fetch(`${handle.url}/api/skills/${encodeURIComponent(created.skill.id)}`);
       const detail = await detailRes.json();
       const updatedContent = `---\nname: my-skill\ndescription: Helps with tests\n---\n# My Skill\n\nUpdated body.`;

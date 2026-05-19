@@ -656,6 +656,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const [editContent, setEditContent] = useState("");
   const [saveError, setSaveError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [copying, setCopying] = useState<SkillInfo | null>(null);
   const [addTemplateName, setAddTemplateName] = useState("");
   const [templateError, setTemplateError] = useState("");
   const [editableFilter, setEditableFilter] = useState("all");
@@ -680,10 +681,18 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
 
   useEffect(() => {
+    setDetail(null);
+    setTree([]);
+    setSelectedFile("SKILL.md");
+    setFileDetail(null);
+    setEditContent("");
+    setEditing(false);
+    setSaveError("");
     if (!selectedSkill?.id) {
-      setDetail(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -706,7 +715,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   }, [selectedId, skills]);
 
   useEffect(() => {
-    if (!selectedSkill?.id) { setTree([]); return; }
+    setTree([]);
+    if (!selectedSkill?.id) return;
     let cancelled = false;
     fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`)
       .then(async (res) => {
@@ -755,7 +765,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const displayedBody = fileDetail ? fileDetail.content : (detail?.body || detail?.content || "");
 
   const deleteSelected = async () => {
-    if (!detail?.skill.id) return;
+    if (!detail?.skill.id || !detailMatchesSelected) return;
     if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`)) return;
     setSaveError("");
     const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "DELETE" });
@@ -801,7 +811,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       </CardContent>
     </Card>
     <Card className="min-h-0 overflow-hidden">
-      <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(fileDetail?.content ?? detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(fileDetail?.content ?? detail?.content ?? ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
+      <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{!editing && <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCopying(selectedSkill)}>Copy</Button>}{detailMatchesSelected && detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(fileDetail?.content ?? detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{detailMatchesSelected && editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(fileDetail?.content ?? detail?.content ?? ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
       <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
         {!selectedSkill ? <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No skills discovered.</div> : <>
           <div className="flex flex-wrap gap-2"><Badge variant="outline">{skillScopeLabel(selectedSkill)}</Badge><Badge variant="outline">{selectedSkill.kind || "skill"}</Badge>{selectedSkill.editable ? <Badge variant="success">editable</Badge> : <Badge variant="warning">read-only</Badge>}</div>
@@ -814,7 +824,11 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
           {loading && <div className="text-sm text-muted-foreground">Loading preview…</div>}
           {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           {saveError && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{saveError}</div>}
-          {detail && <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]">
+          {loading && !detailMatchesSelected && <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]">
+            <div className="min-h-0 rounded-md border border-border bg-background p-2"><div className="mb-2 h-3 w-16 animate-pulse rounded bg-muted" /><div className="space-y-2">{[0, 1, 2, 3].map((idx) => <div key={idx} className="h-5 animate-pulse rounded bg-muted/70" />)}</div></div>
+            <div className="min-h-0 rounded-md border border-border bg-background p-5"><div className="mb-4 h-6 w-48 animate-pulse rounded bg-muted" /><div className="space-y-3">{[0, 1, 2, 3, 4].map((idx) => <div key={idx} className="h-4 animate-pulse rounded bg-muted/70" />)}</div></div>
+          </div>}
+          {detailMatchesSelected && detail && <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]">
             <div className="min-h-0 overflow-auto rounded-md border border-border bg-background p-2">
               <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Files</div>
               {tree.length ? tree.map((file) => <button key={file.path} type="button" disabled={file.type === "directory"} className={`block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} style={{ paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` }} onClick={() => file.type === "file" && openSkillFile(file.path)}>{file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• "}{file.name}</button>) : <div className="text-xs text-muted-foreground">No file tree available.</div>}
@@ -831,6 +845,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       </CardContent>
     </Card>
     <CreateSkillDialog open={creating} onClose={() => setCreating(false)} onCreated={(created) => { setCreating(false); setSelectedId(created.skill.id); setDetail(created); setEditContent(created.content); onChanged(); }} />
+    <CopySkillDialog source={copying} onClose={() => setCopying(null)} onCopied={(copied) => { setCopying(null); setSelectedId(copied.skill.id); setDetail(copied); setEditContent(copied.content); onChanged(); }} />
   </div>;
 }
 
@@ -866,6 +881,50 @@ function CreateSkillDialog({ open, onClose, onCreated }: { open: boolean; onClos
       <FieldLabel optional>Initial body</FieldLabel><Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# My Skill\n\n## Workflow\n\n1. ..." />
       <ValidationSummary errors={errors} serverError={serverError} />
       <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={create} disabled={!!errors.length}>Create Skill</Button></div>
+    </div>
+  </Dialog>;
+}
+
+function CopySkillDialog({ source, onClose, onCopied }: { source: SkillInfo | null; onClose: () => void; onCopied: (detail: SkillDetailInfo) => void }) {
+  const [scope, setScope] = useState("project");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [serverError, setServerError] = useState("");
+  const open = !!source;
+  useEffect(() => {
+    if (source) {
+      setScope("project");
+      setName(`${source.name}-copy`);
+      setDescription(source.description ? `${source.description} (derived copy)` : "Derived copy");
+      setServerError("");
+    }
+  }, [source?.id, source?.name]);
+  const savedName = normalizeSkillName(name);
+  const errors = [
+    !source?.id ? "Select a source skill." : undefined,
+    !savedName ? "Name is required." : undefined,
+    source && savedName === source.name ? "Choose a new skill name; duplicate names collide and Pi keeps the first discovered skill." : undefined,
+    !description.trim() ? "Description is required." : undefined,
+  ].filter(Boolean) as string[];
+  const copy = async () => {
+    if (!source?.id || errors.length) return;
+    setServerError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim() }) });
+    if (!res.ok) return setServerError(await responseErrorText(res));
+    onCopied(await res.json());
+  };
+  return <Dialog open={open} title={source ? `Copy Skill: ${source.name}` : "Copy Skill"} onOpenChange={onClose} className="max-w-2xl">
+    <div className="space-y-3">
+      <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+        Copy creates a new editable skill directory and rewrites <code>SKILL.md</code> frontmatter. Do not reuse an existing skill name: duplicate names collide during Pi discovery and Pi keeps the first discovered skill.
+      </div>
+      {source && <div className="rounded-md border border-border bg-background p-2 text-xs text-muted-foreground"><div>Source: <span className="text-foreground">{source.name}</span> ({skillScopeLabel(source)})</div><div className="truncate" title={source.path}>{source.path}</div></div>}
+      <FieldLabel required>Target scope</FieldLabel><Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="project">Project (.pi/skills)</option><option value="global">Global / all repos (~/.pi/agent/skills)</option></Select>
+      <FieldLabel required>New name</FieldLabel><Input value={name} onChange={(e) => setName(e.target.value)} />
+      <FormMessage tone={savedName && savedName !== source?.name ? "success" : "muted"}>Will be saved as: <code className="rounded bg-muted px-1 py-0.5 text-foreground">{savedName || "—"}</code></FormMessage>
+      <FieldLabel required>New description</FieldLabel><Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <ValidationSummary errors={errors} serverError={serverError} />
+      <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={copy} disabled={!!errors.length}>Copy Skill</Button></div>
     </div>
   </Dialog>;
 }

@@ -30,6 +30,79 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
   return { command: "pi", args };
 }
 
+export function buildPiArgs(options: {
+  model?: string;
+  definition?: AgentDefinition;
+  promptInsideBwrap: string | null;
+  delegatePromptInsideBwrap: string | null;
+  delegateInsideBwrap: string | null;
+  extraExtPaths: string[];
+}): string[] {
+  const { model, definition, promptInsideBwrap, delegatePromptInsideBwrap, delegateInsideBwrap, extraExtPaths } = options;
+  const effectiveModel = definition?.model || model;
+  const effectiveThinking = definition?.thinking;
+  const effectiveTools = definition?.tools ? [...definition.tools] : [];
+  if (!effectiveTools.includes("delegate")) {
+    effectiveTools.push("delegate");
+  }
+
+  const piArgs = ["--mode", "rpc", "--no-session"];
+  if (effectiveModel) piArgs.push("--model", effectiveModel);
+  if (effectiveThinking) piArgs.push("--thinking", effectiveThinking);
+  // Only restrict tools when no extensions are loaded. Extensions may register
+  // their own tools (e.g. web_search) that wouldn't be in the whitelist.
+  if (effectiveTools.length > 0 && extraExtPaths.length === 0) {
+    piArgs.push("--tools", effectiveTools.join(","));
+  }
+  if (promptInsideBwrap) piArgs.push("--system-prompt", promptInsideBwrap);
+  if (delegatePromptInsideBwrap) piArgs.push("--append-system-prompt", delegatePromptInsideBwrap);
+  if (definition?.skills) {
+    piArgs.push("--no-skills");
+    for (const skillPath of definition.skills) {
+      piArgs.push("--skill", skillPath);
+    }
+  }
+
+  if (delegateInsideBwrap || extraExtPaths.length > 0) {
+    piArgs.push("--no-extensions");
+    if (delegateInsideBwrap) {
+      piArgs.push("--extension", delegateInsideBwrap);
+    }
+    for (const p of extraExtPaths) {
+      piArgs.push("--extension", p);
+    }
+  }
+
+  return piArgs;
+}
+
+export function buildBwrapArgs(options: {
+  worktreePath: string;
+  piInvocation: { command: string; args: string[] };
+  homeDir?: string;
+  piAgentDirExists?: boolean;
+}): string[] {
+  const homeDir = options.homeDir ?? os.homedir();
+  const piAgentDir = path.join(homeDir, ".pi", "agent");
+  const piAgentDirExists = options.piAgentDirExists ?? fs.existsSync(piAgentDir);
+  const agentBindArgs = piAgentDirExists
+    ? ["--bind", piAgentDir, piAgentDir]
+    : [];
+
+  return [
+    "--ro-bind", "/", "/",
+    "--tmpfs", "/tmp",
+    "--dev", "/dev",
+    "--bind", options.worktreePath, "/tmp/workspace",
+    "--chdir", "/tmp/workspace",
+    "--share-net",
+    "--setenv", "HOME", homeDir,
+    ...agentBindArgs,
+    options.piInvocation.command,
+    ...options.piInvocation.args,
+  ];
+}
+
 export async function spawnAgent(
   id: string,
   options: {
@@ -128,30 +201,6 @@ export async function spawnAgent(
     delegatePromptInsideBwrap = `/tmp/workspace/.pi/prompts/${id}-delegate.md`;
   }
 
-  const effectiveModel = definition?.model || model;
-  const effectiveThinking = definition?.thinking;
-  const effectiveTools = definition?.tools ? [...definition.tools] : [];
-  if (!effectiveTools.includes("delegate")) {
-    effectiveTools.push("delegate");
-  }
-
-  const piArgs = ["--mode", "rpc", "--no-session"];
-  if (effectiveModel) piArgs.push("--model", effectiveModel);
-  if (effectiveThinking) piArgs.push("--thinking", effectiveThinking);
-  // Only restrict tools when no extensions are loaded. Extensions may register
-  // their own tools (e.g. web_search) that wouldn't be in the whitelist.
-  if (effectiveTools.length > 0 && (!extensions || extensions.length === 0)) {
-    piArgs.push("--tools", effectiveTools.join(","));
-  }
-  if (promptInsideBwrap) piArgs.push("--system-prompt", promptInsideBwrap);
-  if (delegatePromptInsideBwrap) piArgs.push("--append-system-prompt", delegatePromptInsideBwrap);
-  if (definition?.skills) {
-    piArgs.push("--no-skills");
-    for (const skillPath of definition.skills) {
-      piArgs.push("--skill", skillPath);
-    }
-  }
-
   const extDir = path.join(worktreePath, ".pi", "extensions");
   fs.mkdirSync(extDir, { recursive: true });
 
@@ -182,36 +231,16 @@ export async function spawnAgent(
     }
   }
 
-  // Build --extension flags
-  if (delegateInsideBwrap || extraExtPaths.length > 0) {
-    piArgs.push("--no-extensions");
-    if (delegateInsideBwrap) {
-      piArgs.push("--extension", delegateInsideBwrap);
-    }
-    for (const p of extraExtPaths) {
-      piArgs.push("--extension", p);
-    }
-  }
-
+  const piArgs = buildPiArgs({
+    model,
+    definition,
+    promptInsideBwrap,
+    delegatePromptInsideBwrap,
+    delegateInsideBwrap,
+    extraExtPaths,
+  });
   const piInvocation = getPiInvocation(piArgs);
-
-  const piAgentDir = path.join(os.homedir(), ".pi", "agent");
-  const agentBindArgs = fs.existsSync(piAgentDir)
-    ? ["--bind", piAgentDir, piAgentDir]
-    : [];
-
-  const bwrapArgs = [
-    "--ro-bind", "/", "/",
-    "--tmpfs", "/tmp",
-    "--dev", "/dev",
-    "--bind", worktreePath, "/tmp/workspace",
-    "--chdir", "/tmp/workspace",
-    "--share-net",
-    "--setenv", "HOME", os.homedir(),
-    ...agentBindArgs,
-    piInvocation.command,
-    ...piInvocation.args,
-  ];
+  const bwrapArgs = buildBwrapArgs({ worktreePath, piInvocation });
 
   log("spawn", `Starting agent '${id}' in bwrap`, { worktree: worktreePath, bwrap: `bwrap ${bwrapArgs.join(" ")}` });
 

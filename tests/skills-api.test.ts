@@ -62,4 +62,47 @@ describe("skill discovery API", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("copies a skill directory into project scope with rewritten frontmatter", async () => {
+    const { discoverSkills, copySkill } = await import("../extensions/multi-agent/skill-discovery.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-copy-skill-"));
+    try {
+      const skillDir = path.join(tmpDir, ".pi", "skills", "source-skill");
+      fs.mkdirSync(path.join(skillDir, "references"), { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: source-skill\ndescription: Source skill\n---\n# Source\n\nUse [ref](references/ref.md).`, "utf-8");
+      fs.writeFileSync(path.join(skillDir, "references", "ref.md"), "# Ref\n", "utf-8");
+      const source = (await discoverSkills(tmpDir)).find((skill) => skill.name === "source-skill")!;
+
+      const result = await copySkill(source.id, { scope: "project", name: "Derived Skill", description: "Derived copy" }, tmpDir);
+
+      expect(result.success).toBe(true);
+      expect(result.detail?.skill.name).toBe("derived-skill");
+      const copiedSkillFile = path.join(tmpDir, ".pi", "skills", "derived-skill", "SKILL.md");
+      expect(fs.readFileSync(copiedSkillFile, "utf-8")).toStartWith(`---\nname: derived-skill\ndescription: Derived copy\n---\n`);
+      expect(fs.existsSync(path.join(tmpDir, ".pi", "skills", "derived-skill", "references", "ref.md"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects skill copies that would collide with discovered skill names", async () => {
+    const { discoverSkills, copySkill } = await import("../extensions/multi-agent/skill-discovery.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-copy-skill-collision-"));
+    try {
+      for (const name of ["source-skill", "existing-skill"]) {
+        const skillDir = path.join(tmpDir, ".pi", "skills", name);
+        fs.mkdirSync(skillDir, { recursive: true });
+        fs.writeFileSync(path.join(skillDir, "SKILL.md"), `---\nname: ${name}\ndescription: ${name}\n---\n`, "utf-8");
+      }
+      const source = (await discoverSkills(tmpDir)).find((skill) => skill.name === "source-skill")!;
+
+      const result = await copySkill(source.id, { scope: "project", name: "existing-skill", description: "Duplicate" }, tmpDir);
+
+      expect(result.success).toBe(false);
+      expect(result.status).toBe(409);
+      expect(result.error).toContain("already exists");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
