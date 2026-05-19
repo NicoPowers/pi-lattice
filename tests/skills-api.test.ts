@@ -19,6 +19,29 @@ describe("skill discovery API", () => {
     }
   });
 
+  it("discovers Orchestrator Library skills", async () => {
+    const { discoverSkills } = await import("../extensions/multi-agent/skill-discovery.js");
+    const { ORCHESTRATOR_LIBRARY_SCHEMA } = await import("../extensions/multi-agent/orchestrator-library.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-library-skill-discovery-"));
+    try {
+      const libraryRoot = path.join(tmpDir, "team-library");
+      fs.mkdirSync(path.join(libraryRoot, "skills", "example-analysis"), { recursive: true });
+      fs.writeFileSync(path.join(libraryRoot, "orchestrator-library.json"), JSON.stringify({ schema: ORCHESTRATOR_LIBRARY_SCHEMA, name: "team", resources: {} }));
+      fs.writeFileSync(path.join(libraryRoot, "skills", "example-analysis", "SKILL.md"), "---\nname: example-analysis\ndescription: Example analysis\n---\n");
+      fs.mkdirSync(path.join(tmpDir, ".pi"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, ".pi", "settings.json"), JSON.stringify({ piAgentOrchestrator: { libraries: ["./team-library"] } }));
+
+      const skills = await discoverSkills(tmpDir);
+      const skill = skills.find((candidate) => candidate.name === "example-analysis");
+      expect(skill).toBeDefined();
+      expect(skill?.source).toBe("orchestrator-library");
+      expect(skill?.scope).toBe("team");
+      expect(skill?.editable).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("discovers project skills", async () => {
     const { discoverSkills } = await import("../extensions/multi-agent/skill-discovery.js");
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skills-api-"));

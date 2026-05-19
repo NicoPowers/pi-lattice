@@ -1,7 +1,10 @@
+import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveSkillPath } from "./definitions.js";
 import { discoverSkillTemplates } from "./skill-templates.js";
 import { discoverExtensionTemplates } from "./extension-templates.js";
+import { resolveOrchestratorLibraryResourceRef } from "./orchestrator-library.js";
 import type { AgentDefinition } from "./state.js";
 
 export interface ExtensionRef {
@@ -15,6 +18,7 @@ export interface ResolvedCapabilities {
   extensions: ExtensionRef[];
   missingExtensionTemplates: string[];
   missingExtensions: string[];
+  skillConflicts: Array<{ name: string; paths: string[] }>;
 }
 
 function uniqueStrings(items: Array<string | undefined>): string[] {
@@ -27,6 +31,35 @@ function uniqueStrings(items: Array<string | undefined>): string[] {
     result.push(value);
   }
   return result;
+}
+
+function resolveSkillRef(item: string, templateFilePath: string, cwd: string): string {
+  const libraryResource = resolveOrchestratorLibraryResourceRef(item, cwd, "skills");
+  if (libraryResource) return libraryResource.filePath;
+  return resolveSkillPath(item, path.dirname(templateFilePath), cwd);
+}
+
+function skillRuntimeName(skillPath: string): string | undefined {
+  try {
+    const filePath = fs.statSync(skillPath).isDirectory() ? path.join(skillPath, "SKILL.md") : skillPath;
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter } = parseFrontmatter<Record<string, unknown>>(content);
+    return typeof frontmatter.name === "string" ? frontmatter.name.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function findSkillConflicts(skillPaths: string[]): Array<{ name: string; paths: string[] }> {
+  const byName = new Map<string, string[]>();
+  for (const skillPath of skillPaths) {
+    const name = skillRuntimeName(skillPath);
+    if (!name) continue;
+    byName.set(name, [...(byName.get(name) || []), skillPath]);
+  }
+  return Array.from(byName.entries())
+    .filter(([, paths]) => paths.length > 1)
+    .map(([name, paths]) => ({ name, paths }));
 }
 
 function uniqueExtensions(items: ExtensionRef[]): ExtensionRef[] {
@@ -58,9 +91,10 @@ export function resolveCapabilities(options: {
 
   const skillTemplateItems = skillTemplates
     .filter((template) => template.applyToAll || selectedSkillTemplateNames.has(template.name))
-    .flatMap((template) => template.items.map((item) => resolveSkillPath(item, path.dirname(template.filePath), cwd)));
+    .flatMap((template) => template.items.map((item) => resolveSkillRef(item, template.filePath, cwd)));
 
-  const skills = uniqueStrings([...(definition?.skills || []), ...skillTemplateItems]);
+  const directSkills = (definition?.skills || []).map((item) => resolveOrchestratorLibraryResourceRef(item, cwd, "skills")?.filePath || item);
+  const skills = uniqueStrings([...directSkills, ...skillTemplateItems]);
 
   const extensionNames = uniqueStrings([
     ...requestedExtensions,
@@ -82,5 +116,6 @@ export function resolveCapabilities(options: {
     extensions: uniqueExtensions(resolvedExtensions),
     missingExtensionTemplates,
     missingExtensions,
+    skillConflicts: findSkillConflicts(skills),
   };
 }

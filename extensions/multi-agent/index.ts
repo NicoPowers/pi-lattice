@@ -302,6 +302,13 @@ export default function (pi: ExtensionAPI) {
         requestedExtensions: params.extensions || [],
         availableExtensions: allExts,
       });
+      if (capabilities.skillConflicts.length) {
+        return {
+          content: [{ type: "text", text: `Cannot spawn agent with conflicting runtime skill names:\n${capabilities.skillConflicts.map((conflict) => `- ${conflict.name}: ${conflict.paths.join(", ")}`).join("\n")}` }],
+          isError: true,
+          details: { skillConflicts: capabilities.skillConflicts },
+        };
+      }
       const resolvedDefinition = definition
         ? { ...definition, skills: capabilities.skills }
         : undefined;

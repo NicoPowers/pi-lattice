@@ -558,6 +558,10 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         requestedExtensions: requestedExtensions || [],
         availableExtensions: allExts,
       });
+      if (capabilities.skillConflicts.length) {
+        send(res, errorResponse(`Cannot spawn agent with conflicting runtime skill names: ${capabilities.skillConflicts.map((conflict) => conflict.name).join(", ")}`, 400));
+        return;
+      }
       const resolvedDefinition = definition
         ? { ...definition, skills: capabilities.skills }
         : undefined;

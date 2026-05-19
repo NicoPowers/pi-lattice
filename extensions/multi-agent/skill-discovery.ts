@@ -139,7 +139,7 @@ export async function discoverSkillDiagnostics(cwd: string): Promise<Array<{ typ
 
 export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
   const { skills } = await loadSkills(cwd);
-  return skills
+  const discovered = skills
     .map((skill: any) => {
       const filePath = skill.filePath;
       const baseDir = skill.baseDir || path.dirname(filePath);
@@ -156,8 +156,30 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         kind,
         editable: isEditableSkill(filePath, cwd),
       } satisfies DiscoveredSkill;
-    })
-    .sort(compareSkills);
+    });
+
+  const { discoverConfiguredOrchestratorLibraries } = await import("./orchestrator-library.js");
+  const librarySkills = discoverConfiguredOrchestratorLibraries(cwd).resources
+    .filter((resource) => resource.kind === "skills")
+    .map((resource) => {
+      const kind = path.basename(resource.filePath).toLowerCase() === "skill.md" ? "directory" : "file";
+      return {
+        id: skillId(resource.filePath),
+        name: resource.name,
+        description: resource.description,
+        path: resource.filePath,
+        filePath: resource.filePath,
+        baseDir: kind === "directory" ? path.dirname(resource.filePath) : path.dirname(resource.filePath),
+        source: "orchestrator-library",
+        scope: resource.libraryName,
+        kind,
+        editable: resource.editable,
+      } satisfies DiscoveredSkill;
+    });
+
+  const byFilePath = new Map<string, DiscoveredSkill>();
+  for (const skill of [...discovered, ...librarySkills]) byFilePath.set(canonicalPath(skill.filePath), skill);
+  return Array.from(byFilePath.values()).sort(compareSkills);
 }
 
 export async function getSkillDetail(id: string, cwd: string): Promise<SkillDetail | undefined> {

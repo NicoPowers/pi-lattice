@@ -556,6 +556,23 @@ export function discoverConfiguredOrchestratorLibraries(repoCwd: string, paths: 
   };
 }
 
+export function resolveOrchestratorLibraryResourceRef(ref: string, repoCwd: string, kind?: OrchestratorResourceKind): DiscoveredOrchestratorResource | undefined {
+  const trimmed = ref.trim();
+  if (!trimmed.includes(":")) return undefined;
+  const [libraryName, ...rest] = trimmed.split(":");
+  const relative = rest.join(":");
+  if (!libraryName || !relative) return undefined;
+  const normalizedRelative = relative.replace(/\\/g, "/").replace(/^\/+/, "");
+  return discoverConfiguredOrchestratorLibraries(repoCwd).resources.find((resource) => {
+    if (resource.libraryName !== libraryName) return false;
+    if (kind && resource.kind !== kind) return false;
+    return resource.relativePath === normalizedRelative
+      || resource.relativePath === `${normalizedRelative}/SKILL.md`
+      || resource.relativePath === `${normalizedRelative}/index.ts`
+      || resource.relativePath === `${normalizedRelative}/index.js`;
+  });
+}
+
 export function readOrchestratorLibraries(rootPaths: string[]): OrchestratorLibrarySet {
   const libraries = rootPaths.map((rootPath) => readOrchestratorLibrary(rootPath));
   const diagnostics = libraries.flatMap((library) => library.diagnostics);
