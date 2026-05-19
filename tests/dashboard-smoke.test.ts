@@ -60,7 +60,7 @@ describe("dashboard bundle smoke test", () => {
           if (url.includes("/api/skill-templates")) return Response.json([]);
           if (url.includes("/api/extension-templates")) return Response.json([]);
           if (url.includes("/api/extensions")) return Response.json([]);
-          if (url.includes("/api/orchestrator-libraries")) return Response.json({ libraries: [], resources: [], diagnostics: [], valid: true });
+          if (url.includes("/api/orchestrator-libraries")) return Response.json({ libraries: [], resources: [], diagnostics: [], valid: true, settings: { showPackageExamples: true, settingsPath: "/tmp/.pi/settings.json", exists: false } });
           if (url.endsWith("/api/skills/demo-id")) return Response.json({ skill: { id: "demo-id", name: "demo", description: "Demo skill", path: "/tmp/demo/SKILL.md", scope: "project", kind: "directory", editable: true }, content: "---\nname: demo\ndescription: Demo skill\n---\n# Demo Skill\n\nSkill body.", frontmatter: { name: "demo", description: "Demo skill" }, body: "# Demo Skill\n\nSkill body.", mtimeMs: 1, hash: "hash" });
           if (url.endsWith("/api/skills")) return Response.json([{ id: "demo-id", name: "demo", description: "Demo skill", path: "/tmp/demo/SKILL.md", scope: "project", kind: "directory", editable: true }]);
           return Response.json({});
@@ -82,6 +82,7 @@ describe("dashboard bundle smoke test", () => {
       expect(text).toContain("Preview");
       expect(text).toContain("Raw");
       expect(text).toContain("Metadata");
+      expect(text).not.toContain("Skill & Extension Paths");
       expect(text).not.toContain("name: demodescription:");
       expect(errors).toEqual([]);
     } finally {

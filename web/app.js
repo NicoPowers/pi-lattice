@@ -29854,7 +29854,6 @@ var tabs = [
   { id: "types", label: "Agent Types" },
   { id: "skills", label: "Skill Library" },
   { id: "orchestratorLibraries", label: "Orchestrator Libraries" },
-  { id: "resourceSettings", label: "Skill & Extension Paths" },
   { id: "skillTemplates", label: "Skill Templates" },
   { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
@@ -30145,7 +30144,8 @@ function App() {
             mode: "wide",
             children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(OrchestratorLibrariesPanel, {
               pushLog,
-              onDisplaySettingsChanged: refreshTypes
+              onDisplaySettingsChanged: refreshTypes,
+              onNativeSettingsSaved: refreshTemplates
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
           activeTab === "resourceSettings" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
@@ -30594,11 +30594,12 @@ function EventLog({ logs }) {
     ]
   }, undefined, true, undefined, this);
 }
-function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }) {
+function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativeSettingsSaved }) {
   const [data, setData] = import_react2.useState(null);
   const [loading, setLoading] = import_react2.useState(false);
   const [savingScope, setSavingScope] = import_react2.useState(null);
   const [savingDisplay, setSavingDisplay] = import_react2.useState(false);
+  const [showNativeSettings, setShowNativeSettings] = import_react2.useState(false);
   const [error, setError] = import_react2.useState("");
   const load = import_react2.useCallback(async () => {
     setLoading(true);
@@ -30701,11 +30702,11 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }) {
               }, undefined, false, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
                 children: [
-                  "Configure libraries under ",
+                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: "piAgentOrchestrator.libraries"
                   }, undefined, false, undefined, this),
-                  " in global or project settings. Libraries are loaded top to bottom within each scope; earlier libraries influence defaults and diagnostics."
+                  " in global or project settings; earlier libraries influence defaults and diagnostics."
                 ]
               }, undefined, true, undefined, this),
               loading && !data && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -30823,6 +30824,44 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }) {
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this) : null,
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "flex items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                      children: "Advanced native Pi resource paths"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "mt-1 text-xs text-muted-foreground",
+                      children: "Optional escape hatch for Pi's raw skills/extensions settings. Prefer Orchestrator Libraries for orchestrator resources."
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                  variant: "secondary",
+                  onClick: () => setShowNativeSettings((value) => !value),
+                  children: [
+                    showNativeSettings ? "Hide" : "Show",
+                    " native paths"
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          showNativeSettings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+            className: "pt-4",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceSettingsPanel, {
+              onSaved: onNativeSettingsSaved,
+              pushLog
+            }, undefined, false, undefined, this)
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
       data?.libraries.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
         className: "grid gap-4 xl:grid-cols-2",
         children: data.libraries.map((library) => {
@@ -31011,7 +31050,7 @@ Save anyway?`))
               className: "flex items-center justify-between gap-3",
               children: [
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: "Skill & Extension Paths"
+                  children: "Advanced: Native Pi Skill & Extension Paths"
                 }, undefined, false, undefined, this),
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
                   variant: "secondary",
@@ -31027,19 +31066,11 @@ Save anyway?`))
             children: [
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
                 children: [
-                  "Manage Pi's native ",
+                  "Advanced/native Pi settings only. Prefer Orchestrator Libraries for orchestrator-managed agents, templates, skills, and extensions; use these raw ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: "settings.json"
                   }, undefined, false, undefined, this),
-                  " resource arrays for ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "skills"
-                  }, undefined, false, undefined, this),
-                  " and ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "extensions"
-                  }, undefined, false, undefined, this),
-                  ". Global applies to all projects on this machine; project applies only to the current repository."
+                  " arrays only for native Pi resources that must be loaded outside a library."
                 ]
               }, undefined, true, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {

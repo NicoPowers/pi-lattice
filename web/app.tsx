@@ -25,7 +25,6 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "types", label: "Agent Types" },
   { id: "skills", label: "Skill Library" },
   { id: "orchestratorLibraries", label: "Orchestrator Libraries" },
-  { id: "resourceSettings", label: "Skill & Extension Paths" },
   { id: "skillTemplates", label: "Skill Templates" },
   { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
@@ -260,7 +259,7 @@ function App() {
         {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
         {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
         {activeTab === "skills" && <SkillLibraryPanel skills={skills} diagnostics={skillDiagnostics} skillTemplates={skillTemplates} onEditTemplate={(template) => setEditingTemplate({ kind: "skill", template })} onChanged={refreshTemplates} />}
-        {activeTab === "orchestratorLibraries" && <PageFrame mode="wide"><OrchestratorLibrariesPanel pushLog={pushLog} onDisplaySettingsChanged={refreshTypes} /></PageFrame>}
+        {activeTab === "orchestratorLibraries" && <PageFrame mode="wide"><OrchestratorLibrariesPanel pushLog={pushLog} onDisplaySettingsChanged={refreshTypes} onNativeSettingsSaved={refreshTemplates} /></PageFrame>}
         {activeTab === "resourceSettings" && <PageFrame mode="wide"><ResourceSettingsPanel onSaved={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "skillTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="skill" templates={skillTemplates} onNew={() => setEditingTemplate({ kind: "skill" })} onEdit={(template) => setEditingTemplate({ kind: "skill", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "extensionTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="extension" templates={extensionTemplates} onNew={() => setEditingTemplate({ kind: "extension" })} onEdit={(template) => setEditingTemplate({ kind: "extension", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
@@ -409,11 +408,12 @@ function EventLog({ logs }: { logs: LogLine[] }) {
 }
 
 
-function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }: { pushLog: (text: string, level?: LogLine["level"]) => void; onDisplaySettingsChanged: () => void }) {
+function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativeSettingsSaved }: { pushLog: (text: string, level?: LogLine["level"]) => void; onDisplaySettingsChanged: () => void; onNativeSettingsSaved: () => void }) {
   const [data, setData] = useState<OrchestratorLibrariesInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingScope, setSavingScope] = useState<"global" | "project" | null>(null);
   const [savingDisplay, setSavingDisplay] = useState(false);
+  const [showNativeSettings, setShowNativeSettings] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -489,7 +489,7 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }: { pus
       <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Orchestrator Libraries</CardTitle><Button variant="secondary" onClick={load} disabled={loading}>Refresh</Button></div></CardHeader>
       <CardContent className="space-y-2 pt-4 text-sm text-muted-foreground">
         <p>Orchestrator Libraries are user-owned, version-controlled folders for agent types, skill templates, extension templates, and curated skills/extensions.</p>
-        <p>Configure libraries under <code>piAgentOrchestrator.libraries</code> in global or project settings. Libraries are loaded top to bottom within each scope; earlier libraries influence defaults and diagnostics.</p>
+        <p>Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under <code>piAgentOrchestrator.libraries</code> in global or project settings; earlier libraries influence defaults and diagnostics.</p>
         {loading && !data && <div className="space-y-3 pt-1">
           <div className="rounded-md border border-border bg-background/60 p-3"><div className="mb-2 h-4 w-48 animate-pulse rounded bg-muted" /><div className="h-3 w-full max-w-2xl animate-pulse rounded bg-muted/70" /><div className="mt-2 h-3 w-3/4 max-w-xl animate-pulse rounded bg-muted/70" /></div>
           <div className="rounded-md border border-dashed border-border p-6"><div className="mx-auto mb-2 h-4 w-64 animate-pulse rounded bg-muted" /><div className="mx-auto h-3 w-80 max-w-full animate-pulse rounded bg-muted/70" /></div>
@@ -503,6 +503,10 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }: { pus
       </CardContent>
     </Card>
     {data?.diagnostics.length ? <Card><CardHeader><CardTitle>Diagnostics</CardTitle></CardHeader><CardContent className="space-y-2">{data.diagnostics.map((diagnostic, index) => <div key={index} className={`rounded-md border p-2 text-sm ${diagnostic.level === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-amber-400/40 bg-amber-400/10 text-amber-200"}`}><strong>{diagnostic.level}:</strong> {diagnostic.message}{diagnostic.path ? <div className="mt-1 font-mono text-xs opacity-80">{diagnostic.path}</div> : null}</div>)}</CardContent></Card> : null}
+    <Card>
+      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><div><CardTitle>Advanced native Pi resource paths</CardTitle><div className="mt-1 text-xs text-muted-foreground">Optional escape hatch for Pi's raw skills/extensions settings. Prefer Orchestrator Libraries for orchestrator resources.</div></div><Button variant="secondary" onClick={() => setShowNativeSettings((value) => !value)}>{showNativeSettings ? "Hide" : "Show"} native paths</Button></div></CardHeader>
+      {showNativeSettings && <CardContent className="pt-4"><ResourceSettingsPanel onSaved={onNativeSettingsSaved} pushLog={pushLog} /></CardContent>}
+    </Card>
     {data?.libraries.length ? <div className="grid gap-4 xl:grid-cols-2">
       {data.libraries.map((library) => {
         const name = library.manifest?.name || shortPath(library.root);
@@ -584,9 +588,9 @@ function ResourceSettingsPanel({ onSaved, pushLog }: { onSaved: () => void; push
 
   return <div className="space-y-4">
     <Card>
-      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Skill & Extension Paths</CardTitle><Button variant="secondary" onClick={load} disabled={loading}>Refresh</Button></div></CardHeader>
+      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Advanced: Native Pi Skill & Extension Paths</CardTitle><Button variant="secondary" onClick={load} disabled={loading}>Refresh</Button></div></CardHeader>
       <CardContent className="space-y-2 pt-4 text-sm text-muted-foreground">
-        <p>Manage Pi's native <code>settings.json</code> resource arrays for <code>skills</code> and <code>extensions</code>. Global applies to all projects on this machine; project applies only to the current repository.</p>
+        <p>Advanced/native Pi settings only. Prefer Orchestrator Libraries for orchestrator-managed agents, templates, skills, and extensions; use these raw <code>settings.json</code> arrays only for native Pi resources that must be loaded outside a library.</p>
         <p>Paths may be absolute, <code>~</code>-prefixed, relative, globs, or exclusions. Global relative paths resolve from <code>~/.pi/agent</code>; project relative paths resolve from <code>.pi</code>.</p>
         <p className="text-amber-300">Extensions execute code with full system permissions. Only configure extension paths you trust. Settings changes may require Pi reload/restart for all running sessions to see them.</p>
         {error && <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive">{error}</div>}

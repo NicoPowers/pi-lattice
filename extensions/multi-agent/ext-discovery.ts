@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { discoverConfiguredOrchestratorLibraries } from "./orchestrator-library.js";
 import { log } from "./state.js";
 
 export interface ExtensionMetadata {
@@ -13,7 +14,7 @@ export interface ExtensionMetadata {
 export interface DiscoveredExtension extends ExtensionMetadata {
   name: string;
   path: string;
-  scope: "global" | "project" | "npm";
+  scope: "global" | "project" | "library" | "npm";
 }
 
 function readPiManifest(packageJsonPath: string): { extensions?: string[] } | null {
@@ -149,6 +150,22 @@ function getNpmPackageExtensions(): DiscoveredExtension[] {
   return results;
 }
 
+function libraryExtensionName(relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/\.(ts|js)$/, "");
+  return normalized.replace(/\/index$/, "");
+}
+
+function getOrchestratorLibraryExtensions(cwd: string): DiscoveredExtension[] {
+  return discoverConfiguredOrchestratorLibraries(cwd).resources
+    .filter((resource) => resource.kind === "extensions")
+    .map((resource) => ({
+      name: libraryExtensionName(resource.relativePath),
+      path: resource.filePath,
+      scope: "library" as const,
+      ...readExtensionMetadata(resource.filePath),
+    }));
+}
+
 export function discoverExtensions(cwd: string): DiscoveredExtension[] {
   // 1. Project-local
   const localDir = path.join(cwd, ".pi", "extensions");
@@ -160,6 +177,9 @@ export function discoverExtensions(cwd: string): DiscoveredExtension[] {
 
   // 3. NPM packages
   const npmExts = getNpmPackageExtensions();
+
+  // 4. Orchestrator Libraries (preferred for orchestrator-managed extension templates)
+  const libraryExts = getOrchestratorLibraryExtensions(cwd);
 
   const map = new Map<string, DiscoveredExtension>();
 
@@ -176,6 +196,10 @@ export function discoverExtensions(cwd: string): DiscoveredExtension[] {
   }
 
   for (const e of npmExts) {
+    map.set(e.name, e);
+  }
+
+  for (const e of libraryExts) {
     map.set(e.name, e);
   }
 
