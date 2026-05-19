@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { PassThrough } from "node:stream";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -111,6 +112,107 @@ describe("template API", () => {
   });
 });
 
+
+describe("extension template smoke-test API", () => {
+  it("spawns a temporary agent, reads runtime tools, and cleans up", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const { runtimeToolsPath } = await import("../extensions/multi-agent/runtime-tools.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ext-smoke-api-"));
+    const worktreeDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ext-smoke-worktree-"));
+    let removedWorktree: string | undefined;
+    let spawnedExtensions: any[] = [];
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async (_id, options) => {
+        spawnedExtensions = options.extensions;
+        const snapshotPath = runtimeToolsPath(worktreeDir);
+        fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
+        fs.writeFileSync(snapshotPath, JSON.stringify({
+          active: [{ name: "delegate" }, { name: "foo_tool" }],
+          all: [
+            { name: "delegate", sourceInfo: { extension: "delegate" } },
+            { name: "foo_tool", sourceInfo: { extension: "foo" } },
+            { name: "foo_tool", sourceInfo: { extension: "bar" } },
+          ],
+          reportedAt: 123,
+          source: "child-agent",
+        }), "utf-8");
+        return { agent: {
+          id: "smoke-test",
+          proc: { killed: false, kill() { this.killed = true; } },
+          stdin: new PassThrough(),
+          status: "idle",
+          accumulatedText: "",
+          history: [],
+          events: [],
+          buffer: "",
+          worktreePath: worktreeDir,
+          children: [],
+          _rpcRequests: new Map(),
+        } as any };
+      },
+      sendToAgent: async () => {},
+      removeWorktree: async (worktreePath) => { removedWorktree = worktreePath; },
+      discoverDefinitions: () => [],
+      getDefinition: () => undefined,
+      discoverExtensions: () => [{ name: "foo", path: "/tmp/foo.ts", scope: "project" }, { name: "bar", path: "/tmp/bar.ts", scope: "project" }],
+    });
+
+    try {
+      const createRes = await fetch(`${handle.url}/api/extension-templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "tooling", description: "Tooling", extensions: ["foo", "bar"] }),
+      });
+      expect(createRes.status).toBe(200);
+
+      const smokeRes = await fetch(`${handle.url}/api/extension-templates/tooling/smoke-test`, { method: "POST" });
+      expect(smokeRes.status).toBe(200);
+      const result = await smokeRes.json();
+      expect(spawnedExtensions.map((extension) => extension.name)).toEqual(["foo", "bar"]);
+      expect(result.success).toBe(false);
+      expect(result.runtimeTools.active.map((tool: any) => tool.name)).toEqual(["delegate", "foo_tool"]);
+      expect(result.runtimeTools.conflicts[0].name).toBe("foo_tool");
+      expect(removedWorktree).toBe(worktreeDir);
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      fs.rmSync(worktreeDir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports missing template extensions without spawning", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ext-smoke-missing-api-"));
+    let spawned = false;
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async () => { spawned = true; return { agent: undefined as any, error: "should not spawn" }; },
+      sendToAgent: async () => {},
+      removeWorktree: async () => {},
+      discoverDefinitions: () => [],
+      getDefinition: () => undefined,
+      discoverExtensions: () => [],
+    });
+
+    try {
+      await fetch(`${handle.url}/api/extension-templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "missing", description: "Missing", extensions: ["nope"] }),
+      });
+      const smokeRes = await fetch(`${handle.url}/api/extension-templates/missing/smoke-test`, { method: "POST" });
+      expect(smokeRes.status).toBe(200);
+      const result = await smokeRes.json();
+      expect(result.success).toBe(false);
+      expect(result.missingExtensions).toEqual(["nope"]);
+      expect(spawned).toBe(false);
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("skill library API", () => {
   it("creates and updates project skills with hash guards", async () => {

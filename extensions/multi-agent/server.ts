@@ -505,6 +505,14 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       else send(res, errorResponse("Extension template not found", 404));
       return;
     }
+    const extensionTemplateSmokeTestMatch = url.pathname.match(/^\/api\/extension-templates\/([^/]+)\/smoke-test$/);
+    if (extensionTemplateSmokeTestMatch && req.method === "POST") {
+      const { smokeTestExtensionTemplate } = await import("./extension-smoke-test.js");
+      const result = await smokeTestExtensionTemplate(decodeURIComponent(extensionTemplateSmokeTestMatch[1]), deps);
+      if ("error" in result) send(res, errorResponse(result.error, result.status));
+      else send(res, jsonResponse(result));
+      return;
+    }
     if (extensionTemplateMatch && req.method === "DELETE") {
       const { deleteExtensionTemplate } = await import("./extension-templates.js");
       const result = deleteExtensionTemplate(decodeURIComponent(extensionTemplateMatch[1]), deps.repoCwd);

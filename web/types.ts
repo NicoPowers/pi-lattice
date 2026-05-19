@@ -6,11 +6,18 @@ export interface RuntimeToolInfo {
   sourceInfo?: unknown;
 }
 
+export interface RuntimeToolConflict {
+  name: string;
+  count: number;
+  sources: string[];
+}
+
 export interface RuntimeToolSnapshot {
   active: RuntimeToolInfo[];
   all: RuntimeToolInfo[];
   reportedAt: number;
   source: "child-agent";
+  conflicts?: RuntimeToolConflict[];
 }
 
 export interface AgentInfo {
@@ -79,6 +86,16 @@ export interface ExtensionInfo {
   expectedTools?: string[];
   metadataStatus?: "provided" | "unknown" | "invalid";
   metadataSource?: string;
+}
+
+export interface ExtensionTemplateSmokeTestResult {
+  success: boolean;
+  template: string;
+  extensions: Array<{ name: string; path: string; scope?: string }>;
+  missingExtensions: string[];
+  runtimeTools?: RuntimeToolSnapshot;
+  diagnostics: Array<{ level: "error" | "warning" | "info"; message: string }>;
+  stderrTail?: string;
 }
 
 export interface ResourcePathValidation {

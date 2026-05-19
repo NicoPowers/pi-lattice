@@ -2,7 +2,7 @@ import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { AgentInfo, AgentTypeInfo, ExtensionInfo, ModelInfo, OrchestratorLibrariesInfo, ResourcePathValidation, ResourceScopeSettings, ResourceSettingsInfo, ServerEvent, SkillDetailInfo, SkillInfo } from "./types.js";
+import type { AgentInfo, AgentTypeInfo, ExtensionInfo, ExtensionTemplateSmokeTestResult, ModelInfo, OrchestratorLibrariesInfo, ResourcePathValidation, ResourceScopeSettings, ResourceSettingsInfo, ServerEvent, SkillDetailInfo, SkillInfo } from "./types.js";
 import { Badge } from "./components/ui/badge.js";
 import { Button } from "./components/ui/button.js";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card.js";
@@ -938,6 +938,7 @@ function ValidationSummary({ errors, serverError }: { errors: string[]; serverEr
 
 function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }: { kind: "skill" | "extension"; templates: TemplateInfo[]; onNew: () => void; onEdit: (template: TemplateInfo) => void; onDeleted: () => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
   const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
+  const [smokeTests, setSmokeTests] = useState<Record<string, ExtensionTemplateSmokeTestResult | { loading: true }>>({});
   const deleteTemplate = async (name: string) => {
     if (!confirm(`Delete ${label.slice(0, -1).toLowerCase()} '${name}'?`)) return;
     const res = await fetch(`/api/${kind}-templates/${encodeURIComponent(name)}`, { method: "DELETE" });
@@ -945,15 +946,39 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }: 
     pushLog(`Deleted template '${name}'`, "warn");
     onDeleted();
   };
+  const smokeTest = async (name: string) => {
+    setSmokeTests((prev) => ({ ...prev, [name]: { loading: true } }));
+    try {
+      const res = await fetch(`/api/extension-templates/${encodeURIComponent(name)}/smoke-test`, { method: "POST" });
+      if (!res.ok) throw new Error(await responseErrorText(res));
+      const result = await res.json() as ExtensionTemplateSmokeTestResult;
+      setSmokeTests((prev) => ({ ...prev, [name]: result }));
+      pushLog(`Smoke test ${result.success ? "passed" : "failed"} for extension template '${name}'`, result.success ? "success" : "error");
+    } catch (e: any) {
+      setSmokeTests((prev) => ({ ...prev, [name]: { success: false, template: name, extensions: [], missingExtensions: [], diagnostics: [{ level: "error", message: e.message }] } }));
+      pushLog(`Smoke test failed for extension template '${name}': ${e.message}`, "error");
+    }
+  };
   return <Card className="min-h-[70vh]"><CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>{label}</CardTitle><Button variant="secondary" className="px-2 py-1 text-xs" onClick={onNew}>+ New {kind === "skill" ? "Skill" : "Extension"} Template</Button></div></CardHeader><CardContent className="pt-4">
     {!templates.length ? <p className="text-sm text-muted-foreground">No {label.toLowerCase()} found.</p> : <div className="grid gap-3 md:grid-cols-2">
-      {templates.map((template) => <div key={template.name} className="rounded-md border border-border p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-sm font-semibold">{template.name}{template.applyToAll && <Badge variant="default">apply to all</Badge>}</div><div className="mt-1 line-clamp-3 text-xs text-muted-foreground">{template.description}</div></div>
-          <div className="flex shrink-0 gap-2"><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => onEdit(template)}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={() => deleteTemplate(template.name)}>Delete</Button></div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1">{template.items.length ? template.items.map((item) => <Badge key={item} variant="outline">{item}</Badge>) : <span className="text-xs text-muted-foreground">No items.</span>}</div>
-      </div>)}
+      {templates.map((template) => {
+        const smoke = smokeTests[template.name];
+        const loading = !!smoke && "loading" in smoke;
+        const result = smoke && !("loading" in smoke) ? smoke : undefined;
+        return <div key={template.name} className="rounded-md border border-border p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2 text-sm font-semibold">{template.name}{template.applyToAll && <Badge variant="default">apply to all</Badge>}{result && <Badge variant={result.success ? "success" : "destructive"}>{result.success ? "smoke passed" : "smoke failed"}</Badge>}</div><div className="mt-1 line-clamp-3 text-xs text-muted-foreground">{template.description}</div></div>
+            <div className="flex shrink-0 gap-2"><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => onEdit(template)}>Edit</Button>{kind === "extension" && <Button variant="secondary" className="px-2 py-1 text-xs" disabled={loading} onClick={() => smokeTest(template.name)}>{loading ? "Testing…" : "Smoke Test"}</Button>}<Button variant="destructive" className="px-2 py-1 text-xs" onClick={() => deleteTemplate(template.name)}>Delete</Button></div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1">{template.items.length ? template.items.map((item) => <Badge key={item} variant="outline">{item}</Badge>) : <span className="text-xs text-muted-foreground">No items.</span>}</div>
+          {result && <div className="mt-3 space-y-2 rounded-md border border-border bg-background/60 p-2 text-xs">
+            <div className="font-medium">Runtime diagnostics</div>
+            <ul className="space-y-1">{result.diagnostics.map((diagnostic, index) => <li key={index} className={diagnostic.level === "error" ? "text-destructive" : diagnostic.level === "warning" ? "text-amber-300" : "text-muted-foreground"}>{diagnostic.level}: {diagnostic.message}</li>)}</ul>
+            {result.runtimeTools && <div className="text-muted-foreground">Tools: {result.runtimeTools.active.map((tool) => tool.name).join(", ") || "none reported"}</div>}
+            {result.stderrTail && <details><summary className="cursor-pointer text-muted-foreground">stderr tail</summary><pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-muted-foreground">{result.stderrTail}</pre></details>}
+          </div>}
+        </div>;
+      })}
     </div>}
   </CardContent></Card>;
 }

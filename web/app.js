@@ -32064,6 +32064,7 @@ function ValidationSummary({ errors, serverError }) {
 }
 function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
   const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
+  const [smokeTests, setSmokeTests] = import_react2.useState({});
   const deleteTemplate = async (name2) => {
     if (!confirm(`Delete ${label.slice(0, -1).toLowerCase()} '${name2}'?`))
       return;
@@ -32072,6 +32073,20 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
       return pushLog(`Delete failed: ${await res.text()}`, "error");
     pushLog(`Deleted template '${name2}'`, "warn");
     onDeleted();
+  };
+  const smokeTest = async (name2) => {
+    setSmokeTests((prev) => ({ ...prev, [name2]: { loading: true } }));
+    try {
+      const res = await fetch(`/api/extension-templates/${encodeURIComponent(name2)}/smoke-test`, { method: "POST" });
+      if (!res.ok)
+        throw new Error(await responseErrorText(res));
+      const result = await res.json();
+      setSmokeTests((prev) => ({ ...prev, [name2]: result }));
+      pushLog(`Smoke test ${result.success ? "passed" : "failed"} for extension template '${name2}'`, result.success ? "success" : "error");
+    } catch (e) {
+      setSmokeTests((prev) => ({ ...prev, [name2]: { success: false, template: name2, extensions: [], missingExtensions: [], diagnostics: [{ level: "error", message: e.message }] } }));
+      pushLog(`Smoke test failed for extension template '${name2}': ${e.message}`, "error");
+    }
   };
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
     className: "min-h-[70vh]",
@@ -32108,62 +32123,117 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
           ]
         }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
           className: "grid gap-3 md:grid-cols-2",
-          children: templates.map((template) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "rounded-md border border-border p-3",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "flex items-start justify-between gap-3",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "min-w-0",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "flex flex-wrap items-center gap-2 text-sm font-semibold",
+          children: templates.map((template) => {
+            const smoke = smokeTests[template.name];
+            const loading = !!smoke && "loading" in smoke;
+            const result = smoke && !("loading" in smoke) ? smoke : undefined;
+            return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "rounded-md border border-border p-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "flex items-start justify-between gap-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "min-w-0",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "flex flex-wrap items-center gap-2 text-sm font-semibold",
+                          children: [
+                            template.name,
+                            template.applyToAll && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                              variant: "default",
+                              children: "apply to all"
+                            }, undefined, false, undefined, this),
+                            result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                              variant: result.success ? "success" : "destructive",
+                              children: result.success ? "smoke passed" : "smoke failed"
+                            }, undefined, false, undefined, this)
+                          ]
+                        }, undefined, true, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
+                          children: template.description
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "flex shrink-0 gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => onEdit(template),
+                          children: "Edit"
+                        }, undefined, false, undefined, this),
+                        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          disabled: loading,
+                          onClick: () => smokeTest(template.name),
+                          children: loading ? "Testing…" : "Smoke Test"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "destructive",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => deleteTemplate(template.name),
+                          children: "Delete"
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "mt-3 flex flex-wrap gap-1",
+                  children: template.items.length ? template.items.map((item) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                    variant: "outline",
+                    children: item
+                  }, item, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                    className: "text-xs text-muted-foreground",
+                    children: "No items."
+                  }, undefined, false, undefined, this)
+                }, undefined, false, undefined, this),
+                result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "mt-3 space-y-2 rounded-md border border-border bg-background/60 p-2 text-xs",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "font-medium",
+                      children: "Runtime diagnostics"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ul", {
+                      className: "space-y-1",
+                      children: result.diagnostics.map((diagnostic, index2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("li", {
+                        className: diagnostic.level === "error" ? "text-destructive" : diagnostic.level === "warning" ? "text-amber-300" : "text-muted-foreground",
                         children: [
-                          template.name,
-                          template.applyToAll && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                            variant: "default",
-                            children: "apply to all"
-                          }, undefined, false, undefined, this)
+                          diagnostic.level,
+                          ": ",
+                          diagnostic.message
                         ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
-                        children: template.description
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "flex shrink-0 gap-2",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                        variant: "secondary",
-                        className: "px-2 py-1 text-xs",
-                        onClick: () => onEdit(template),
-                        children: "Edit"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                        variant: "destructive",
-                        className: "px-2 py-1 text-xs",
-                        onClick: () => deleteTemplate(template.name),
-                        children: "Delete"
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "mt-3 flex flex-wrap gap-1",
-                children: template.items.length ? template.items.map((item) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                  variant: "outline",
-                  children: item
-                }, item, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                  className: "text-xs text-muted-foreground",
-                  children: "No items."
-                }, undefined, false, undefined, this)
-              }, undefined, false, undefined, this)
-            ]
-          }, template.name, true, undefined, this))
+                      }, index2, true, undefined, this))
+                    }, undefined, false, undefined, this),
+                    result.runtimeTools && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "text-muted-foreground",
+                      children: [
+                        "Tools: ",
+                        result.runtimeTools.active.map((tool) => tool.name).join(", ") || "none reported"
+                      ]
+                    }, undefined, true, undefined, this),
+                    result.stderrTail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("details", {
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("summary", {
+                          className: "cursor-pointer text-muted-foreground",
+                          children: "stderr tail"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
+                          className: "mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-muted-foreground",
+                          children: result.stderrTail
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, template.name, true, undefined, this);
+          })
         }, undefined, false, undefined, this)
       }, undefined, false, undefined, this)
     ]

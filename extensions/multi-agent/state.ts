@@ -21,11 +21,18 @@ export interface RuntimeToolInfo {
   sourceInfo?: unknown;
 }
 
+export interface RuntimeToolConflict {
+  name: string;
+  count: number;
+  sources: string[];
+}
+
 export interface RuntimeToolSnapshot {
   active: RuntimeToolInfo[];
   all: RuntimeToolInfo[];
   reportedAt: number;
   source: "child-agent";
+  conflicts?: RuntimeToolConflict[];
 }
 
 export interface AgentDefinition {
