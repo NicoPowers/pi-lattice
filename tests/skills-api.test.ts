@@ -37,6 +37,7 @@ describe("skill discovery API", () => {
       expect(skill?.source).toBe("orchestrator-library");
       expect(skill?.scope).toBe("team");
       expect(skill?.editable).toBe(true);
+      expect(skill?.ref).toBe("team:skills/example-analysis/SKILL.md");
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

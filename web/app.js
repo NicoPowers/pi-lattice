@@ -31187,6 +31187,9 @@ function displayScopeLabel(scope) {
 function skillScopeLabel(skill) {
   return displayScopeLabel(skill.scope || skill.source);
 }
+function skillTemplateItemValue(skill) {
+  return skill.ref || skill.name;
+}
 function normalizeSkillName(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
@@ -31220,7 +31223,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         return false;
       if (editableFilter === "readonly" && skill.editable)
         return false;
-      const referenced = skillTemplates.some((template) => template.items.includes(skill.name));
+      const itemValue = skillTemplateItemValue(skill);
+      const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
       if (referenceFilter === "referenced" && !referenced)
         return false;
       if (referenceFilter === "unreferenced" && referenced)
@@ -31230,8 +31234,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
   }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
-  const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   import_react2.useEffect(() => {
     if (!selectedSkill?.id) {
       setDetail(null);
@@ -31356,7 +31360,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
     if (!template)
       return;
     setTemplateError("");
-    const skills2 = Array.from(new Set([...template.items, selectedSkill.name]));
+    const skills2 = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
     const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, applyToAll: !!template.applyToAll, skills: skills2 }) });
     if (!res.ok)
       return setTemplateError(await responseErrorText(res));
@@ -32282,13 +32286,17 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
             /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
               className: "flex flex-wrap gap-1",
               children: availableSkills.length ? availableSkills.map((skill) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                title: skill.description || skill.path,
+                title: skill.ref ? `${skill.ref}
+${skill.description || skill.path}` : skill.description || skill.path,
                 className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
                 onClick: () => setItemsText((prev) => splitItems(`${prev}
-${skill.name}`).join(`
+${skillTemplateItemValue(skill)}`).join(`
 `)),
-                children: skill.name
-              }, skill.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                children: [
+                  skill.name,
+                  skill.ref ? ` (${skill.scope})` : ""
+                ]
+              }, skill.id || skill.ref || skill.name, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
                 className: "text-xs text-muted-foreground",
                 children: "No skills discovered."
               }, undefined, false, undefined, this)

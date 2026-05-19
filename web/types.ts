@@ -60,6 +60,7 @@ export interface SkillInfo {
   scope?: string;
   kind?: "directory" | "file";
   editable?: boolean;
+  ref?: string;
 }
 
 export interface SkillDetailInfo {

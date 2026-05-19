@@ -15,6 +15,7 @@ export interface DiscoveredSkill {
   scope?: string;
   kind: "directory" | "file";
   editable: boolean;
+  ref?: string;
 }
 
 export interface SkillDetail {
@@ -174,6 +175,7 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         scope: resource.libraryName,
         kind,
         editable: resource.editable,
+        ref: resource.id,
       } satisfies DiscoveredSkill;
     });
 

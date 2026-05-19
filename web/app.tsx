@@ -613,6 +613,10 @@ function skillScopeLabel(skill: SkillInfo): string {
   return displayScopeLabel(skill.scope || skill.source);
 }
 
+function skillTemplateItemValue(skill: SkillInfo): string {
+  return skill.ref || skill.name;
+}
+
 function normalizeSkillName(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
@@ -644,15 +648,16 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       if (scope !== "all" && skillScopeLabel(skill) !== scope) return false;
       if (editableFilter === "editable" && !skill.editable) return false;
       if (editableFilter === "readonly" && skill.editable) return false;
-      const referenced = skillTemplates.some((template) => template.items.includes(skill.name));
+      const itemValue = skillTemplateItemValue(skill);
+      const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
       if (referenceFilter === "referenced" && !referenced) return false;
       if (referenceFilter === "unreferenced" && referenced) return false;
       if (!q) return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
   }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
-  const templatesUsingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesUsingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
 
   useEffect(() => {
     if (!selectedSkill?.id) {
@@ -743,7 +748,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
     const template = skillTemplates.find((candidate) => candidate.name === addTemplateName);
     if (!template) return;
     setTemplateError("");
-    const skills = Array.from(new Set([...template.items, selectedSkill.name]));
+    const skills = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
     const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, applyToAll: !!template.applyToAll, skills }) });
     if (!res.ok) return setTemplateError(await responseErrorText(res));
     setAddTemplateName("");
@@ -992,7 +997,7 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={applyToAll} onChange={(e) => setApplyToAll(e.target.checked)} /> Apply to all newly spawned agents <span className="text-xs text-muted-foreground">(optional)</span></label>
       <FieldLabel optional>{kind === "skill" ? "Skills" : "Extensions"}</FieldLabel><Textarea rows={7} value={itemsText} onChange={(e) => setItemsText(e.target.value)} placeholder={`Optional ${templateLabel} names, comma or newline separated`} />
       <FormMessage>Optional. Leave empty to create a template shell and add {field} later.</FormMessage>
-      {kind === "skill" && <div className="space-y-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Discovered skills</div><div className="flex flex-wrap gap-1">{availableSkills.length ? availableSkills.map((skill) => <button key={skill.name} title={skill.description || skill.path} className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setItemsText((prev) => splitItems(`${prev}\n${skill.name}`).join("\n"))}>{skill.name}</button>) : <span className="text-xs text-muted-foreground">No skills discovered.</span>}</div></div>}
+      {kind === "skill" && <div className="space-y-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Discovered skills</div><div className="flex flex-wrap gap-1">{availableSkills.length ? availableSkills.map((skill) => <button key={skill.id || skill.ref || skill.name} title={skill.ref ? `${skill.ref}\n${skill.description || skill.path}` : (skill.description || skill.path)} className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setItemsText((prev) => splitItems(`${prev}\n${skillTemplateItemValue(skill)}`).join("\n"))}>{skill.name}{skill.ref ? ` (${skill.scope})` : ""}</button>) : <span className="text-xs text-muted-foreground">No skills discovered.</span>}</div></div>}
       {kind === "extension" && <div className="space-y-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Discovered extensions</div><div className="flex flex-wrap gap-1">{availableExtensions.length ? availableExtensions.map((ext) => <button key={ext.name} className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setItemsText((prev) => splitItems(`${prev}\n${ext.name}`).join("\n"))}>{ext.name}</button>) : <span className="text-xs text-muted-foreground">No extensions discovered.</span>}</div></div>}
       <ValidationSummary errors={errors} serverError={serverError} />
       <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!!errors.length}>Save Template</Button></div>
