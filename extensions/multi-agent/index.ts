@@ -10,9 +10,13 @@ import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
 import { resolveCapabilities } from "./capability-resolution.js";
 import { logRuntimeToolConflicts, readRuntimeToolSnapshot } from "./runtime-tools.js";
+import { chooseRootProfileActivation, discoverRootProfiles, resolveRootProfileCapabilities, type RootOrchestratorProfile } from "./root-profiles.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
+let activeRootProfileName: string | undefined;
+let activeRootProfile: RootOrchestratorProfile | undefined;
+const ORCHESTRATION_STATE_ENTRY = "pi-orchestrator-root-profile";
 
 function displaySkillScope(scope?: string): string {
   if (scope === "user") return "global";
@@ -32,6 +36,27 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
     worktree: agent.worktreePath,
     runtimeTools: agent.runtimeTools,
   };
+}
+
+function restoreOrchestrationState(ctx: any) {
+  const entries = ctx.sessionManager.getEntries?.() || [];
+  const state = [...entries].reverse().find((entry: any) => entry.type === "custom" && entry.customType === ORCHESTRATION_STATE_ENTRY)?.data;
+  orchestrationMode = !!state?.enabled;
+  activeRootProfileName = orchestrationMode && typeof state?.profile === "string" ? state.profile : undefined;
+  activeRootProfile = activeRootProfileName ? discoverRootProfiles(ctx.cwd).find((profile) => profile.name === activeRootProfileName) : undefined;
+  if (orchestrationMode && !activeRootProfile) {
+    const fallback = discoverRootProfiles(ctx.cwd).find((profile) => profile.name === "default") || discoverRootProfiles(ctx.cwd)[0];
+    activeRootProfile = fallback;
+    activeRootProfileName = fallback?.name;
+  }
+}
+
+function rootProfileSystemPrompt(profile: RootOrchestratorProfile): string {
+  return [
+    `Active root orchestrator profile: ${profile.name}`,
+    profile.description ? `Profile description: ${profile.description}` : undefined,
+    profile.instructions.trim() ? `Profile instructions:\n${profile.instructions.trim()}` : undefined,
+  ].filter(Boolean).join("\n\n");
 }
 
 export default function (pi: ExtensionAPI) {
@@ -59,11 +84,34 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
+    restoreOrchestrationState(ctx);
     if (serverHandle) {
       serverHandle.stop();
       serverHandle = undefined;
     }
     await ensureServer(ctx.cwd);
+    if (orchestrationMode && activeRootProfileName) ctx.ui.setStatus("orchestrator", `orchestrator: ${activeRootProfileName}`);
+    else ctx.ui.setStatus("orchestrator", "");
+  });
+
+  pi.on("resources_discover", async (_event, ctx) => {
+    if (!orchestrationMode || !activeRootProfile) return;
+    const capabilities = resolveRootProfileCapabilities({ cwd: ctx.cwd, profile: activeRootProfile });
+    if (capabilities.errors.length || capabilities.skillConflicts.length) {
+      const errors = [
+        ...capabilities.errors,
+        ...capabilities.skillConflicts.map((conflict) => `Conflicting runtime skill name '${conflict.name}': ${conflict.paths.join(", ")}`),
+      ];
+      log("profiles", `Active root profile '${activeRootProfile.name}' has invalid capabilities`, errors);
+      ctx.ui.notify(`Root profile '${activeRootProfile.name}' has invalid capabilities:\n${errors.join("\n")}`, "error");
+      return;
+    }
+    return capabilities.skills.length ? { skillPaths: capabilities.skills } : undefined;
+  });
+
+  pi.on("before_agent_start", async (event, _ctx) => {
+    if (!orchestrationMode || !activeRootProfile) return;
+    return { systemPrompt: `${event.systemPrompt}\n\n${rootProfileSystemPrompt(activeRootProfile)}` };
   });
 
   pi.on("session_shutdown", async () => {
@@ -311,6 +359,13 @@ export default function (pi: ExtensionAPI) {
         requestedExtensions: params.extensions || [],
         availableExtensions: allExts,
       });
+      if (capabilities.errors.length) {
+        return {
+          content: [{ type: "text", text: `Cannot spawn agent with invalid capabilities:\n${capabilities.errors.map((error) => `- ${error}`).join("\n")}` }],
+          isError: true,
+          details: { errors: capabilities.errors },
+        };
+      }
       if (capabilities.skillConflicts.length) {
         return {
           content: [{ type: "text", text: `Cannot spawn agent with conflicting runtime skill names:\n${capabilities.skillConflicts.map((conflict) => `- ${conflict.name}: ${conflict.paths.join(", ")}`).join("\n")}` }],
@@ -545,11 +600,33 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
+      const capabilities = resolveCapabilities({
+        cwd: ctx.cwd,
+        definition,
+        availableExtensions: discoverExtensions(ctx.cwd),
+      });
+      if (capabilities.errors.length) {
+        return {
+          content: [{ type: "text", text: `Cannot create sub-agent with invalid capabilities:\n${capabilities.errors.map((error) => `- ${error}`).join("\n")}` }],
+          isError: true,
+          details: { errors: capabilities.errors },
+        };
+      }
+      if (capabilities.skillConflicts.length) {
+        return {
+          content: [{ type: "text", text: `Cannot create sub-agent with conflicting runtime skill names:\n${capabilities.skillConflicts.map((conflict) => `- ${conflict.name}: ${conflict.paths.join(", ")}`).join("\n")}` }],
+          isError: true,
+          details: { skillConflicts: capabilities.skillConflicts },
+        };
+      }
+      const resolvedDefinition = { ...definition, skills: capabilities.skills };
+
       const result = await spawnAgent(params.name, {
         model: params.model,
         repoCwd: ctx.cwd,
-        definition,
+        definition: resolvedDefinition,
         parent: undefined,
+        extensions: capabilities.extensions,
       });
 
       if (result.error || !result.agent) {
@@ -622,29 +699,83 @@ export default function (pi: ExtensionAPI) {
   // ====== COMMANDS ======
 
   pi.registerCommand("orchestrate", {
-    description: "Enable/disable orchestration mode. Usage: /orchestrate [on|off|status]",
+    description: "Enable orchestration mode with a root profile. Usage: /orchestrate [profile|off|status]",
+    getArgumentCompletions: (prefix: string) => {
+      const profiles = discoverRootProfiles(process.cwd());
+      const fixed = ["off", "status"];
+      const items = [...fixed, ...profiles.map((profile) => profile.name)]
+        .filter((value) => value.startsWith(prefix))
+        .map((value) => ({ value, label: value }));
+      return items.length ? items : null;
+    },
     handler: async (arg, ctx) => {
-      const mode = (arg || "on").trim().toLowerCase();
+      const raw = (arg || "").trim();
+      const mode = raw.toLowerCase();
       if (mode === "off" || mode === "false" || mode === "disable") {
         orchestrationMode = false;
+        activeRootProfileName = undefined;
+        activeRootProfile = undefined;
+        pi.appendEntry(ORCHESTRATION_STATE_ENTRY, { enabled: false, timestamp: Date.now() });
         log("mode", "orchestration mode disabled");
-        ctx.ui.notify("Orchestration mode disabled. Normal Pi mode active.", "info");
+        ctx.ui.setStatus("orchestrator", "");
+        ctx.ui.notify("Orchestration mode disabled. Normal Pi mode active. Reloading root session resources…", "info");
+        await ctx.reload();
         return;
       }
       if (mode === "status") {
-        ctx.ui.notify(`Orchestration mode is ${orchestrationMode ? "enabled" : "disabled"}.`, "info");
+        ctx.ui.notify(`Orchestration mode is ${orchestrationMode ? "enabled" : "disabled"}${activeRootProfileName ? ` (profile: ${activeRootProfileName})` : ""}.`, "info");
         return;
       }
+
+      const profiles = discoverRootProfiles(ctx.cwd);
+      let choice = chooseRootProfileActivation(raw, profiles);
+      if (choice.action === "error") {
+        ctx.ui.notify(choice.error, "error");
+        return;
+      }
+      if (choice.action === "select") {
+        const selected = await ctx.ui.select(
+          "Select root orchestrator profile",
+          choice.profiles.map((profile) => profile.name),
+        );
+        if (!selected) {
+          ctx.ui.notify("Orchestration profile selection cancelled.", "warning");
+          return;
+        }
+        choice = chooseRootProfileActivation(selected, profiles);
+        if (choice.action !== "activate") {
+          ctx.ui.notify(choice.action === "error" ? choice.error : "No orchestrator profile selected.", "error");
+          return;
+        }
+      }
+
+      const profile = choice.profile;
+      const capabilities = resolveRootProfileCapabilities({ cwd: ctx.cwd, profile });
+      if (capabilities.errors.length || capabilities.skillConflicts.length) {
+        const errors = [
+          ...capabilities.errors,
+          ...capabilities.skillConflicts.map((conflict) => `Conflicting runtime skill name '${conflict.name}': ${conflict.paths.join(", ")}`),
+        ];
+        ctx.ui.notify(`Cannot activate root profile '${profile.name}':\n${errors.join("\n")}`, "error");
+        return;
+      }
+
       orchestrationMode = true;
-      log("mode", "orchestration mode enabled");
+      activeRootProfileName = profile.name;
+      activeRootProfile = profile;
+      pi.appendEntry(ORCHESTRATION_STATE_ENTRY, { enabled: true, profile: profile.name, timestamp: Date.now() });
+      log("mode", "orchestration mode enabled", { profile: profile.name });
+      ctx.ui.setStatus("orchestrator", `orchestrator: ${profile.name}`);
       ctx.ui.notify(
         [
-          "Orchestration mode enabled.",
-          "You are now the root orchestrator. Ask for a high-level goal and use create_sub_agent when specialist help is useful.",
+          `Orchestration mode enabled with root profile '${profile.name}'.`,
+          "Profile skills and instructions will be loaded by reloading the root session resources.",
           "Use /orchestrate off to return to normal Pi mode.",
         ].join("\n"),
         "info"
       );
+      await ctx.reload();
+      return;
     },
   });
 

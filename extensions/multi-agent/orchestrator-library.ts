@@ -557,11 +557,13 @@ export function bootstrapOrchestratorLibrary(
     name,
     description: input.description?.trim() || "User-owned Pi Orchestrator Library",
     compatibility: { piAgentOrchestrator: ">=0.3.0" },
-    resources: { ...resourceDefaults },
+    resources: { ...resourceDefaults, orchestratorProfiles: "orchestrator-profiles" },
   };
   writeStarterFile(path.join(resolvedTarget, ORCHESTRATOR_LIBRARY_MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
-  writeStarterFile(path.join(resolvedTarget, "README.md"), `# ${name}\n\nVersion-controlled Pi Orchestrator Library for agent types, templates, skills, and extensions.\n`);
+  writeStarterFile(path.join(resolvedTarget, "README.md"), `# ${name}\n\nVersion-controlled Pi Orchestrator Library for root orchestrator profiles, agent types, templates, skills, and extensions.\n`);
+  writeStarterFile(path.join(resolvedTarget, "orchestrator-profiles", "example-planner.md"), "---\nname: example-planner\ndescription: Example root orchestrator profile for planning-heavy sessions.\nskillTemplates: example-root-skills\n---\n\nUse this profile when the root orchestrator should spend extra effort clarifying scope, decomposing work, and coordinating spawned agents.\n");
   writeStarterFile(path.join(resolvedTarget, "agents", "example-researcher.md"), "---\nname: example-researcher\ndescription: Example researcher agent type for this Orchestrator Library.\ntools: read, bash\nskillTemplates: example-core-skills\nextensionTemplates: example-web-tools\n---\n\nYou are an example researcher agent. Use this file as a starting point for your own agent types.\n");
+  writeStarterFile(path.join(resolvedTarget, "skill-templates", "example-root-skills.md"), "---\nname: example-root-skills\ndescription: Example root orchestrator skill template referencing a library skill.\naudience: orchestrator\nautoApply: none\nskills: skills/example-analysis\n---\n");
   writeStarterFile(path.join(resolvedTarget, "skill-templates", "example-core-skills.md"), "---\nname: example-core-skills\ndescription: Example skill template referencing a library skill.\naudience: spawned\nautoApply: none\nskills: skills/example-analysis\n---\n");
   writeStarterFile(path.join(resolvedTarget, "extension-templates", "example-web-tools.md"), "---\nname: example-web-tools\ndescription: Example extension template referencing a library extension.\naudience: spawned\nautoApply: none\nextensions: extensions/example-extension\n---\n");
   writeStarterFile(path.join(resolvedTarget, "skills", "example-analysis", "SKILL.md"), "---\nname: example-analysis\ndescription: Example analysis skill. Use when demonstrating Orchestrator Library skill structure.\n---\n\n# Example Analysis\n\nReplace this starter skill with your own workflow.\n");

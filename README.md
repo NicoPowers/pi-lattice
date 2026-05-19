@@ -10,7 +10,7 @@ Multi-agent orchestration extension for [Pi](https://pi.dev).
 
 ### Explicit orchestration mode
 
-Orchestration is opt-in. Use `/orchestrate` to enable the orchestrator toolset and `/orchestrate off` to return to normal single-agent Pi behavior.
+Orchestration is opt-in. Use `/orchestrate` to activate a root orchestrator profile and `/orchestrate off` to return to normal single-agent Pi behavior. The package always ships a built-in `default` root profile; if additional profiles exist and no profile name is provided, `/orchestrate` asks which profile to activate.
 
 The dashboard does not replace the Pi terminal. The terminal stays vanilla Pi; the browser dashboard is a companion view for agents, libraries, skills, templates, logs, and diagnostics.
 
@@ -41,6 +41,7 @@ Definitions can reference direct skills, skill templates, and extension template
 
 An Orchestrator Library is a user- or team-owned folder that contains version-controlled orchestration resources:
 
+- root orchestrator profiles
 - agent definitions
 - skill templates
 - extension templates
@@ -58,6 +59,7 @@ A starter library contains an `orchestrator-library.json` manifest like:
   "description": "Team orchestration resources",
   "resources": {
     "agents": "agents",
+    "orchestratorProfiles": "orchestrator-profiles",
     "skillTemplates": "skill-templates",
     "extensionTemplates": "extension-templates",
     "skills": "skills",
@@ -74,6 +76,22 @@ team-ai:extensions/browser-tools
 ```
 
 Native Pi skill/extension source paths still exist as an advanced escape hatch, but the dashboard intentionally de-emphasizes them in favor of Orchestrator Libraries.
+
+### Root orchestrator profiles
+
+Root orchestrator profiles are markdown files that configure the interactive `/orchestrate` session. A profile can provide root-only instructions plus direct skills or skill templates. Profiles do not load arbitrary extensions into the root Pi shell.
+
+```markdown
+---
+name: planning
+description: Planning-heavy root orchestrator profile
+skillTemplates: root-planning
+---
+
+Clarify goals, decompose work, and coordinate spawned agents deliberately.
+```
+
+`/orchestrate planning` activates a named profile. Plain `/orchestrate` activates the only available profile automatically, or asks the user to select when multiple profiles exist.
 
 ### Skills and templates
 
@@ -126,7 +144,7 @@ The dashboard is a static React + TypeScript + Tailwind bundle served by the ext
 ## Terminal commands
 
 ```text
-/orchestrate [on|off|status]                  Enable/disable orchestration mode
+/orchestrate [profile|off|status]             Enable orchestration mode with a root profile
 /agent-types                                  List available agent definitions
 /spawn <name> <parent|'self'> [type|model]    Spawn a named agent instance
 /ask <name> <message>                         Send a message and show reply
