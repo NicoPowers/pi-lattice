@@ -67,6 +67,7 @@ export interface SkillInfo {
   source?: string;
   scope?: string;
   kind?: "directory" | "file";
+  audience?: "spawned" | "orchestrator" | "all";
   editable?: boolean;
   packageProvided?: boolean;
   ref?: string;

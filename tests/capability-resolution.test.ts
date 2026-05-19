@@ -19,11 +19,11 @@ describe("capability resolution", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("combines direct skills with applyToAll and selected skill templates", async () => {
+  it("combines direct skills with all-spawned auto-apply and selected skill templates", async () => {
     const { saveSkillTemplate } = await import("../extensions/multi-agent/skill-templates.js");
     const { resolveCapabilities } = await import("../extensions/multi-agent/capability-resolution.js");
 
-    saveSkillTemplate({ name: "common", description: "Common", items: ["tdd"], applyToAll: true }, tmpDir);
+    saveSkillTemplate({ name: "common", description: "Common", items: ["tdd"], autoApply: "spawned" }, tmpDir);
     saveSkillTemplate({ name: "frontend", description: "Frontend", items: ["react", "tdd"] }, tmpDir);
     saveSkillTemplate({ name: "unused", description: "Unused", items: ["unused"] }, tmpDir);
 
@@ -39,6 +39,7 @@ describe("capability resolution", () => {
 
     const result = resolveCapabilities({ cwd: tmpDir, definition, availableExtensions: [] });
     expect(result.skills?.map((skill) => path.basename(skill))).toEqual(["direct", "tdd", "react"]);
+    expect(result.errors).toEqual([]);
   });
 
   it("resolves Orchestrator Library skill refs to concrete skill paths", async () => {
@@ -90,11 +91,11 @@ describe("capability resolution", () => {
     expect(result.skillConflicts).toEqual([{ name: "duplicate", paths: [one, two] }]);
   });
 
-  it("combines requested extensions with applyToAll and selected extension templates", async () => {
+  it("combines requested extensions with all-spawned auto-apply and selected extension templates", async () => {
     const { saveExtensionTemplate } = await import("../extensions/multi-agent/extension-templates.js");
     const { resolveCapabilities } = await import("../extensions/multi-agent/capability-resolution.js");
 
-    saveExtensionTemplate({ name: "all", description: "All", items: ["logger"], applyToAll: true }, tmpDir);
+    saveExtensionTemplate({ name: "all", description: "All", items: ["logger"], autoApply: "spawned" }, tmpDir);
     saveExtensionTemplate({ name: "web", description: "Web", items: ["browser", "missing"] }, tmpDir);
 
     const definition: AgentDefinition = {
@@ -116,5 +117,51 @@ describe("capability resolution", () => {
     expect(result.extensions.map((extension) => extension.name)).toEqual(["manual", "browser", "logger"]);
     expect(result.missingExtensions).toEqual(["missing"]);
     expect(result.skillConflicts).toEqual([]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("refuses orchestrator-only skill templates and direct skills for spawned agents", async () => {
+    const { resolveCapabilities } = await import("../extensions/multi-agent/capability-resolution.js");
+    const templateDir = path.join(tmpDir, ".pi", "skill-templates");
+    const skillDir = path.join(tmpDir, "skills", "root-only");
+    fs.mkdirSync(templateDir, { recursive: true });
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(templateDir, "root-only.md"), "---\nname: root-only\ndescription: Root only\naudience: orchestrator\nskills: root-only-skill\n---\n");
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), "---\nname: root-only-skill\ndescription: Root only skill\naudience: orchestrator\n---\n");
+
+    const definition: AgentDefinition = {
+      name: "coder",
+      description: "Coder",
+      skills: [skillDir],
+      skillTemplates: ["root-only"],
+      systemPrompt: "",
+      source: "project",
+      filePath: "",
+    };
+
+    const result = resolveCapabilities({ cwd: tmpDir, definition, availableExtensions: [], target: "spawned" });
+    expect(result.errors).toContain("Skill template 'root-only' is only available to the orchestrator");
+    expect(result.errors.some((error) => error.includes("Skill 'root-only-skill' is only available to the orchestrator"))).toBe(true);
+  });
+
+  it("allows orchestrator target resolution for orchestrator templates and all-audience auto-apply", async () => {
+    const { saveSkillTemplate } = await import("../extensions/multi-agent/skill-templates.js");
+    const { resolveCapabilities } = await import("../extensions/multi-agent/capability-resolution.js");
+
+    saveSkillTemplate({ name: "root", description: "Root", items: ["plan"], audience: "orchestrator" }, tmpDir);
+    saveSkillTemplate({ name: "everyone", description: "Everyone", items: ["shared"], audience: "all", autoApply: "all" }, tmpDir);
+
+    const definition: AgentDefinition = {
+      name: "root-profile",
+      description: "Root profile",
+      skillTemplates: ["root"],
+      systemPrompt: "",
+      source: "project",
+      filePath: "",
+    };
+
+    const result = resolveCapabilities({ cwd: tmpDir, definition, availableExtensions: [], target: "orchestrator" });
+    expect(result.skills?.map((skill) => path.basename(skill))).toEqual(["shared", "plan"]);
+    expect(result.errors).toEqual([]);
   });
 });

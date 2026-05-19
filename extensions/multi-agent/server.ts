@@ -489,6 +489,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         name: body.name,
         description: body.description,
         items: body.skills || body.items || [],
+        audience: body.audience,
+        autoApply: body.autoApply,
         applyToAll: !!body.applyToAll,
       }, deps.repoCwd);
       if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
@@ -530,6 +532,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         name: body.name,
         description: body.description,
         items: body.extensions || body.items || [],
+        audience: body.audience,
+        autoApply: body.autoApply,
         applyToAll: !!body.applyToAll,
       }, deps.repoCwd);
       if (result.success) send(res, jsonResponse({ success: true, path: result.path }));
@@ -612,6 +616,10 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         requestedExtensions: requestedExtensions || [],
         availableExtensions: allExts,
       });
+      if (capabilities.errors.length) {
+        send(res, errorResponse(`Cannot spawn agent with invalid capabilities: ${capabilities.errors.join("; ")}`, 400));
+        return;
+      }
       if (capabilities.skillConflicts.length) {
         send(res, errorResponse(`Cannot spawn agent with conflicting runtime skill names: ${capabilities.skillConflicts.map((conflict) => conflict.name).join(", ")}`, 400));
         return;

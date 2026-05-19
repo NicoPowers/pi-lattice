@@ -9,6 +9,7 @@ import {
 const config = { dirName: "extension-templates", itemField: "extensions", libraryKind: "extensionTemplates" as const };
 
 export type ExtensionTemplate = TemplateDefinition;
+export type ExtensionTemplateInput = Parameters<typeof saveTemplate>[0];
 
 export function discoverExtensionTemplates(cwd: string): ExtensionTemplate[] {
   return discoverTemplates(cwd, config);
@@ -19,7 +20,7 @@ export function getExtensionTemplate(name: string, cwd: string): ExtensionTempla
 }
 
 export function saveExtensionTemplate(
-  template: Omit<ExtensionTemplate, "source" | "filePath">,
+  template: ExtensionTemplateInput,
   cwd: string
 ): { success: boolean; path?: string; error?: string } {
   return saveTemplate(template, cwd, config);

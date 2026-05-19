@@ -14,6 +14,7 @@ export interface DiscoveredSkill {
   source?: string;
   scope?: string;
   kind: "directory" | "file";
+  audience?: "spawned" | "orchestrator" | "all";
   editable: boolean;
   packageProvided?: boolean;
   ref?: string;
@@ -94,6 +95,17 @@ function compareSkills(a: DiscoveredSkill, b: DiscoveredSkill): number {
   return a.name.localeCompare(b.name) || (a.scope || "").localeCompare(b.scope || "") || a.path.localeCompare(b.path);
 }
 
+function skillAudience(filePath: string): DiscoveredSkill["audience"] {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter } = parseFrontmatter<Record<string, unknown>>(content);
+    const audience = typeof frontmatter.audience === "string" ? frontmatter.audience.trim().toLowerCase() : "all";
+    return audience === "spawned" || audience === "orchestrator" || audience === "all" ? audience : "all";
+  } catch {
+    return "all";
+  }
+}
+
 export function normalizeSkillName(value: string): string {
   return value
     .trim()
@@ -166,6 +178,7 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         source,
         scope: skill.sourceInfo?.scope,
         kind,
+        audience: skillAudience(filePath),
         editable: isEditableSkill(filePath, cwd),
         packageProvided: isPackageProvidedSkill(filePath, source),
       } satisfies DiscoveredSkill;
@@ -186,6 +199,7 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         source: "orchestrator-library",
         scope: resource.libraryName,
         kind,
+        audience: skillAudience(resource.filePath),
         editable: resource.editable,
         packageProvided: false,
         ref: resource.id,

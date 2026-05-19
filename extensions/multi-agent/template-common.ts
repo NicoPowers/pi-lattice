@@ -3,11 +3,18 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { discoverConfiguredOrchestratorLibraries } from "./orchestrator-library.js";
 
+export type TemplateAudience = "spawned" | "orchestrator" | "all";
+export type TemplateAutoApply = "none" | "spawned" | "all";
+
 export interface TemplateDefinition {
   name: string;
   description: string;
   items: string[];
+  audience: TemplateAudience;
+  autoApply: TemplateAutoApply;
+  /** Legacy alias: true only when autoApply is "spawned". */
   applyToAll?: boolean;
+  validationErrors: string[];
   source: "project" | "orchestrator-library";
   scope?: string;
   filePath: string;
@@ -17,6 +24,7 @@ export interface TemplateKindConfig {
   dirName: string;
   itemField: string;
   libraryKind?: "skillTemplates" | "extensionTemplates";
+  supportsOrchestratorAudience?: boolean;
 }
 
 function safeTemplateName(name: string): boolean {
@@ -35,6 +43,54 @@ function parseApplyToAll(value: unknown): boolean | undefined {
   if (["true", "yes", "1"].includes(value.toLowerCase())) return true;
   if (["false", "no", "0"].includes(value.toLowerCase())) return false;
   return undefined;
+}
+
+function parseAudience(value: unknown): TemplateAudience | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["spawned", "orchestrator", "all"].includes(normalized)) return normalized as TemplateAudience;
+  return undefined;
+}
+
+function parseAutoApply(value: unknown, legacyApplyToAll: boolean | undefined): TemplateAutoApply | undefined {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["none", "manual", "specific"].includes(normalized)) return "none";
+    if (["spawned", "all-spawned", "spawned-agents"].includes(normalized)) return "spawned";
+    if (["all", "everywhere"].includes(normalized)) return "all";
+  }
+  if (typeof value === "boolean") return value ? "spawned" : "none";
+  if (legacyApplyToAll !== undefined) return legacyApplyToAll ? "spawned" : "none";
+  return undefined;
+}
+
+export function defaultTemplateAudience(config: TemplateKindConfig): TemplateAudience {
+  return config.supportsOrchestratorAudience ? "spawned" : "spawned";
+}
+
+export function defaultTemplateAutoApply(): TemplateAutoApply {
+  return "none";
+}
+
+export function validateTemplateAudienceAutoApply(
+  audience: TemplateAudience,
+  autoApply: TemplateAutoApply,
+  config: TemplateKindConfig
+): string[] {
+  const errors: string[] = [];
+  if (!config.supportsOrchestratorAudience && audience !== "spawned") {
+    errors.push("extension templates are only available to spawned agents");
+  }
+  if (!config.supportsOrchestratorAudience && autoApply === "all") {
+    errors.push("extension templates cannot auto-apply to the orchestrator");
+  }
+  if (autoApply === "spawned" && audience !== "spawned" && audience !== "all") {
+    errors.push("autoApply: spawned requires audience spawned or all");
+  }
+  if (autoApply === "all" && audience !== "all") {
+    errors.push("autoApply: all requires audience all");
+  }
+  return errors;
 }
 
 export function templateDir(cwd: string, config: TemplateKindConfig): string {
@@ -58,11 +114,17 @@ function readTemplateFile(filePath: string, config: TemplateKindConfig, source: 
   const name = typeof frontmatter.name === "string" ? frontmatter.name.trim() : "";
   const description = typeof frontmatter.description === "string" ? frontmatter.description.trim() : "";
   if (!name || !description || validateTemplateName(name)) return undefined;
+  const legacyApplyToAll = parseApplyToAll(frontmatter.applyToAll);
+  const audience = parseAudience(frontmatter.audience) || defaultTemplateAudience(config);
+  const autoApply = parseAutoApply(frontmatter.autoApply, legacyApplyToAll) || defaultTemplateAutoApply();
   return {
     name,
     description,
     items: parseList(frontmatter[config.itemField] ?? frontmatter.items),
-    applyToAll: parseApplyToAll(frontmatter.applyToAll),
+    audience,
+    autoApply,
+    applyToAll: autoApply === "spawned",
+    validationErrors: validateTemplateAudienceAutoApply(audience, autoApply, config),
     source,
     scope,
     filePath,
@@ -114,7 +176,7 @@ function targetTemplateDir(cwd: string, config: TemplateKindConfig): string {
 }
 
 export function saveTemplate(
-  template: Omit<TemplateDefinition, "source" | "filePath">,
+  template: Partial<Omit<TemplateDefinition, "source" | "filePath" | "validationErrors">> & Pick<TemplateDefinition, "name" | "description" | "items">,
   cwd: string,
   config: TemplateKindConfig
 ): { success: boolean; path?: string; error?: string } {
@@ -122,6 +184,11 @@ export function saveTemplate(
   if (nameError) return { success: false, error: nameError };
   if (!template.description?.trim()) return { success: false, error: "description is required" };
   if (!Array.isArray(template.items)) return { success: false, error: `${config.itemField} must be an array` };
+
+  const audience = template.audience || defaultTemplateAudience(config);
+  const autoApply = template.autoApply || (template.applyToAll ? "spawned" : defaultTemplateAutoApply());
+  const validationErrors = validateTemplateAudienceAutoApply(audience, autoApply, config);
+  if (validationErrors.length) return { success: false, error: validationErrors.join("; ") };
 
   try {
     const name = template.name.trim();
@@ -132,7 +199,8 @@ export function saveTemplate(
     const frontmatterLines = [
       `name: ${name}`,
       `description: ${template.description.trim()}`,
-      `applyToAll: ${template.applyToAll ? "true" : "false"}`,
+      `audience: ${audience}`,
+      `autoApply: ${autoApply}`,
       `${config.itemField}: ${uniqueItems.join(", ")}`,
     ];
     const content = `---\n${frontmatterLines.join("\n")}\n---\n`;

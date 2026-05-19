@@ -29882,6 +29882,39 @@ function statusVariant(status) {
     return "default";
   return "outline";
 }
+function templateAudience(template) {
+  return template.audience || "spawned";
+}
+function templateAutoApply(template) {
+  if (template.autoApply)
+    return template.autoApply;
+  return template.applyToAll ? "spawned" : "none";
+}
+function audienceLabel(audience) {
+  if (audience === "orchestrator")
+    return "orchestrator";
+  if (audience === "all")
+    return "spawned + orchestrator";
+  return "spawned agents";
+}
+function autoApplyLabel(autoApply) {
+  if (autoApply === "all")
+    return "auto: everywhere";
+  if (autoApply === "spawned")
+    return "auto: all spawned";
+  return "manual";
+}
+function isSpawnedTemplate(template) {
+  const audience = templateAudience(template);
+  return audience === "spawned" || audience === "all";
+}
+function skillCanUseTemplate(skill, template) {
+  const skillAudience = skill.audience || "all";
+  const templateValue = templateAudience(template);
+  if (skillAudience === "all" || templateValue === "all")
+    return true;
+  return skillAudience === templateValue;
+}
 function App() {
   const [activeTab, setActiveTab] = import_react2.useState("agents");
   const [connected, setConnected] = import_react2.useState(false);
@@ -31325,6 +31358,7 @@ function skillTemplateItemValue(skill) {
   return skill.ref || skill.name;
 }
 function SkillSourceBadges({ skill }) {
+  const audience = skill.audience || "all";
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
     children: [
       skill.packageProvided && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
@@ -31334,6 +31368,10 @@ function SkillSourceBadges({ skill }) {
       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
         variant: "outline",
         children: skillScopeLabel(skill)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+        variant: audience === "orchestrator" ? "warning" : "outline",
+        children: audienceLabel(audience)
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
@@ -31359,6 +31397,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const [templateError, setTemplateError] = import_react2.useState("");
   const [editableFilter, setEditableFilter] = import_react2.useState("all");
   const [referenceFilter, setReferenceFilter] = import_react2.useState("all");
+  const [audienceFilter, setAudienceFilter] = import_react2.useState("all");
   const [orchestratorLibraries, setOrchestratorLibraries] = import_react2.useState(null);
   const [loading, setLoading] = import_react2.useState(false);
   const [error, setError] = import_react2.useState("");
@@ -31373,6 +31412,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         return false;
       if (editableFilter === "readonly" && skill.editable)
         return false;
+      if (audienceFilter !== "all" && (skill.audience || "all") !== audienceFilter)
+        return false;
       const itemValue = skillTemplateItemValue(skill);
       const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
       if (referenceFilter === "referenced" && !referenced)
@@ -31383,9 +31424,9 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
-  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  }, [audienceFilter, editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => skillCanUseTemplate(selectedSkill, template) && !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
   import_react2.useEffect(() => {
     let cancelled = false;
@@ -31531,7 +31572,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       return;
     setTemplateError("");
     const skills2 = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
-    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, applyToAll: !!template.applyToAll, skills: skills2 }) });
+    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, audience: templateAudience(template), autoApply: templateAutoApply(template), skills: skills2 }) });
     if (!res.ok)
       return setTemplateError(await responseErrorText(res));
     setAddTemplateName("");
@@ -31583,6 +31624,24 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                         value,
                         children: value
                       }, value, false, undefined, this))
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                    value: audienceFilter,
+                    onChange: (e) => setAudienceFilter(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "all",
+                        children: "All audiences"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "spawned",
+                        children: "Spawned agents"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                        value: "orchestrator",
+                        children: "Orchestrator only"
+                      }, undefined, false, undefined, this)
                     ]
                   }, undefined, true, undefined, this),
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
@@ -32506,9 +32565,17 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
                           className: "flex flex-wrap items-center gap-2 text-sm font-semibold",
                           children: [
                             template.name,
-                            template.applyToAll && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                              variant: "default",
-                              children: "apply to all"
+                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                              variant: "outline",
+                              children: audienceLabel(templateAudience(template))
+                            }, undefined, false, undefined, this),
+                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                              variant: templateAutoApply(template) === "none" ? "outline" : "default",
+                              children: autoApplyLabel(templateAutoApply(template))
+                            }, undefined, false, undefined, this),
+                            !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                              variant: "destructive",
+                              children: "invalid"
                             }, undefined, false, undefined, this),
                             result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
                               variant: result.success ? "success" : "destructive",
@@ -32557,6 +32624,10 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
                     className: "text-xs text-muted-foreground",
                     children: "No items."
                   }, undefined, false, undefined, this)
+                }, undefined, false, undefined, this),
+                !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive",
+                  children: template.validationErrors.join("; ")
                 }, undefined, false, undefined, this),
                 result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                   className: "mt-3 space-y-2 rounded-md border border-border bg-background/60 p-2 text-xs",
@@ -32608,7 +32679,8 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
 function TemplateEditorDialog({ open, kind, template, availableSkills, availableExtensions, onClose, onSaved }) {
   const [name2, setName] = import_react2.useState("");
   const [description, setDescription] = import_react2.useState("");
-  const [applyToAll, setApplyToAll] = import_react2.useState(false);
+  const [audience, setAudience] = import_react2.useState("spawned");
+  const [autoApply, setAutoApply] = import_react2.useState("none");
   const [itemsText, setItemsText] = import_react2.useState("");
   const [serverError, setServerError] = import_react2.useState("");
   import_react2.useEffect(() => {
@@ -32616,23 +32688,44 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
       return;
     setName(template?.name || "");
     setDescription(template?.description || "");
-    setApplyToAll(!!template?.applyToAll);
+    setAudience(kind === "skill" ? templateAudience(template || { name: "", description: "", items: [], source: "", filePath: "" }) : "spawned");
+    setAutoApply(kind === "skill" ? templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }) : templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }) === "all" ? "spawned" : templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }));
     setItemsText((template?.items || []).join(`
 `));
     setServerError("");
-  }, [open, template]);
+  }, [open, template, kind]);
   const field = kind === "skill" ? "skills" : "extensions";
   const savedName = template ? name2.trim() : normalizeTemplateName(name2);
   const templateLabel = kind === "skill" ? "skill" : "extension";
+  const setAudienceSafe = (next) => {
+    setAudience(next);
+    if (next === "orchestrator" && autoApply === "spawned")
+      setAutoApply("none");
+    if (next !== "all" && autoApply === "all")
+      setAutoApply(next === "spawned" ? "spawned" : "none");
+  };
+  const setAutoApplySafe = (next) => {
+    if (kind === "extension" && next === "all")
+      return setAutoApply("spawned");
+    if (next === "all")
+      setAudience("all");
+    if (next === "spawned" && audience === "orchestrator")
+      setAudience("all");
+    setAutoApply(next);
+  };
   const errors = [
     !savedName ? "Name is required." : undefined,
-    !description.trim() ? "Description is required." : undefined
+    !description.trim() ? "Description is required." : undefined,
+    kind === "extension" && audience !== "spawned" ? "Extension templates are only available to spawned agents." : undefined,
+    kind === "extension" && autoApply === "all" ? "Extension templates cannot auto-apply to the orchestrator." : undefined,
+    autoApply === "spawned" && audience === "orchestrator" ? "Apply to all spawned agents requires spawned or both audience." : undefined,
+    autoApply === "all" && audience !== "all" ? "Apply everywhere requires both audience." : undefined
   ].filter(Boolean);
   const save = async () => {
     setServerError("");
     if (errors.length)
       return;
-    const payload = { name: savedName, description: description.trim(), applyToAll, [field]: splitItems(itemsText) };
+    const payload = { name: savedName, description: description.trim(), audience: kind === "skill" ? audience : "spawned", autoApply, [field]: splitItems(itemsText) };
     const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok)
       return setServerError("Failed to save: " + await responseErrorText(res));
@@ -32680,21 +32773,71 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
           "aria-invalid": !description.trim(),
           className: !description.trim() ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
-          className: "flex items-center gap-2 text-sm",
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+          className: "grid gap-3 md:grid-cols-2",
           children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("input", {
-              type: "checkbox",
-              checked: applyToAll,
-              onChange: (e) => setApplyToAll(e.target.checked)
-            }, undefined, false, undefined, this),
-            " Apply to all newly spawned agents ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-              className: "text-xs text-muted-foreground",
-              children: "(optional)"
-            }, undefined, false, undefined, this)
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "space-y-1",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                  optional: true,
+                  children: "Available to"
+                }, undefined, false, undefined, this),
+                kind === "skill" ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                  value: audience,
+                  onChange: (e) => setAudienceSafe(e.target.value),
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "spawned",
+                      children: "Spawned agents"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "orchestrator",
+                      children: "Orchestrator"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "all",
+                      children: "Spawned agents + orchestrator"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground",
+                  children: "Spawned agents only"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "space-y-1",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                  optional: true,
+                  children: "Automatic application"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
+                  value: autoApply,
+                  onChange: (e) => setAutoApplySafe(e.target.value),
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "none",
+                      children: "Specific/manual assignment only"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "spawned",
+                      children: "Apply to all spawned agents"
+                    }, undefined, false, undefined, this),
+                    kind === "skill" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
+                      value: "all",
+                      children: "Apply everywhere, including orchestrator"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
           ]
         }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
+          children: kind === "skill" ? "Audience controls where the template may be used; automatic application controls whether it is applied without explicit assignment." : "Extension templates are spawned-agent capabilities only."
+        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
           optional: true,
           children: kind === "skill" ? "Skills" : "Extensions"
@@ -32856,6 +32999,8 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
       return setServerError("Failed to save: " + await responseErrorText(res));
     onSaved();
   };
+  const spawnedSkillTemplates = skillTemplates.filter(isSpawnedTemplate);
+  const spawnedExtensionTemplates = extensionTemplates.filter(isSpawnedTemplate);
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
     open,
     title: typeDef ? `Edit ${typeDef.name}` : "New Agent Type",
@@ -32941,12 +33086,12 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
           rows: 3,
           value: skillTemplatesText,
           onChange: (e) => setSkillTemplatesText(e.target.value),
-          placeholder: skillTemplates.map((template) => template.name).join(", ") || "common, frontend"
+          placeholder: spawnedSkillTemplates.map((template) => template.name).join(", ") || "common, frontend"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplateChips, {
-          templates: skillTemplates,
+          templates: spawnedSkillTemplates,
           selectedText: skillTemplatesText,
-          emptyText: "No skill templates defined yet.",
+          emptyText: "No spawned-agent skill templates defined yet.",
           onToggle: (name3) => setSkillTemplatesText((prev) => toggleItemText(prev, name3))
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
@@ -32957,10 +33102,10 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
           rows: 3,
           value: extensionTemplatesText,
           onChange: (e) => setExtensionTemplatesText(e.target.value),
-          placeholder: extensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
+          placeholder: spawnedExtensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplateChips, {
-          templates: extensionTemplates,
+          templates: spawnedExtensionTemplates,
           selectedText: extensionTemplatesText,
           emptyText: "No extension templates defined yet.",
           onToggle: (name3) => setExtensionTemplatesText((prev) => toggleItemText(prev, name3))

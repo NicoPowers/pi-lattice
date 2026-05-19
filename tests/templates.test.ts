@@ -14,14 +14,15 @@ describe("template backend", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("saves and discovers project skill templates", async () => {
+  it("saves and discovers project skill templates with audience and auto-apply metadata", async () => {
     const { saveSkillTemplate, discoverSkillTemplates } = await import("../extensions/multi-agent/skill-templates.js");
 
     const result = saveSkillTemplate({
       name: "frontend",
       description: "Frontend skills",
       items: ["react", "tailwind", "react"],
-      applyToAll: true,
+      audience: "all",
+      autoApply: "spawned",
     }, tmpDir);
 
     expect(result.success).toBe(true);
@@ -33,6 +34,8 @@ describe("template backend", () => {
       name: "frontend",
       description: "Frontend skills",
       items: ["react", "tailwind"],
+      audience: "all",
+      autoApply: "spawned",
       applyToAll: true,
       source: "project",
     });
@@ -55,19 +58,22 @@ describe("template backend", () => {
     expect(templates[0]).toMatchObject({ name: "core", source: "orchestrator-library", scope: "team" });
   });
 
-  it("saves, loads, and deletes extension templates", async () => {
+  it("saves, loads, and deletes spawned-only extension templates", async () => {
     const { saveExtensionTemplate, getExtensionTemplate, deleteExtensionTemplate, discoverExtensionTemplates } = await import("../extensions/multi-agent/extension-templates.js");
 
     const saved = saveExtensionTemplate({
       name: "web-tools",
       description: "Web extensions",
       items: ["browser", "fetcher"],
-      applyToAll: false,
+      audience: "spawned",
+      autoApply: "none",
     }, tmpDir);
     expect(saved.success).toBe(true);
 
     const loaded = getExtensionTemplate("web-tools", tmpDir);
     expect(loaded?.items).toEqual(["browser", "fetcher"]);
+    expect(loaded?.audience).toBe("spawned");
+    expect(loaded?.autoApply).toBe("none");
     expect(loaded?.applyToAll).toBe(false);
 
     const deleted = deleteExtensionTemplate("web-tools", tmpDir);
@@ -87,5 +93,44 @@ describe("template backend", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("name may only contain");
     expect(fs.existsSync(path.join(tmpDir, ".pi", "escape.md"))).toBe(false);
+  });
+
+  it("rejects impossible skill template audience and auto-apply combinations", async () => {
+    const { saveSkillTemplate } = await import("../extensions/multi-agent/skill-templates.js");
+
+    const result = saveSkillTemplate({
+      name: "root-only",
+      description: "Root only",
+      items: ["orchestrator-planning"],
+      audience: "orchestrator",
+      autoApply: "spawned",
+    }, tmpDir);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("autoApply: spawned requires audience spawned or all");
+  });
+
+  it("rejects orchestrator or all-audience extension templates", async () => {
+    const { saveExtensionTemplate } = await import("../extensions/multi-agent/extension-templates.js");
+
+    const orchestratorResult = saveExtensionTemplate({
+      name: "root-exts",
+      description: "Root extensions",
+      items: ["dangerous-root-extension"],
+      audience: "orchestrator",
+      autoApply: "none",
+    }, tmpDir);
+    const allResult = saveExtensionTemplate({
+      name: "all-exts",
+      description: "All extensions",
+      items: ["logger"],
+      audience: "spawned",
+      autoApply: "all",
+    }, tmpDir);
+
+    expect(orchestratorResult.success).toBe(false);
+    expect(orchestratorResult.error).toContain("extension templates are only available to spawned agents");
+    expect(allResult.success).toBe(false);
+    expect(allResult.error).toContain("extension templates cannot auto-apply to the orchestrator");
   });
 });

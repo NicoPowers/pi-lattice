@@ -6,6 +6,9 @@ import { discoverSkillTemplates } from "./skill-templates.js";
 import { discoverExtensionTemplates } from "./extension-templates.js";
 import { resolveOrchestratorLibraryResourceRef } from "./orchestrator-library.js";
 import type { AgentDefinition } from "./state.js";
+import type { TemplateAudience, TemplateAutoApply } from "./template-common.js";
+
+export type CapabilityTarget = "spawned" | "orchestrator";
 
 export interface ExtensionRef {
   name: string;
@@ -19,6 +22,7 @@ export interface ResolvedCapabilities {
   missingExtensionTemplates: string[];
   missingExtensions: string[];
   skillConflicts: Array<{ name: string; paths: string[] }>;
+  errors: string[];
 }
 
 function uniqueStrings(items: Array<string | undefined>): string[] {
@@ -39,15 +43,50 @@ function resolveSkillRef(item: string, templateFilePath: string, cwd: string): s
   return resolveSkillPath(item, path.dirname(templateFilePath), cwd);
 }
 
-function skillRuntimeName(skillPath: string): string | undefined {
+function skillFilePath(skillPath: string): string {
   try {
-    const filePath = fs.statSync(skillPath).isDirectory() ? path.join(skillPath, "SKILL.md") : skillPath;
-    const content = fs.readFileSync(filePath, "utf-8");
-    const { frontmatter } = parseFrontmatter<Record<string, unknown>>(content);
-    return typeof frontmatter.name === "string" ? frontmatter.name.trim() : undefined;
+    return fs.statSync(skillPath).isDirectory() ? path.join(skillPath, "SKILL.md") : skillPath;
+  } catch {
+    return skillPath;
+  }
+}
+
+function skillFrontmatter(skillPath: string): Record<string, unknown> | undefined {
+  try {
+    const content = fs.readFileSync(skillFilePath(skillPath), "utf-8");
+    return parseFrontmatter<Record<string, unknown>>(content).frontmatter;
   } catch {
     return undefined;
   }
+}
+
+function skillRuntimeName(skillPath: string): string | undefined {
+  const frontmatter = skillFrontmatter(skillPath);
+  return typeof frontmatter?.name === "string" ? frontmatter.name.trim() : undefined;
+}
+
+function parseSkillAudience(skillPath: string): TemplateAudience {
+  const value = skillFrontmatter(skillPath)?.audience;
+  if (typeof value !== "string") return "all";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "spawned" || normalized === "orchestrator" || normalized === "all") return normalized;
+  return "all";
+}
+
+function audienceAllows(target: CapabilityTarget, audience: TemplateAudience): boolean {
+  return audience === "all" || audience === target;
+}
+
+function audienceErrorLabel(audience: TemplateAudience): string {
+  if (audience === "orchestrator") return "only available to the orchestrator";
+  if (audience === "spawned") return "only available to spawned agents";
+  return "not available to this target";
+}
+
+function autoAppliesToTarget(autoApply: TemplateAutoApply, target: CapabilityTarget): boolean {
+  if (autoApply === "all") return true;
+  if (autoApply === "spawned") return target === "spawned";
+  return false;
 }
 
 function findSkillConflicts(skillPaths: string[]): Array<{ name: string; paths: string[] }> {
@@ -78,10 +117,12 @@ export function resolveCapabilities(options: {
   definition?: AgentDefinition;
   requestedExtensions?: string[];
   availableExtensions: ExtensionRef[];
+  target?: CapabilityTarget;
 }): ResolvedCapabilities {
-  const { cwd, definition, requestedExtensions = [], availableExtensions } = options;
+  const { cwd, definition, requestedExtensions = [], availableExtensions, target = "spawned" } = options;
   const skillTemplates = discoverSkillTemplates(cwd);
   const extensionTemplates = discoverExtensionTemplates(cwd);
+  const errors: string[] = [];
 
   const selectedSkillTemplateNames = new Set(definition?.skillTemplates || []);
   const selectedExtensionTemplateNames = new Set(definition?.extensionTemplates || []);
@@ -90,18 +131,49 @@ export function resolveCapabilities(options: {
     .filter((name) => !extensionTemplates.some((template) => template.name === name));
 
   const skillTemplateItems = skillTemplates
-    .filter((template) => template.applyToAll || selectedSkillTemplateNames.has(template.name))
-    .flatMap((template) => template.items.map((item) => resolveSkillRef(item, template.filePath, cwd)));
+    .filter((template) => autoAppliesToTarget(template.autoApply, target) || selectedSkillTemplateNames.has(template.name))
+    .flatMap((template) => {
+      if (template.validationErrors.length) {
+        errors.push(...template.validationErrors.map((error) => `Skill template '${template.name}' is invalid: ${error}`));
+        return [];
+      }
+      if (!audienceAllows(target, template.audience)) {
+        errors.push(`Skill template '${template.name}' is ${audienceErrorLabel(template.audience)}`);
+        return [];
+      }
+      return template.items.map((item) => resolveSkillRef(item, template.filePath, cwd));
+    });
 
   const directSkills = (definition?.skills || []).map((item) => resolveOrchestratorLibraryResourceRef(item, cwd, "skills")?.filePath || item);
   const skills = uniqueStrings([...directSkills, ...skillTemplateItems]);
+  for (const skillPath of skills) {
+    const audience = parseSkillAudience(skillPath);
+    if (!audienceAllows(target, audience)) {
+      const name = skillRuntimeName(skillPath) || path.basename(skillPath);
+      errors.push(`Skill '${name}' is ${audienceErrorLabel(audience)}: ${skillPath}`);
+    }
+  }
 
-  const extensionNames = uniqueStrings([
+  if (target === "orchestrator" && (requestedExtensions.length || selectedExtensionTemplateNames.size)) {
+    errors.push("Extension templates and requested extensions are only available to spawned agents");
+  }
+
+  const extensionNames = target === "spawned" ? uniqueStrings([
     ...requestedExtensions,
     ...extensionTemplates
-      .filter((template) => template.applyToAll || selectedExtensionTemplateNames.has(template.name))
-      .flatMap((template) => template.items),
-  ]);
+      .filter((template) => autoAppliesToTarget(template.autoApply, "spawned") || selectedExtensionTemplateNames.has(template.name))
+      .flatMap((template) => {
+        if (template.validationErrors.length) {
+          errors.push(...template.validationErrors.map((error) => `Extension template '${template.name}' is invalid: ${error}`));
+          return [];
+        }
+        if (!audienceAllows("spawned", template.audience)) {
+          errors.push(`Extension template '${template.name}' is ${audienceErrorLabel(template.audience)}`);
+          return [];
+        }
+        return template.items;
+      }),
+  ]) : [];
 
   const resolvedExtensions: ExtensionRef[] = [];
   const missingExtensions: string[] = [];
@@ -117,5 +189,6 @@ export function resolveCapabilities(options: {
     missingExtensionTemplates,
     missingExtensions,
     skillConflicts: findSkillConflicts(skills),
+    errors,
   };
 }

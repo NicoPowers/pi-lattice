@@ -79,16 +79,13 @@ Native Pi skill/extension source paths still exist as an advanced escape hatch, 
 
 Skills are Pi instruction bundles. The Skill Library dashboard can browse discovered skills, preview markdown, inspect metadata, edit editable skills, copy package/global skills into an editable scope, and show when a skill came from an installed package.
 
-Skill templates and extension templates are reusable bundles assigned to agent types. When a new agent is spawned, the orchestrator resolves:
+Skill templates and extension templates are reusable bundles assigned to agent types. Templates separate eligibility from automatic application:
 
-- direct `skills:` from the agent definition
-- selected `skillTemplates:`
-- `applyToAll` skill templates
-- directly requested extensions
-- selected `extensionTemplates:`
-- `applyToAll` extension templates
+- `audience: spawned | orchestrator | all` controls where a skill template may be used.
+- `autoApply: none | spawned | all` controls whether a skill template is manual-only, added to every spawned child agent, or added everywhere including the root orchestrator.
+- Extension templates are spawned-agent capabilities only; they support `autoApply: none | spawned` and cannot target the root orchestrator.
 
-Existing running agents are unchanged when templates are edited; template resolution applies to newly spawned agents.
+When a new agent is spawned, the orchestrator resolves direct `skills:`, selected `skillTemplates:`, all-spawned skill templates, directly requested extensions, selected `extensionTemplates:`, and all-spawned extension templates. Existing running agents are unchanged when templates are edited; template resolution applies to newly spawned agents.
 
 Extensions can optionally advertise static metadata without executing code:
 
