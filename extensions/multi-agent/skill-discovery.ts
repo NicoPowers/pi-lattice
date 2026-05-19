@@ -15,6 +15,7 @@ export interface DiscoveredSkill {
   scope?: string;
   kind: "directory" | "file";
   editable: boolean;
+  packageProvided?: boolean;
   ref?: string;
 }
 
@@ -78,6 +79,15 @@ function editableRoots(cwd: string): string[] {
 
 function isEditableSkill(filePath: string, cwd: string): boolean {
   return editableRoots(cwd).some((root) => isSubPath(filePath, root));
+}
+
+export function isPackageProvidedSkill(filePath: string, source?: string): boolean {
+  const normalized = canonicalPath(filePath).replace(/\\/g, "/");
+  const sourceValue = (source || "").toLowerCase();
+  if (["package", "npm", "bun"].some((value) => sourceValue.includes(value))) return true;
+  return normalized.includes("/.pi/agent/npm/node_modules/")
+    || normalized.includes("/.bun/install/global/node_modules/")
+    || normalized.includes("/node_modules/");
 }
 
 function compareSkills(a: DiscoveredSkill, b: DiscoveredSkill): number {
@@ -145,6 +155,7 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
       const filePath = skill.filePath;
       const baseDir = skill.baseDir || path.dirname(filePath);
       const kind = path.basename(filePath).toLowerCase() === "skill.md" ? "directory" : "file";
+      const source = skill.sourceInfo?.source;
       return {
         id: skillId(filePath),
         name: skill.name,
@@ -152,10 +163,11 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         path: filePath,
         filePath,
         baseDir,
-        source: skill.sourceInfo?.source,
+        source,
         scope: skill.sourceInfo?.scope,
         kind,
         editable: isEditableSkill(filePath, cwd),
+        packageProvided: isPackageProvidedSkill(filePath, source),
       } satisfies DiscoveredSkill;
     });
 
@@ -175,6 +187,7 @@ export async function discoverSkills(cwd: string): Promise<DiscoveredSkill[]> {
         scope: resource.libraryName,
         kind,
         editable: resource.editable,
+        packageProvided: false,
         ref: resource.id,
       } satisfies DiscoveredSkill;
     });

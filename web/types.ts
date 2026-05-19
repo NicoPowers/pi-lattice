@@ -67,6 +67,7 @@ export interface SkillInfo {
   scope?: string;
   kind?: "directory" | "file";
   editable?: boolean;
+  packageProvided?: boolean;
   ref?: string;
 }
 

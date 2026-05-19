@@ -31314,6 +31314,20 @@ function skillScopeLabel(skill) {
 function skillTemplateItemValue(skill) {
   return skill.ref || skill.name;
 }
+function SkillSourceBadges({ skill }) {
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
+    children: [
+      skill.packageProvided && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+        variant: "outline",
+        children: "package"
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+        variant: "outline",
+        children: skillScopeLabel(skill)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
 function normalizeSkillName(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
@@ -31629,9 +31643,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                           /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                             className: "flex gap-1",
                             children: [
-                              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                                variant: "outline",
-                                children: skillScopeLabel(skill)
+                              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillSourceBadges, {
+                                skill
                               }, undefined, false, undefined, this),
                               skill.editable && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
                                 variant: "success",
@@ -31741,9 +31754,8 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                   className: "flex flex-wrap gap-2",
                   children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                      variant: "outline",
-                      children: skillScopeLabel(selectedSkill)
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillSourceBadges, {
+                      skill: selectedSkill
                     }, undefined, false, undefined, this),
                     /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
                       variant: "outline",

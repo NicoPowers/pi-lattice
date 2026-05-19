@@ -43,6 +43,13 @@ describe("skill discovery API", () => {
     }
   });
 
+  it("detects package-provided skill paths", async () => {
+    const { isPackageProvidedSkill } = await import("../extensions/multi-agent/skill-discovery.js");
+    expect(isPackageProvidedSkill("/home/ubuntu/.pi/agent/npm/node_modules/pi-web-access/skills/librarian/SKILL.md")).toBe(true);
+    expect(isPackageProvidedSkill("/home/ubuntu/.bun/install/global/node_modules/some-package/skills/helper/SKILL.md")).toBe(true);
+    expect(isPackageProvidedSkill("/repo/.pi/skills/local/SKILL.md")).toBe(false);
+  });
+
   it("discovers project skills", async () => {
     const { discoverSkills } = await import("../extensions/multi-agent/skill-discovery.js");
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skills-api-"));
@@ -58,6 +65,7 @@ describe("skill discovery API", () => {
       expect(demo?.baseDir).toEndWith("demo");
       expect(demo?.kind).toBe("directory");
       expect(demo?.editable).toBe(true);
+      expect(demo?.packageProvided).toBe(false);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

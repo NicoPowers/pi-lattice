@@ -648,6 +648,10 @@ function skillTemplateItemValue(skill: SkillInfo): string {
   return skill.ref || skill.name;
 }
 
+function SkillSourceBadges({ skill }: { skill: SkillInfo }) {
+  return <>{skill.packageProvided && <Badge variant="outline">package</Badge>}<Badge variant="outline">{skillScopeLabel(skill)}</Badge></>;
+}
+
 function normalizeSkillName(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
@@ -821,7 +825,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
           {!filtered.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No skills found.</div> : filtered.map((skill) => {
             const active = skill.id === selectedSkill?.id;
             return <button key={skill.id || skill.path} className={`w-full rounded-md border p-3 text-left transition ${active ? "border-primary bg-primary/10" : "border-border hover:bg-white/5"}`} onClick={() => setSelectedId(skill.id)}>
-              <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{skill.name}</span><div className="flex gap-1"><Badge variant="outline">{skillScopeLabel(skill)}</Badge>{skill.editable && <Badge variant="success">editable</Badge>}</div></div>
+              <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{skill.name}</span><div className="flex gap-1"><SkillSourceBadges skill={skill} />{skill.editable && <Badge variant="success">editable</Badge>}</div></div>
               <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{skill.description || "No description."}</div>
               <div className="mt-2 truncate text-[11px] text-muted-foreground" title={skill.path}>{shortPath(skill.path)}</div>
             </button>;
@@ -833,7 +837,7 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       <CardHeader className="border-b border-border"><div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>{selectedSkill?.name || "Select a skill"}</CardTitle>{selectedSkill && <div className="flex flex-wrap items-center gap-2">{!editing && <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => setCopying(selectedSkill)}>Copy</Button>}{detailMatchesSelected && detail?.skill.editable && !editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditContent(fileDetail?.content ?? detail.content); setEditing(true); setDetailView("preview"); }}>Edit</Button><Button variant="destructive" className="px-2 py-1 text-xs" onClick={deleteSelected}>Delete</Button></>}{detailMatchesSelected && editing && <><Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => { setEditing(false); setEditContent(fileDetail?.content ?? detail?.content ?? ""); setSaveError(""); }}>Cancel</Button><Button className="px-2 py-1 text-xs" onClick={saveEdit}>Save</Button></>}<div className="flex rounded-md border border-border bg-background p-1">{(["preview", "raw", "metadata"] as const).map((view) => <button key={view} type="button" className={`rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`} onClick={() => setDetailView(view)}>{view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"}</button>)}</div></div>}</div></CardHeader>
       <CardContent className="flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4">
         {!selectedSkill ? <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No skills discovered.</div> : <>
-          <div className="flex flex-wrap gap-2"><Badge variant="outline">{skillScopeLabel(selectedSkill)}</Badge><Badge variant="outline">{selectedSkill.kind || "skill"}</Badge>{selectedSkill.editable ? <Badge variant="success">editable</Badge> : <Badge variant="warning">read-only</Badge>}</div>
+          <div className="flex flex-wrap gap-2"><SkillSourceBadges skill={selectedSkill} /><Badge variant="outline">{selectedSkill.kind || "skill"}</Badge>{selectedSkill.editable ? <Badge variant="success">editable</Badge> : <Badge variant="warning">read-only</Badge>}</div>
           <div className="break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground">{selectedSkill.path}</div>
           <div className="rounded-md border border-border bg-background p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div className="text-xs uppercase tracking-wide text-muted-foreground">Skill templates using this skill</div>{!!templatesMissingSkill.length && <div className="flex gap-2"><Select value={addTemplateName} onChange={(e) => setAddTemplateName(e.target.value)} className="py-1 text-xs"><option value="">Add to template…</option>{templatesMissingSkill.map((template) => <option key={template.name} value={template.name}>{template.name}</option>)}</Select><Button variant="secondary" className="px-2 py-1 text-xs" onClick={addToTemplate} disabled={!addTemplateName}>Add</Button></div>}</div>
