@@ -29908,13 +29908,6 @@ function isSpawnedTemplate(template) {
   const audience = templateAudience(template);
   return audience === "spawned" || audience === "all";
 }
-function skillCanUseTemplate(skill, template) {
-  const skillAudience = skill.audience || "all";
-  const templateValue = templateAudience(template);
-  if (skillAudience === "all" || templateValue === "all")
-    return true;
-  return skillAudience === templateValue;
-}
 function App() {
   const [activeTab, setActiveTab] = import_react2.useState("agents");
   const [connected, setConnected] = import_react2.useState(false);
@@ -31358,7 +31351,6 @@ function skillTemplateItemValue(skill) {
   return skill.ref || skill.name;
 }
 function SkillSourceBadges({ skill }) {
-  const audience = skill.audience || "all";
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
     children: [
       skill.packageProvided && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
@@ -31368,10 +31360,6 @@ function SkillSourceBadges({ skill }) {
       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
         variant: "outline",
         children: skillScopeLabel(skill)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-        variant: audience === "orchestrator" ? "warning" : "outline",
-        children: audienceLabel(audience)
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
@@ -31397,7 +31385,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const [templateError, setTemplateError] = import_react2.useState("");
   const [editableFilter, setEditableFilter] = import_react2.useState("all");
   const [referenceFilter, setReferenceFilter] = import_react2.useState("all");
-  const [audienceFilter, setAudienceFilter] = import_react2.useState("all");
   const [orchestratorLibraries, setOrchestratorLibraries] = import_react2.useState(null);
   const [loading, setLoading] = import_react2.useState(false);
   const [error, setError] = import_react2.useState("");
@@ -31412,8 +31399,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         return false;
       if (editableFilter === "readonly" && skill.editable)
         return false;
-      if (audienceFilter !== "all" && (skill.audience || "all") !== audienceFilter)
-        return false;
       const itemValue = skillTemplateItemValue(skill);
       const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
       if (referenceFilter === "referenced" && !referenced)
@@ -31424,9 +31409,9 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
-  }, [audienceFilter, editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => skillCanUseTemplate(selectedSkill, template) && !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
   import_react2.useEffect(() => {
     let cancelled = false;
@@ -31624,24 +31609,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
                         value,
                         children: value
                       }, value, false, undefined, this))
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                    value: audienceFilter,
-                    onChange: (e) => setAudienceFilter(e.target.value),
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "all",
-                        children: "All audiences"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "spawned",
-                        children: "Spawned agents"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "orchestrator",
-                        children: "Orchestrator only"
-                      }, undefined, false, undefined, this)
                     ]
                   }, undefined, true, undefined, this),
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {

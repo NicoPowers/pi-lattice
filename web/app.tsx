@@ -78,13 +78,6 @@ function isSpawnedTemplate(template: TemplateInfo): boolean {
   return audience === "spawned" || audience === "all";
 }
 
-function skillCanUseTemplate(skill: SkillInfo, template: TemplateInfo): boolean {
-  const skillAudience = (skill.audience || "all") as TemplateAudience;
-  const templateValue = templateAudience(template);
-  if (skillAudience === "all" || templateValue === "all") return true;
-  return skillAudience === templateValue;
-}
-
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("agents");
   const [connected, setConnected] = useState(false);
@@ -686,8 +679,7 @@ function skillTemplateItemValue(skill: SkillInfo): string {
 }
 
 function SkillSourceBadges({ skill }: { skill: SkillInfo }) {
-  const audience = (skill.audience || "all") as TemplateAudience;
-  return <>{skill.packageProvided && <Badge variant="outline">package</Badge>}<Badge variant="outline">{skillScopeLabel(skill)}</Badge><Badge variant={audience === "orchestrator" ? "warning" : "outline"}>{audienceLabel(audience)}</Badge></>;
+  return <>{skill.packageProvided && <Badge variant="outline">package</Badge>}<Badge variant="outline">{skillScopeLabel(skill)}</Badge></>;
 }
 
 function normalizeSkillName(value: string): string {
@@ -712,7 +704,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
   const [templateError, setTemplateError] = useState("");
   const [editableFilter, setEditableFilter] = useState("all");
   const [referenceFilter, setReferenceFilter] = useState("all");
-  const [audienceFilter, setAudienceFilter] = useState("all");
   const [orchestratorLibraries, setOrchestratorLibraries] = useState<OrchestratorLibrariesInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -724,7 +715,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       if (scope !== "all" && skillScopeLabel(skill) !== scope) return false;
       if (editableFilter === "editable" && !skill.editable) return false;
       if (editableFilter === "readonly" && skill.editable) return false;
-      if (audienceFilter !== "all" && (skill.audience || "all") !== audienceFilter) return false;
       const itemValue = skillTemplateItemValue(skill);
       const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
       if (referenceFilter === "referenced" && !referenced) return false;
@@ -732,9 +722,9 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
       if (!q) return true;
       return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
     });
-  }, [audienceFilter, editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => skillCanUseTemplate(selectedSkill, template) && !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
   const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
 
   useEffect(() => {
@@ -857,7 +847,6 @@ function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search skills…" />
         <div className="grid gap-2">
           <Select value={scope} onChange={(e) => setScope(e.target.value)}><option value="all">All sources</option>{scopes.map((value) => <option key={value} value={value}>{value}</option>)}</Select>
-          <Select value={audienceFilter} onChange={(e) => setAudienceFilter(e.target.value)}><option value="all">All audiences</option><option value="spawned">Spawned agents</option><option value="orchestrator">Orchestrator only</option></Select>
           <Select value={editableFilter} onChange={(e) => setEditableFilter(e.target.value)}><option value="all">Editable + read-only</option><option value="editable">Editable only</option><option value="readonly">Read-only only</option></Select>
           <Select value={referenceFilter} onChange={(e) => setReferenceFilter(e.target.value)}><option value="all">All template usage</option><option value="referenced">In a template</option><option value="unreferenced">Not in templates</option></Select>
         </div>
