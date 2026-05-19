@@ -4,6 +4,11 @@
     "@os-eco/seeds-cli"
   ],
   "piAgentOrchestrator": {
-    "showPackageExamples": true
+    "showPackageExamples": true,
+    "libraries": [
+      {
+        "path": ".pi/orchestrator-library"
+      }
+    ]
   }
 }

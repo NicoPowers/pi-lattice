@@ -16904,6 +16904,229 @@ var require_client = __commonJS((exports, module) => {
   }
 });
 
+// node_modules/react/cjs/react-jsx-dev-runtime.development.js
+var require_react_jsx_dev_runtime_development = __commonJS((exports) => {
+  var React = __toESM(require_react());
+  (function() {
+    function getComponentNameFromType(type) {
+      if (type == null)
+        return null;
+      if (typeof type === "function")
+        return type.$$typeof === REACT_CLIENT_REFERENCE ? null : type.displayName || type.name || null;
+      if (typeof type === "string")
+        return type;
+      switch (type) {
+        case REACT_FRAGMENT_TYPE:
+          return "Fragment";
+        case REACT_PROFILER_TYPE:
+          return "Profiler";
+        case REACT_STRICT_MODE_TYPE:
+          return "StrictMode";
+        case REACT_SUSPENSE_TYPE:
+          return "Suspense";
+        case REACT_SUSPENSE_LIST_TYPE:
+          return "SuspenseList";
+        case REACT_ACTIVITY_TYPE:
+          return "Activity";
+      }
+      if (typeof type === "object")
+        switch (typeof type.tag === "number" && console.error("Received an unexpected object in getComponentNameFromType(). This is likely a bug in React. Please file an issue."), type.$$typeof) {
+          case REACT_PORTAL_TYPE:
+            return "Portal";
+          case REACT_CONTEXT_TYPE:
+            return type.displayName || "Context";
+          case REACT_CONSUMER_TYPE:
+            return (type._context.displayName || "Context") + ".Consumer";
+          case REACT_FORWARD_REF_TYPE:
+            var innerType = type.render;
+            type = type.displayName;
+            type || (type = innerType.displayName || innerType.name || "", type = type !== "" ? "ForwardRef(" + type + ")" : "ForwardRef");
+            return type;
+          case REACT_MEMO_TYPE:
+            return innerType = type.displayName || null, innerType !== null ? innerType : getComponentNameFromType(type.type) || "Memo";
+          case REACT_LAZY_TYPE:
+            innerType = type._payload;
+            type = type._init;
+            try {
+              return getComponentNameFromType(type(innerType));
+            } catch (x) {}
+        }
+      return null;
+    }
+    function testStringCoercion(value) {
+      return "" + value;
+    }
+    function checkKeyStringCoercion(value) {
+      try {
+        testStringCoercion(value);
+        var JSCompiler_inline_result = false;
+      } catch (e) {
+        JSCompiler_inline_result = true;
+      }
+      if (JSCompiler_inline_result) {
+        JSCompiler_inline_result = console;
+        var JSCompiler_temp_const = JSCompiler_inline_result.error;
+        var JSCompiler_inline_result$jscomp$0 = typeof Symbol === "function" && Symbol.toStringTag && value[Symbol.toStringTag] || value.constructor.name || "Object";
+        JSCompiler_temp_const.call(JSCompiler_inline_result, "The provided key is an unsupported type %s. This value must be coerced to a string before using it here.", JSCompiler_inline_result$jscomp$0);
+        return testStringCoercion(value);
+      }
+    }
+    function getTaskName(type) {
+      if (type === REACT_FRAGMENT_TYPE)
+        return "<>";
+      if (typeof type === "object" && type !== null && type.$$typeof === REACT_LAZY_TYPE)
+        return "<...>";
+      try {
+        var name = getComponentNameFromType(type);
+        return name ? "<" + name + ">" : "<...>";
+      } catch (x) {
+        return "<...>";
+      }
+    }
+    function getOwner() {
+      var dispatcher = ReactSharedInternals.A;
+      return dispatcher === null ? null : dispatcher.getOwner();
+    }
+    function UnknownOwner() {
+      return Error("react-stack-top-frame");
+    }
+    function hasValidKey(config) {
+      if (hasOwnProperty.call(config, "key")) {
+        var getter = Object.getOwnPropertyDescriptor(config, "key").get;
+        if (getter && getter.isReactWarning)
+          return false;
+      }
+      return config.key !== undefined;
+    }
+    function defineKeyPropWarningGetter(props, displayName) {
+      function warnAboutAccessingKey() {
+        specialPropKeyWarningShown || (specialPropKeyWarningShown = true, console.error("%s: `key` is not a prop. Trying to access it will result in `undefined` being returned. If you need to access the same value within the child component, you should pass it as a different prop. (https://react.dev/link/special-props)", displayName));
+      }
+      warnAboutAccessingKey.isReactWarning = true;
+      Object.defineProperty(props, "key", {
+        get: warnAboutAccessingKey,
+        configurable: true
+      });
+    }
+    function elementRefGetterWithDeprecationWarning() {
+      var componentName = getComponentNameFromType(this.type);
+      didWarnAboutElementRef[componentName] || (didWarnAboutElementRef[componentName] = true, console.error("Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release."));
+      componentName = this.props.ref;
+      return componentName !== undefined ? componentName : null;
+    }
+    function ReactElement(type, key, props, owner, debugStack, debugTask) {
+      var refProp = props.ref;
+      type = {
+        $$typeof: REACT_ELEMENT_TYPE,
+        type,
+        key,
+        props,
+        _owner: owner
+      };
+      (refProp !== undefined ? refProp : null) !== null ? Object.defineProperty(type, "ref", {
+        enumerable: false,
+        get: elementRefGetterWithDeprecationWarning
+      }) : Object.defineProperty(type, "ref", { enumerable: false, value: null });
+      type._store = {};
+      Object.defineProperty(type._store, "validated", {
+        configurable: false,
+        enumerable: false,
+        writable: true,
+        value: 0
+      });
+      Object.defineProperty(type, "_debugInfo", {
+        configurable: false,
+        enumerable: false,
+        writable: true,
+        value: null
+      });
+      Object.defineProperty(type, "_debugStack", {
+        configurable: false,
+        enumerable: false,
+        writable: true,
+        value: debugStack
+      });
+      Object.defineProperty(type, "_debugTask", {
+        configurable: false,
+        enumerable: false,
+        writable: true,
+        value: debugTask
+      });
+      Object.freeze && (Object.freeze(type.props), Object.freeze(type));
+      return type;
+    }
+    function jsxDEVImpl(type, config, maybeKey, isStaticChildren, debugStack, debugTask) {
+      var children = config.children;
+      if (children !== undefined)
+        if (isStaticChildren)
+          if (isArrayImpl(children)) {
+            for (isStaticChildren = 0;isStaticChildren < children.length; isStaticChildren++)
+              validateChildKeys(children[isStaticChildren]);
+            Object.freeze && Object.freeze(children);
+          } else
+            console.error("React.jsx: Static children should always be an array. You are likely explicitly calling React.jsxs or React.jsxDEV. Use the Babel transform instead.");
+        else
+          validateChildKeys(children);
+      if (hasOwnProperty.call(config, "key")) {
+        children = getComponentNameFromType(type);
+        var keys = Object.keys(config).filter(function(k) {
+          return k !== "key";
+        });
+        isStaticChildren = 0 < keys.length ? "{key: someKey, " + keys.join(": ..., ") + ": ...}" : "{key: someKey}";
+        didWarnAboutKeySpread[children + isStaticChildren] || (keys = 0 < keys.length ? "{" + keys.join(": ..., ") + ": ...}" : "{}", console.error(`A props object containing a "key" prop is being spread into JSX:
+  let props = %s;
+  <%s {...props} />
+React keys must be passed directly to JSX without using spread:
+  let props = %s;
+  <%s key={someKey} {...props} />`, isStaticChildren, children, keys, children), didWarnAboutKeySpread[children + isStaticChildren] = true);
+      }
+      children = null;
+      maybeKey !== undefined && (checkKeyStringCoercion(maybeKey), children = "" + maybeKey);
+      hasValidKey(config) && (checkKeyStringCoercion(config.key), children = "" + config.key);
+      if ("key" in config) {
+        maybeKey = {};
+        for (var propName in config)
+          propName !== "key" && (maybeKey[propName] = config[propName]);
+      } else
+        maybeKey = config;
+      children && defineKeyPropWarningGetter(maybeKey, typeof type === "function" ? type.displayName || type.name || "Unknown" : type);
+      return ReactElement(type, children, maybeKey, getOwner(), debugStack, debugTask);
+    }
+    function validateChildKeys(node) {
+      isValidElement(node) ? node._store && (node._store.validated = 1) : typeof node === "object" && node !== null && node.$$typeof === REACT_LAZY_TYPE && (node._payload.status === "fulfilled" ? isValidElement(node._payload.value) && node._payload.value._store && (node._payload.value._store.validated = 1) : node._store && (node._store.validated = 1));
+    }
+    function isValidElement(object) {
+      return typeof object === "object" && object !== null && object.$$typeof === REACT_ELEMENT_TYPE;
+    }
+    var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
+      return null;
+    };
+    React = {
+      react_stack_bottom_frame: function(callStackForError) {
+        return callStackForError();
+      }
+    };
+    var specialPropKeyWarningShown;
+    var didWarnAboutElementRef = {};
+    var unknownOwnerDebugStack = React.react_stack_bottom_frame.bind(React, UnknownOwner)();
+    var unknownOwnerDebugTask = createTask(getTaskName(UnknownOwner));
+    var didWarnAboutKeySpread = {};
+    exports.Fragment = REACT_FRAGMENT_TYPE;
+    exports.jsxDEV = function(type, config, maybeKey, isStaticChildren) {
+      var trackActualOwner = 1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
+      return jsxDEVImpl(type, config, maybeKey, isStaticChildren, trackActualOwner ? Error("react-stack-top-frame") : unknownOwnerDebugStack, trackActualOwner ? createTask(getTaskName(type)) : unknownOwnerDebugTask);
+    };
+  })();
+});
+
+// node_modules/react/jsx-dev-runtime.js
+var require_jsx_dev_runtime = __commonJS((exports, module) => {
+  var react_jsx_dev_runtime_development = __toESM(require_react_jsx_dev_runtime_development());
+  if (false) {} else {
+    module.exports = react_jsx_dev_runtime_development;
+  }
+});
+
 // node_modules/inline-style-parser/cjs/index.js
 var require_cjs = __commonJS((exports, module) => {
   var COMMENT_REGEX = /\/\*[^*]*\*+([^/*][^*]*\*+)*\//g;
@@ -17895,232 +18118,1692 @@ var require_extend = __commonJS((exports, module) => {
   };
 });
 
-// node_modules/react/cjs/react-jsx-dev-runtime.development.js
-var require_react_jsx_dev_runtime_development = __commonJS((exports) => {
-  var React = __toESM(require_react());
-  (function() {
-    function getComponentNameFromType(type) {
-      if (type == null)
-        return null;
-      if (typeof type === "function")
-        return type.$$typeof === REACT_CLIENT_REFERENCE ? null : type.displayName || type.name || null;
-      if (typeof type === "string")
-        return type;
-      switch (type) {
-        case REACT_FRAGMENT_TYPE:
-          return "Fragment";
-        case REACT_PROFILER_TYPE:
-          return "Profiler";
-        case REACT_STRICT_MODE_TYPE:
-          return "StrictMode";
-        case REACT_SUSPENSE_TYPE:
-          return "Suspense";
-        case REACT_SUSPENSE_LIST_TYPE:
-          return "SuspenseList";
-        case REACT_ACTIVITY_TYPE:
-          return "Activity";
-      }
-      if (typeof type === "object")
-        switch (typeof type.tag === "number" && console.error("Received an unexpected object in getComponentNameFromType(). This is likely a bug in React. Please file an issue."), type.$$typeof) {
-          case REACT_PORTAL_TYPE:
-            return "Portal";
-          case REACT_CONTEXT_TYPE:
-            return type.displayName || "Context";
-          case REACT_CONSUMER_TYPE:
-            return (type._context.displayName || "Context") + ".Consumer";
-          case REACT_FORWARD_REF_TYPE:
-            var innerType = type.render;
-            type = type.displayName;
-            type || (type = innerType.displayName || innerType.name || "", type = type !== "" ? "ForwardRef(" + type + ")" : "ForwardRef");
-            return type;
-          case REACT_MEMO_TYPE:
-            return innerType = type.displayName || null, innerType !== null ? innerType : getComponentNameFromType(type.type) || "Memo";
-          case REACT_LAZY_TYPE:
-            innerType = type._payload;
-            type = type._init;
-            try {
-              return getComponentNameFromType(type(innerType));
-            } catch (x) {}
-        }
-      return null;
-    }
-    function testStringCoercion(value) {
-      return "" + value;
-    }
-    function checkKeyStringCoercion(value) {
-      try {
-        testStringCoercion(value);
-        var JSCompiler_inline_result = false;
-      } catch (e) {
-        JSCompiler_inline_result = true;
-      }
-      if (JSCompiler_inline_result) {
-        JSCompiler_inline_result = console;
-        var JSCompiler_temp_const = JSCompiler_inline_result.error;
-        var JSCompiler_inline_result$jscomp$0 = typeof Symbol === "function" && Symbol.toStringTag && value[Symbol.toStringTag] || value.constructor.name || "Object";
-        JSCompiler_temp_const.call(JSCompiler_inline_result, "The provided key is an unsupported type %s. This value must be coerced to a string before using it here.", JSCompiler_inline_result$jscomp$0);
-        return testStringCoercion(value);
-      }
-    }
-    function getTaskName(type) {
-      if (type === REACT_FRAGMENT_TYPE)
-        return "<>";
-      if (typeof type === "object" && type !== null && type.$$typeof === REACT_LAZY_TYPE)
-        return "<...>";
-      try {
-        var name2 = getComponentNameFromType(type);
-        return name2 ? "<" + name2 + ">" : "<...>";
-      } catch (x) {
-        return "<...>";
-      }
-    }
-    function getOwner() {
-      var dispatcher = ReactSharedInternals.A;
-      return dispatcher === null ? null : dispatcher.getOwner();
-    }
-    function UnknownOwner() {
-      return Error("react-stack-top-frame");
-    }
-    function hasValidKey(config) {
-      if (hasOwnProperty2.call(config, "key")) {
-        var getter = Object.getOwnPropertyDescriptor(config, "key").get;
-        if (getter && getter.isReactWarning)
-          return false;
-      }
-      return config.key !== undefined;
-    }
-    function defineKeyPropWarningGetter(props, displayName) {
-      function warnAboutAccessingKey() {
-        specialPropKeyWarningShown || (specialPropKeyWarningShown = true, console.error("%s: `key` is not a prop. Trying to access it will result in `undefined` being returned. If you need to access the same value within the child component, you should pass it as a different prop. (https://react.dev/link/special-props)", displayName));
-      }
-      warnAboutAccessingKey.isReactWarning = true;
-      Object.defineProperty(props, "key", {
-        get: warnAboutAccessingKey,
-        configurable: true
-      });
-    }
-    function elementRefGetterWithDeprecationWarning() {
-      var componentName = getComponentNameFromType(this.type);
-      didWarnAboutElementRef[componentName] || (didWarnAboutElementRef[componentName] = true, console.error("Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release."));
-      componentName = this.props.ref;
-      return componentName !== undefined ? componentName : null;
-    }
-    function ReactElement(type, key, props, owner, debugStack, debugTask) {
-      var refProp = props.ref;
-      type = {
-        $$typeof: REACT_ELEMENT_TYPE,
-        type,
-        key,
-        props,
-        _owner: owner
-      };
-      (refProp !== undefined ? refProp : null) !== null ? Object.defineProperty(type, "ref", {
-        enumerable: false,
-        get: elementRefGetterWithDeprecationWarning
-      }) : Object.defineProperty(type, "ref", { enumerable: false, value: null });
-      type._store = {};
-      Object.defineProperty(type._store, "validated", {
-        configurable: false,
-        enumerable: false,
-        writable: true,
-        value: 0
-      });
-      Object.defineProperty(type, "_debugInfo", {
-        configurable: false,
-        enumerable: false,
-        writable: true,
-        value: null
-      });
-      Object.defineProperty(type, "_debugStack", {
-        configurable: false,
-        enumerable: false,
-        writable: true,
-        value: debugStack
-      });
-      Object.defineProperty(type, "_debugTask", {
-        configurable: false,
-        enumerable: false,
-        writable: true,
-        value: debugTask
-      });
-      Object.freeze && (Object.freeze(type.props), Object.freeze(type));
-      return type;
-    }
-    function jsxDEVImpl(type, config, maybeKey, isStaticChildren, debugStack, debugTask) {
-      var children = config.children;
-      if (children !== undefined)
-        if (isStaticChildren)
-          if (isArrayImpl(children)) {
-            for (isStaticChildren = 0;isStaticChildren < children.length; isStaticChildren++)
-              validateChildKeys(children[isStaticChildren]);
-            Object.freeze && Object.freeze(children);
-          } else
-            console.error("React.jsx: Static children should always be an array. You are likely explicitly calling React.jsxs or React.jsxDEV. Use the Babel transform instead.");
-        else
-          validateChildKeys(children);
-      if (hasOwnProperty2.call(config, "key")) {
-        children = getComponentNameFromType(type);
-        var keys2 = Object.keys(config).filter(function(k) {
-          return k !== "key";
-        });
-        isStaticChildren = 0 < keys2.length ? "{key: someKey, " + keys2.join(": ..., ") + ": ...}" : "{key: someKey}";
-        didWarnAboutKeySpread[children + isStaticChildren] || (keys2 = 0 < keys2.length ? "{" + keys2.join(": ..., ") + ": ...}" : "{}", console.error(`A props object containing a "key" prop is being spread into JSX:
-  let props = %s;
-  <%s {...props} />
-React keys must be passed directly to JSX without using spread:
-  let props = %s;
-  <%s key={someKey} {...props} />`, isStaticChildren, children, keys2, children), didWarnAboutKeySpread[children + isStaticChildren] = true);
-      }
-      children = null;
-      maybeKey !== undefined && (checkKeyStringCoercion(maybeKey), children = "" + maybeKey);
-      hasValidKey(config) && (checkKeyStringCoercion(config.key), children = "" + config.key);
-      if ("key" in config) {
-        maybeKey = {};
-        for (var propName in config)
-          propName !== "key" && (maybeKey[propName] = config[propName]);
-      } else
-        maybeKey = config;
-      children && defineKeyPropWarningGetter(maybeKey, typeof type === "function" ? type.displayName || type.name || "Unknown" : type);
-      return ReactElement(type, children, maybeKey, getOwner(), debugStack, debugTask);
-    }
-    function validateChildKeys(node2) {
-      isValidElement(node2) ? node2._store && (node2._store.validated = 1) : typeof node2 === "object" && node2 !== null && node2.$$typeof === REACT_LAZY_TYPE && (node2._payload.status === "fulfilled" ? isValidElement(node2._payload.value) && node2._payload.value._store && (node2._payload.value._store.validated = 1) : node2._store && (node2._store.validated = 1));
-    }
-    function isValidElement(object) {
-      return typeof object === "object" && object !== null && object.$$typeof === REACT_ELEMENT_TYPE;
-    }
-    var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty2 = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
-      return null;
-    };
-    React = {
-      react_stack_bottom_frame: function(callStackForError) {
-        return callStackForError();
-      }
-    };
-    var specialPropKeyWarningShown;
-    var didWarnAboutElementRef = {};
-    var unknownOwnerDebugStack = React.react_stack_bottom_frame.bind(React, UnknownOwner)();
-    var unknownOwnerDebugTask = createTask(getTaskName(UnknownOwner));
-    var didWarnAboutKeySpread = {};
-    exports.Fragment = REACT_FRAGMENT_TYPE;
-    exports.jsxDEV = function(type, config, maybeKey, isStaticChildren) {
-      var trackActualOwner = 1e4 > ReactSharedInternals.recentlyCreatedOwnerStacks++;
-      return jsxDEVImpl(type, config, maybeKey, isStaticChildren, trackActualOwner ? Error("react-stack-top-frame") : unknownOwnerDebugStack, trackActualOwner ? createTask(getTaskName(type)) : unknownOwnerDebugTask);
-    };
-  })();
-});
-
-// node_modules/react/jsx-dev-runtime.js
-var require_jsx_dev_runtime = __commonJS((exports, module) => {
-  var react_jsx_dev_runtime_development = __toESM(require_react_jsx_dev_runtime_development());
-  if (false) {} else {
-    module.exports = react_jsx_dev_runtime_development;
-  }
-});
-
 // web/app.tsx
-var import_react2 = __toESM(require_react(), 1);
+var import_react7 = __toESM(require_react(), 1);
 var import_client = __toESM(require_client(), 1);
+
+// web/features/live-agents/LiveAgentsPanel.tsx
+var import_react = __toESM(require_react(), 1);
+
+// web/lib/utils.ts
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+// web/components/ui/badge.tsx
+var jsx_dev_runtime = __toESM(require_jsx_dev_runtime(), 1);
+var variants = {
+  default: "bg-primary/15 text-primary",
+  success: "bg-emerald-400/15 text-emerald-300",
+  warning: "bg-amber-400/15 text-amber-300",
+  destructive: "bg-destructive/15 text-destructive",
+  outline: "border border-border text-muted-foreground"
+};
+function Badge({ className, variant = "default", ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+    className: cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", variants[variant], className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+
+// web/components/ui/button.tsx
+var jsx_dev_runtime2 = __toESM(require_jsx_dev_runtime(), 1);
+var variants2 = {
+  default: "bg-primary text-primary-foreground border-primary hover:brightness-110",
+  secondary: "bg-transparent text-foreground border-border hover:bg-white/5",
+  destructive: "bg-destructive/15 text-destructive border-destructive hover:bg-destructive/25",
+  ghost: "bg-transparent text-foreground border-transparent hover:bg-white/5"
+};
+function Button({ className, variant = "default", ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
+    className: cn("inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/60 disabled:pointer-events-none disabled:opacity-50", variants2[variant], className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+
+// web/components/ui/card.tsx
+var jsx_dev_runtime3 = __toESM(require_jsx_dev_runtime(), 1);
+function Card({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
+    className: cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+function CardHeader({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
+    className: cn("flex flex-col space-y-1.5 p-4", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+function CardTitle({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("h3", {
+    className: cn("text-sm font-semibold leading-none tracking-tight", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+function CardContent({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
+    className: cn("p-4 pt-0", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+
+// web/components/ui/input.tsx
+var jsx_dev_runtime4 = __toESM(require_jsx_dev_runtime(), 1);
+function Input({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("input", {
+    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+function Textarea({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("textarea", {
+    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+
+// web/features/live-agents/LiveAgentsPanel.tsx
+var jsx_dev_runtime5 = __toESM(require_jsx_dev_runtime(), 1);
+function shortPath(p) {
+  if (!p)
+    return "";
+  return p.length > 42 ? "…" + p.slice(-39) : p;
+}
+function formatCompactNumber(n) {
+  if (typeof n !== "number" || !Number.isFinite(n))
+    return "—";
+  if (n >= 1e6)
+    return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1000)
+    return (n / 1000).toFixed(1) + "K";
+  return String(n);
+}
+function statusVariant(status) {
+  if (status === "idle")
+    return "success";
+  if (status === "error" || status === "exited")
+    return "destructive";
+  if (status === "streaming")
+    return "default";
+  return "outline";
+}
+function AgentsPanel({ agents, stats, onInspect, pushLog }) {
+  const entries = Object.entries(agents);
+  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
+    className: "min-h-[70vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardHeader, {
+        children: /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardTitle, {
+          children: "Active Agents"
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardContent, {
+        children: !entries.length ? /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+          className: "rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground",
+          children: "No agents running."
+        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+          className: "grid gap-4 xl:grid-cols-2 2xl:grid-cols-3",
+          children: entries.map(([name, agent]) => /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(AgentCard, {
+            name,
+            agent,
+            stats: stats[name],
+            onInspect,
+            pushLog
+          }, name, false, undefined, this))
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function AgentCard({ name, agent, stats, onInspect, pushLog }) {
+  const [message, setMessage] = import_react.useState("");
+  const send = async () => {
+    if (!message.trim())
+      return;
+    const body = message.trim();
+    setMessage("");
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/send`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: body }) });
+      if (!res.ok)
+        throw new Error(String(res.status));
+      pushLog(`Queued message for ${name}`);
+    } catch (e) {
+      pushLog(`Send to ${name} failed: ${e.message}`, "error");
+    }
+  };
+  const kill = async () => {
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, { method: "POST" });
+      if (!res.ok)
+        throw new Error(String(res.status));
+    } catch (e) {
+      pushLog(`Kill ${name} failed: ${e.message}`, "error");
+    }
+  };
+  const copyPath = async () => {
+    try {
+      await navigator.clipboard.writeText(agent.worktree || "");
+      pushLog(`Copied worktree path for ${name}`, "success");
+    } catch {
+      pushLog(`Worktree path: ${agent.worktree}`);
+    }
+  };
+  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
+    className: agent.status === "streaming" ? "border-primary/50" : "",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardHeader, {
+        className: "border-b border-border",
+        children: /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+          className: "flex items-center justify-between gap-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardTitle, {
+              children: name
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Badge, {
+              variant: statusVariant(agent.status),
+              children: agent.status
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardContent, {
+        className: "space-y-3 pt-4",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+            className: "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                children: agent.definition ? `type: ${agent.definition}` : "no type"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                children: agent.parent ? `parent: ${agent.parent}` : "root"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                children: [
+                  "turns: ",
+                  agent.turns || 0
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Stats, {
+                stats
+              }, undefined, false, undefined, this),
+              agent.worktree && /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(jsx_dev_runtime5.Fragment, {
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                    title: agent.worktree,
+                    children: [
+                      "worktree: ",
+                      shortPath(agent.worktree)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Button, {
+                    variant: "secondary",
+                    className: "px-2 py-1 text-xs",
+                    onClick: copyPath,
+                    children: "Copy Path"
+                  }, undefined, false, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
+                children: [
+                  "tools: ",
+                  agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
+                ]
+              }, undefined, true, undefined, this),
+              !!agent.runtimeTools?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Badge, {
+                variant: "warning",
+                title: agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join(`
+`),
+                children: [
+                  "tool conflicts: ",
+                  agent.runtimeTools.conflicts.length
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("pre", {
+            className: "max-h-72 min-h-28 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6",
+            children: agent.text || ""
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+            className: "flex gap-2",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Input, {
+                value: message,
+                onChange: (e) => setMessage(e.target.value),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter")
+                    send();
+                },
+                placeholder: "Message…"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Button, {
+                onClick: send,
+                children: "Send"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: () => onInspect(name),
+                children: "Inspect"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Button, {
+                variant: "destructive",
+                onClick: kill,
+                children: "Kill"
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function Stats({ stats }) {
+  if (!stats || stats.error)
+    return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(jsx_dev_runtime5.Fragment, {
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+          children: "ctx: —"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+          children: "cost: —"
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this);
+  const s = stats.stats || {};
+  const state = stats.state || {};
+  const context = s.contextUsage || {};
+  const used = context.tokens ?? context.current ?? s.tokens?.total;
+  const max = context.contextWindow ?? context.max ?? state.model?.contextWindow;
+  const pct = used && max ? Math.round(used / max * 100) : undefined;
+  const cost = typeof s.cost === "number" ? `$${s.cost.toFixed(4)}` : "—";
+  const tokenText = used && max ? `${formatCompactNumber(used)} / ${formatCompactNumber(max)}` : formatCompactNumber(s.tokens?.total);
+  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(jsx_dev_runtime5.Fragment, {
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+        children: [
+          "ctx: ",
+          pct !== undefined ? `${pct}% ` : "",
+          tokenText
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+        children: [
+          "cost: ",
+          cost
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function HierarchyPanel({ agents }) {
+  const [expanded, setExpanded] = import_react.useState(new Set);
+  const childrenByParent = import_react.useMemo(() => {
+    const map = new Map;
+    for (const agent of Object.values(agents)) {
+      if (!agent.parent)
+        continue;
+      map.set(agent.parent, [...map.get(agent.parent) || [], agent.name]);
+    }
+    return map;
+  }, [agents]);
+  const roots = Object.values(agents).filter((a) => !a.parent || !agents[a.parent]);
+  const renderNode = (agent, depth = 0) => {
+    const children = Array.from(new Set([...agent.children || [], ...childrenByParent.get(agent.name) || []])).filter((name) => agents[name]);
+    const hasChildren = children.length > 0;
+    const isExpanded = expanded.has(agent.name);
+    return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("button", {
+          className: "w-full py-1 text-left text-sm",
+          style: { paddingLeft: depth * 16 },
+          onClick: () => hasChildren && setExpanded((prev) => {
+            const next = new Set(prev);
+            next.has(agent.name) ? next.delete(agent.name) : next.add(agent.name);
+            return next;
+          }),
+          children: [
+            hasChildren ? isExpanded ? "▼ " : "▶ " : "  ",
+            /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("strong", {
+              children: agent.name
+            }, undefined, false, undefined, this),
+            " ",
+            /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+              className: "text-xs text-muted-foreground",
+              children: [
+                "[",
+                agent.definition || "custom",
+                "]"
+              ]
+            }, undefined, true, undefined, this),
+            " ",
+            /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Badge, {
+              variant: statusVariant(agent.status),
+              children: agent.status
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        isExpanded && children.map((child) => renderNode(agents[child], depth + 1))
+      ]
+    }, agent.name, true, undefined, this);
+  };
+  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
+    className: "min-h-[70vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardHeader, {
+        children: /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardTitle, {
+          children: "Hierarchy"
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(CardContent, {
+        children: roots.length ? roots.map((root) => renderNode(root)) : /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
+          className: "text-sm text-muted-foreground",
+          children: "No agents yet."
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+
+// web/features/orchestrator-libraries/OrchestratorLibrariesPanel.tsx
+var import_react2 = __toESM(require_react(), 1);
+
+// web/components/ui/dialog.tsx
+var jsx_dev_runtime6 = __toESM(require_jsx_dev_runtime(), 1);
+function Dialog({ open, title, onOpenChange, className, children, ...props }) {
+  if (!open)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4",
+    role: "dialog",
+    "aria-modal": "true",
+    children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+      className: cn("max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-4 shadow-xl", className),
+      ...props,
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+          className: "mb-4 flex items-center justify-between gap-4",
+          children: [
+            title ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("h2", {
+              className: "text-lg font-semibold",
+              children: title
+            }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {}, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+              type: "button",
+              variant: "ghost",
+              onClick: () => onOpenChange?.(false),
+              "aria-label": "Close dialog",
+              children: "×"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        children
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+
+// web/features/orchestrator-libraries/OrchestratorLibrariesPanel.tsx
+var jsx_dev_runtime7 = __toESM(require_jsx_dev_runtime(), 1);
+function shortPath2(p) {
+  if (!p)
+    return "";
+  return p.length > 42 ? "…" + p.slice(-39) : p;
+}
+async function responseErrorText(res) {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.error || text;
+  } catch {
+    return text;
+  }
+}
+function FieldLabel({ children, required, optional }) {
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
+    className: "block text-xs uppercase tracking-wide text-muted-foreground",
+    children: [
+      children,
+      " ",
+      required && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+        className: "text-destructive",
+        children: "*"
+      }, undefined, false, undefined, this),
+      optional && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+        className: "normal-case text-muted-foreground/70",
+        children: "(optional)"
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function FormMessage({ children, tone = "muted" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+    className: `text-xs ${className}`,
+    children
+  }, undefined, false, undefined, this);
+}
+function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativeSettingsSaved }) {
+  const [data, setData] = import_react2.useState(null);
+  const [loading, setLoading] = import_react2.useState(false);
+  const [savingScope, setSavingScope] = import_react2.useState(null);
+  const [savingDisplay, setSavingDisplay] = import_react2.useState(false);
+  const [showNativeSettings, setShowNativeSettings] = import_react2.useState(false);
+  const [creatingLibrary, setCreatingLibrary] = import_react2.useState(false);
+  const [bootstrapTargetPath, setBootstrapTargetPath] = import_react2.useState("./.pi/orchestrator-library");
+  const [bootstrapName, setBootstrapName] = import_react2.useState("");
+  const [bootstrapDescription, setBootstrapDescription] = import_react2.useState("");
+  const [bootstrapSaving, setBootstrapSaving] = import_react2.useState(false);
+  const [bootstrapError, setBootstrapError] = import_react2.useState("");
+  const [error, setError] = import_react2.useState("");
+  const load = import_react2.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orchestrator-libraries");
+      if (!res.ok)
+        throw new Error(await res.text());
+      setData(await res.json());
+    } catch (e) {
+      setError(e.message || "Failed to load Orchestrator Libraries");
+      pushLog(`Failed to load Orchestrator Libraries: ${e.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [pushLog]);
+  import_react2.useEffect(() => {
+    load();
+  }, [load]);
+  const moveLibrary = async (root, direction) => {
+    if (!data)
+      return;
+    const library = data.libraries.find((candidate) => candidate.root === root);
+    if (!library)
+      return;
+    const scope = root.includes("/.pi/") ? "project" : "global";
+    const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
+    const index = scoped.findIndex((candidate) => candidate.root === root);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= scoped.length)
+      return;
+    const reordered = [...scoped];
+    [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+    setSavingScope(scope);
+    try {
+      const res = await fetch("/api/orchestrator-libraries/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, libraries: reordered.map((item) => item.root) }) });
+      if (!res.ok)
+        throw new Error(await res.text());
+      pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
+      await load();
+    } catch (e) {
+      setError(e.message || "Failed to reorder Orchestrator Libraries");
+      pushLog(`Failed to reorder Orchestrator Libraries: ${e.message}`, "error");
+    } finally {
+      setSavingScope(null);
+    }
+  };
+  const setShowPackageExamples = async (showPackageExamples) => {
+    setSavingDisplay(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orchestrator-libraries/display-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples }) });
+      if (!res.ok)
+        throw new Error(await responseErrorText(res));
+      pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
+      await load();
+      onDisplaySettingsChanged();
+    } catch (e) {
+      setError(e.message || "Failed to update display settings");
+      pushLog(`Failed to update display settings: ${e.message}`, "error");
+    } finally {
+      setSavingDisplay(false);
+    }
+  };
+  const bootstrapLibrary = async (event) => {
+    event.preventDefault();
+    setBootstrapError("");
+    if (!bootstrapTargetPath.trim()) {
+      setBootstrapError("Target path is required.");
+      return;
+    }
+    setBootstrapSaving(true);
+    try {
+      const res = await fetch("/api/orchestrator-libraries/bootstrap", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetPath: bootstrapTargetPath.trim(), name: bootstrapName.trim() || undefined, description: bootstrapDescription.trim() || undefined })
+      });
+      if (!res.ok)
+        throw new Error(await responseErrorText(res));
+      const result = await res.json();
+      pushLog(`Created ${result.scope || "project"} Orchestrator Library${result.library?.manifest?.name ? ` '${result.library.manifest.name}'` : ""}${result.library?.root ? ` at ${result.library.root}` : ""}`, "success");
+      setCreatingLibrary(false);
+      setBootstrapName("");
+      setBootstrapDescription("");
+      await load();
+    } catch (e) {
+      setBootstrapError(e.message || "Failed to create Orchestrator Library");
+      pushLog(`Failed to create Orchestrator Library: ${e.message}`, "error");
+    } finally {
+      setBootstrapSaving(false);
+    }
+  };
+  const openBootstrapDialog = () => {
+    setBootstrapError("");
+    setCreatingLibrary(true);
+  };
+  const counts = import_react2.useMemo(() => {
+    const result = {};
+    for (const resource of data?.resources || []) {
+      result[resource.libraryName] ||= {};
+      result[resource.libraryName][resource.kind] = (result[resource.libraryName][resource.kind] || 0) + 1;
+    }
+    return result;
+  }, [data]);
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+    className: "space-y-4",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "flex items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                  children: "Orchestrator Libraries"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "flex gap-2",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                      variant: "secondary",
+                      onClick: openBootstrapDialog,
+                      children: "+ New Library"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                      variant: "secondary",
+                      onClick: load,
+                      disabled: loading,
+                      children: "Refresh"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+            className: "space-y-2 pt-4 text-sm text-muted-foreground",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                children: "Orchestrator Libraries are user-owned, version-controlled folders for agent types, skill templates, extension templates, and curated skills/extensions."
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                children: [
+                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: "piAgentOrchestrator.libraries"
+                  }, undefined, false, undefined, this),
+                  " in global or project settings; earlier libraries influence defaults and diagnostics."
+                ]
+              }, undefined, true, undefined, this),
+              loading && !data && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "space-y-3 pt-1",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "rounded-md border border-border bg-background/60 p-3",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "mb-2 h-4 w-48 animate-pulse rounded bg-muted"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "h-3 w-full max-w-2xl animate-pulse rounded bg-muted/70"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "mt-2 h-3 w-3/4 max-w-xl animate-pulse rounded bg-muted/70"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "rounded-md border border-dashed border-border p-6",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "mx-auto mb-2 h-4 w-64 animate-pulse rounded bg-muted"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "mx-auto h-3 w-80 max-w-full animate-pulse rounded bg-muted/70"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              data?.settings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/60 p-3",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "font-medium text-foreground",
+                        children: "Package example resources"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "text-xs",
+                        children: [
+                          "Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings: ",
+                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                            children: "piAgentOrchestrator.showPackageExamples"
+                          }, undefined, false, undefined, this),
+                          "."
+                        ]
+                      }, undefined, true, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
+                    className: "flex shrink-0 items-center gap-2 text-sm text-foreground",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("input", {
+                        type: "checkbox",
+                        checked: data.settings.showPackageExamples,
+                        disabled: savingDisplay,
+                        onChange: (e) => setShowPackageExamples(e.target.checked)
+                      }, undefined, false, undefined, this),
+                      " Show package examples"
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive",
+                children: error
+              }, undefined, false, undefined, this),
+              data && !data.libraries.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
+                type: "button",
+                className: "w-full rounded-md border border-dashed border-border p-6 text-center transition hover:border-primary/70 hover:bg-primary/5",
+                onClick: openBootstrapDialog,
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "font-medium text-foreground",
+                    children: "Click here to scaffold your first Orchestrator Library"
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "mt-1",
+                    children: "Pi can create a starter library for your agent types, templates, root profiles, skills, and extensions instead of requiring manual settings edits."
+                  }, undefined, false, undefined, this)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
+        open: creatingLibrary,
+        title: "Scaffold Orchestrator Library",
+        onOpenChange: (open) => !bootstrapSaving && setCreatingLibrary(open),
+        className: "max-w-3xl",
+        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("form", {
+          className: "space-y-3",
+          onSubmit: bootstrapLibrary,
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+              className: "text-sm text-muted-foreground",
+              children: "Choose an explicit folder for the starter library. A path inside this repo uses project settings; outside this repo uses global settings."
+            }, undefined, false, undefined, this),
+            bootstrapError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive",
+              children: bootstrapError
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "grid gap-3 md:grid-cols-2",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "space-y-1",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                      required: true,
+                      children: "Target path"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+                      value: bootstrapTargetPath,
+                      onChange: (e) => setBootstrapTargetPath(e.target.value),
+                      placeholder: "./.pi/orchestrator-library"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "space-y-1",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                      optional: true,
+                      children: "Library name"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+                      value: bootstrapName,
+                      onChange: (e) => setBootstrapName(e.target.value),
+                      placeholder: "team-ai"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
+                      children: "Used as the namespaced resource prefix; leave blank to derive it from the folder name."
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "space-y-1",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                  optional: true,
+                  children: "Description"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
+                  rows: 3,
+                  value: bootstrapDescription,
+                  onChange: (e) => setBootstrapDescription(e.target.value),
+                  placeholder: "Shared team orchestrator resources."
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "flex flex-wrap items-center gap-2 border-t border-border pt-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                  type: "submit",
+                  disabled: bootstrapSaving,
+                  children: bootstrapSaving ? "Creating…" : "Create library"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                  type: "button",
+                  variant: "secondary",
+                  onClick: () => setCreatingLibrary(false),
+                  disabled: bootstrapSaving,
+                  children: "Cancel"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      data?.diagnostics.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+              children: "Diagnostics"
+            }, undefined, false, undefined, this)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+            className: "space-y-2",
+            children: data.diagnostics.map((diagnostic, index) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: `rounded-md border p-2 text-sm ${diagnostic.level === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-amber-400/40 bg-amber-400/10 text-amber-200"}`,
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("strong", {
+                  children: [
+                    diagnostic.level,
+                    ":"
+                  ]
+                }, undefined, true, undefined, this),
+                " ",
+                diagnostic.message,
+                diagnostic.path ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "mt-1 font-mono text-xs opacity-80",
+                  children: diagnostic.path
+                }, undefined, false, undefined, this) : null
+              ]
+            }, index, true, undefined, this))
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this) : null,
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "flex items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                      children: "Advanced native Pi resource paths"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "mt-1 text-xs text-muted-foreground",
+                      children: "Optional escape hatch for Pi's raw skills/extensions settings. Prefer Orchestrator Libraries for orchestrator resources."
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                  variant: "secondary",
+                  onClick: () => setShowNativeSettings((value) => !value),
+                  children: [
+                    showNativeSettings ? "Hide" : "Show",
+                    " native paths"
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          showNativeSettings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+            className: "pt-4",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceSettingsPanel, {
+              onSaved: onNativeSettingsSaved,
+              pushLog
+            }, undefined, false, undefined, this)
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      data?.libraries.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "grid gap-4 xl:grid-cols-2",
+        children: data.libraries.map((library) => {
+          const name = library.manifest?.name || shortPath2(library.root);
+          const libraryCounts = counts[name] || {};
+          const scope = library.root.includes("/.pi/") ? "project" : "global";
+          const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
+          const scopeIndex = scoped.findIndex((candidate) => candidate.root === library.root);
+          return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+            className: !library.valid ? "border-destructive/50" : "",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+                className: "border-b border-border",
+                children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "flex items-start justify-between gap-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                          children: name
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                          className: "mt-1 font-mono text-xs text-muted-foreground",
+                          children: library.root
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "flex shrink-0 items-center gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                          variant: "outline",
+                          children: scope
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          disabled: scopeIndex <= 0 || savingScope === scope,
+                          onClick: () => moveLibrary(library.root, -1),
+                          children: "↑"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          disabled: scopeIndex < 0 || scopeIndex >= scoped.length - 1 || savingScope === scope,
+                          onClick: () => moveLibrary(library.root, 1),
+                          children: "↓"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                          variant: library.valid ? "success" : "destructive",
+                          children: library.valid ? "valid" : "invalid"
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+                className: "space-y-3 pt-4 text-sm",
+                children: [
+                  library.manifest?.description && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                    className: "text-muted-foreground",
+                    children: library.manifest.description
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "grid grid-cols-2 gap-2 text-xs text-muted-foreground md:grid-cols-3",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        children: [
+                          "Agents: ",
+                          libraryCounts.agents || 0
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        children: [
+                          "Skill templates: ",
+                          libraryCounts.skillTemplates || 0
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        children: [
+                          "Extension templates: ",
+                          libraryCounts.extensionTemplates || 0
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        children: [
+                          "Skills: ",
+                          libraryCounts.skills || 0
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        children: [
+                          "Extensions: ",
+                          libraryCounts.extensions || 0
+                        ]
+                      }, undefined, true, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  library.diagnostics.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    className: "space-y-1",
+                    children: library.diagnostics.map((diagnostic, index) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                      className: "text-xs text-muted-foreground",
+                      children: [
+                        diagnostic.level,
+                        ": ",
+                        diagnostic.message
+                      ]
+                    }, index, true, undefined, this))
+                  }, undefined, false, undefined, this) : null
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, library.root, true, undefined, this);
+        })
+      }, undefined, false, undefined, this) : null
+    ]
+  }, undefined, true, undefined, this);
+}
+function ResourceSettingsPanel({ onSaved, pushLog }) {
+  const [settings, setSettings] = import_react2.useState(null);
+  const [drafts, setDrafts] = import_react2.useState({ global: { skills: [], extensions: [] }, project: { skills: [], extensions: [] } });
+  const [loading, setLoading] = import_react2.useState(false);
+  const [saving, setSaving] = import_react2.useState(null);
+  const [error, setError] = import_react2.useState("");
+  const load = import_react2.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/resource-settings");
+      if (!res.ok)
+        throw new Error(await res.text());
+      const data = await res.json();
+      setSettings(data);
+      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
+    } catch (e) {
+      setError(e.message || "Failed to load skill and extension paths");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  import_react2.useEffect(() => {
+    load();
+  }, [load]);
+  const save = async (scope) => {
+    const missing = [...drafts[scope].skills, ...drafts[scope].extensions].filter((value) => value.trim() && !value.trim().startsWith("!") && !/[*?\[\]{}]/.test(value)).filter((value) => {
+      const current = settings?.[scope];
+      const found = current?.validation.skills.concat(current.validation.extensions).find((item) => item.rawPath === value);
+      return found?.exists === false;
+    });
+    if (missing.length && !confirm(`Some paths do not exist yet:
+${missing.join(`
+`)}
+
+Save anyway?`))
+      return;
+    if (drafts[scope].extensions.length && !confirm("Extension source paths execute code with full system permissions. Save only trusted paths. Continue?"))
+      return;
+    setSaving(scope);
+    setError("");
+    try {
+      const res = await fetch("/api/resource-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, ...drafts[scope] }) });
+      if (!res.ok)
+        throw new Error(await res.text());
+      const data = await res.json();
+      setSettings(data);
+      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
+      pushLog(`Saved ${scope} skill and extension paths. Reload/restart may be needed for all sessions.`, "success");
+      onSaved();
+    } catch (e) {
+      setError(e.message || "Failed to save skill and extension paths");
+      pushLog(`Failed to save skill and extension paths: ${e.message}`, "error");
+    } finally {
+      setSaving(null);
+    }
+  };
+  const changed = (scope) => JSON.stringify(drafts[scope]) !== JSON.stringify({ skills: settings?.[scope].skills || [], extensions: settings?.[scope].extensions || [] });
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+    className: "space-y-4",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              className: "flex items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                  children: "Advanced: Native Pi Skill & Extension Paths"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                  variant: "secondary",
+                  onClick: load,
+                  disabled: loading,
+                  children: "Refresh"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+            className: "space-y-2 pt-4 text-sm text-muted-foreground",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                children: [
+                  "Advanced/native Pi settings only. Prefer Orchestrator Libraries for orchestrator-managed agents, templates, skills, and extensions; use these raw ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: "settings.json"
+                  }, undefined, false, undefined, this),
+                  " arrays only for native Pi resources that must be loaded outside a library."
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                children: [
+                  "Paths may be absolute, ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: "~"
+                  }, undefined, false, undefined, this),
+                  "-prefixed, relative, globs, or exclusions. Global relative paths resolve from ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: "~/.pi/agent"
+                  }, undefined, false, undefined, this),
+                  "; project relative paths resolve from ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: ".pi"
+                  }, undefined, false, undefined, this),
+                  "."
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                className: "text-amber-300",
+                children: "Extensions execute code with full system permissions. Only configure extension paths you trust. Settings changes may require Pi reload/restart for all running sessions to see them."
+              }, undefined, false, undefined, this),
+              error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive",
+                children: error
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      settings ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "grid gap-4 xl:grid-cols-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceScopePanel, {
+            scope: settings.global,
+            draft: drafts.global,
+            onDraft: (draft) => setDrafts((prev) => ({ ...prev, global: draft })),
+            changed: changed("global"),
+            saving: saving === "global",
+            onSave: () => save("global"),
+            onReset: () => setDrafts((prev) => ({ ...prev, global: { skills: settings.global.skills, extensions: settings.global.extensions } }))
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceScopePanel, {
+            scope: settings.project,
+            draft: drafts.project,
+            onDraft: (draft) => setDrafts((prev) => ({ ...prev, project: draft })),
+            changed: changed("project"),
+            saving: saving === "project",
+            onSave: () => save("project"),
+            onReset: () => setDrafts((prev) => ({ ...prev, project: { skills: settings.project.skills, extensions: settings.project.extensions } }))
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+          className: "p-6 text-sm text-muted-foreground",
+          children: loading ? "Loading skill and extension paths…" : "No settings loaded."
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function ResourceScopePanel({ scope, draft, onDraft, changed, saving, onSave, onReset }) {
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+    className: "min-h-[60vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
+        className: "border-b border-border",
+        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+          className: "flex items-start justify-between gap-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+                  children: scope.label
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                  className: "mt-1 text-xs text-muted-foreground",
+                  title: scope.settingsPath,
+                  children: [
+                    scope.settingsPath,
+                    scope.exists ? "" : " (will be created)"
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            changed && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+              variant: "default",
+              children: "Unsaved"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+        className: "space-y-5 pt-4",
+        children: [
+          (scope.parseError || scope.readError) && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive",
+            children: scope.parseError || scope.readError
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceListEditor, {
+            title: "Skill source paths",
+            kind: "skills",
+            values: draft.skills,
+            validation: scope.validation.skills,
+            onChange: (skills) => onDraft({ ...draft, skills })
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceListEditor, {
+            title: "Extension source paths",
+            kind: "extensions",
+            values: draft.extensions,
+            validation: scope.validation.extensions,
+            onChange: (extensions) => onDraft({ ...draft, extensions })
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            className: "flex gap-2 border-t border-border pt-4",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                onClick: onSave,
+                disabled: !changed || saving,
+                children: saving ? "Saving…" : "Save changes"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: onReset,
+                disabled: !changed || saving,
+                children: "Reset"
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function ResourceListEditor({ title, kind, values, validation, onChange }) {
+  const update = (index, value) => onChange(values.map((item, i) => i === index ? value : item));
+  const remove = (index) => onChange(values.filter((_, i) => i !== index));
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+    className: "space-y-2",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "flex items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h3", {
+                className: "text-sm font-semibold",
+                children: title
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
+                className: "text-xs text-muted-foreground",
+                children: kind === "skills" ? "Markdown instruction sources; skills may reference scripts agents can invoke." : "Trusted local extension files/directories only."
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+            variant: "secondary",
+            className: "px-2 py-1 text-xs",
+            onClick: () => onChange([...values, ""]),
+            children: "+ Add path"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      !values.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground",
+        children: [
+          "No ",
+          kind,
+          " paths configured."
+        ]
+      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "space-y-2",
+        children: values.map((value, index) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourcePathRow, {
+          value,
+          validation: validation.find((item) => item.rawPath === value),
+          onChange: (next) => update(index, next),
+          onRemove: () => remove(index)
+        }, index, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function ResourcePathRow({ value, validation, onChange, onRemove }) {
+  const variant = validation?.errors.length ? "destructive" : validation?.exists ? "success" : "outline";
+  const label = validation ? validation.type === "glob" || validation.type === "exclusion" ? validation.type : validation.exists ? `${validation.type}${typeof validation.count === "number" ? ` · ${validation.count}` : ""}` : "missing" : "pending";
+  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+    className: "rounded-md border border-border p-2",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "flex gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+            value,
+            onChange: (e) => onChange(e.target.value),
+            placeholder: "e.g. ~/my-pi-skills or ../shared/extensions"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+            variant: "destructive",
+            className: "px-2 py-1 text-xs",
+            onClick: onRemove,
+            children: "Remove"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        className: "mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+            variant,
+            children: label
+          }, undefined, false, undefined, this),
+          validation?.resolvedPath && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+            title: validation.resolvedPath,
+            children: shortPath2(validation.resolvedPath)
+          }, undefined, false, undefined, this),
+          validation?.warnings.map((warning, i) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+            className: "text-amber-300",
+            children: [
+              "⚠ ",
+              warning
+            ]
+          }, i, true, undefined, this)),
+          validation?.errors.map((err, i) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+            className: "text-destructive",
+            children: err
+          }, i, false, undefined, this))
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+
+// web/features/agent-types/AgentTypesPanel.tsx
+var import_react3 = __toESM(require_react(), 1);
+
+// web/components/ui/select.tsx
+var jsx_dev_runtime8 = __toESM(require_jsx_dev_runtime(), 1);
+function Select({ className, ...props }) {
+  return /* @__PURE__ */ jsx_dev_runtime8.jsxDEV("select", {
+    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
+    ...props
+  }, undefined, false, undefined, this);
+}
+
+// web/features/agent-types/AgentTypesPanel.tsx
+var jsx_dev_runtime9 = __toESM(require_jsx_dev_runtime(), 1);
+function templateAudience(template) {
+  return template.audience || "spawned";
+}
+function isSpawnedTemplate(template) {
+  const audience = templateAudience(template);
+  return audience === "spawned" || audience === "all";
+}
+function splitItems(text) {
+  return text.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+}
+function toggleItemText(text, item) {
+  const items = splitItems(text);
+  const exists = items.includes(item);
+  const next = exists ? items.filter((value) => value !== item) : [...items, item];
+  return next.join(`
+`);
+}
+async function responseErrorText2(res) {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.error || text;
+  } catch {
+    return text;
+  }
+}
+function FieldLabel2({ children, required, optional }) {
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("label", {
+    className: "block text-xs uppercase tracking-wide text-muted-foreground",
+    children: [
+      children,
+      " ",
+      required && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+        className: "text-destructive",
+        children: "*"
+      }, undefined, false, undefined, this),
+      optional && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+        className: "normal-case text-muted-foreground/70",
+        children: "(optional)"
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function FormMessage2({ children, tone = "muted" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("p", {
+    className: `text-xs ${className}`,
+    children
+  }, undefined, false, undefined, this);
+}
+function ValidationSummary({ errors, serverError }) {
+  if (!errors.length && !serverError)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+    className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+    children: [
+      serverError && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+        children: serverError
+      }, undefined, false, undefined, this),
+      !!errors.length && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("ul", {
+        className: "list-disc pl-5",
+        children: errors.map((error) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("li", {
+          children: error
+        }, error, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+var spawnableAgentClasses = ["lead", "scout", "implementer", "reviewer"];
+function AgentTypesPanel({ types, onNew, onEdit, large }) {
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Card, {
+    className: large ? "min-h-[70vh]" : "",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(CardHeader, {
+        className: "border-b border-border",
+        children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "flex items-center justify-between gap-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(CardTitle, {
+              children: "Agent Types"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+              variant: "secondary",
+              className: "px-2 py-1 text-xs",
+              onClick: onNew,
+              children: "+ New Type"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(CardContent, {
+        className: "pt-4",
+        children: !types.length ? /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("p", {
+          className: "text-sm text-muted-foreground",
+          children: "No agent types found."
+        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "grid gap-3 md:grid-cols-2",
+          children: types.map((type) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+            className: "rounded-md border border-border p-3",
+            children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              className: "flex items-start justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                  className: "min-w-0",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                      className: "flex flex-wrap items-center gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+                          className: "truncate text-sm font-semibold",
+                          children: type.name
+                        }, undefined, false, undefined, this),
+                        type.agentClass && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Badge, {
+                          variant: "outline",
+                          children: type.agentClass
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                      className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
+                      children: type.description
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+                  variant: "secondary",
+                  className: "shrink-0 px-2 py-1 text-xs",
+                  onClick: () => onEdit(type),
+                  children: "Edit"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, type.name, false, undefined, this))
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
+  const selected = new Set(splitItems(selectedText));
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+    className: "space-y-2",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+        className: "text-xs text-muted-foreground",
+        children: "Click to assign/unassign existing templates."
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+        className: "flex flex-wrap gap-1",
+        children: templates.length ? templates.map((template) => {
+          const active = selected.has(template.name);
+          return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("button", {
+            type: "button",
+            title: template.description,
+            className: `rounded-full border px-2 py-1 text-xs transition ${active ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`,
+            onClick: () => onToggle(template.name),
+            children: [
+              active ? "✓ " : "",
+              template.name
+            ]
+          }, template.name, true, undefined, this);
+        }) : /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+          className: "text-xs text-muted-foreground",
+          children: emptyText
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemplates, onClose, onSaved }) {
+  const [name, setName] = import_react3.useState("");
+  const [description, setDescription] = import_react3.useState("");
+  const [agentClass, setAgentClass] = import_react3.useState("implementer");
+  const [model, setModel] = import_react3.useState("");
+  const [thinking, setThinking] = import_react3.useState("");
+  const [skillTemplatesText, setSkillTemplatesText] = import_react3.useState("");
+  const [extensionTemplatesText, setExtensionTemplatesText] = import_react3.useState("");
+  const [prompt, setPrompt] = import_react3.useState("");
+  const [serverError, setServerError] = import_react3.useState("");
+  import_react3.useEffect(() => {
+    if (!open)
+      return;
+    setName(typeDef?.name || "");
+    setDescription(typeDef?.description || "");
+    setAgentClass(spawnableAgentClasses.includes(typeDef?.agentClass) ? typeDef.agentClass : "implementer");
+    setModel(typeDef?.model || "");
+    setThinking(typeDef?.thinking || "medium");
+    setSkillTemplatesText((typeDef?.skillTemplates || []).join(`
+`));
+    setExtensionTemplatesText((typeDef?.extensionTemplates || []).join(`
+`));
+    setPrompt("");
+    setServerError("");
+  }, [open, typeDef]);
+  const selectedModel = models.find((m) => m.id === model);
+  const levels = selectedModel?.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  const errors = [
+    !name.trim() ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
+  const save = async () => {
+    setServerError("");
+    if (errors.length)
+      return;
+    const payload = { name: name.trim(), description: description.trim(), agentClass, model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
+    const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok)
+      return setServerError("Failed to save: " + await responseErrorText2(res));
+    onSaved();
+  };
+  const spawnedSkillTemplates = skillTemplates.filter(isSpawnedTemplate);
+  const spawnedExtensionTemplates = extensionTemplates.filter(isSpawnedTemplate);
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Dialog, {
+    open,
+    title: typeDef ? `Edit ${typeDef.name}` : "New Agent Type",
+    onOpenChange: onClose,
+    children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          required: true,
+          children: "Name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
+          value: name,
+          onChange: (e) => setName(e.target.value),
+          readOnly: !!typeDef,
+          "aria-invalid": !name.trim(),
+          className: !name.trim() ? "border-destructive/60" : undefined
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          required: true,
+          children: "Description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value),
+          "aria-invalid": !description.trim(),
+          className: !description.trim() ? "border-destructive/60" : undefined
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          required: true,
+          children: "Agent class"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+          value: agentClass,
+          onChange: (e) => setAgentClass(e.target.value),
+          children: spawnableAgentClasses.map((value) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+            value,
+            children: value
+          }, value, false, undefined, this))
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FormMessage2, {
+          children: "Choose what kind of child agent this type can spawn as. The root orchestrator role is reserved for the interactive /orchestrate session and is not spawnable."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          optional: true,
+          children: "Model"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+          value: model,
+          onChange: (e) => setModel(e.target.value),
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+              value: "",
+              children: "-- default --"
+            }, undefined, false, undefined, this),
+            models.map((m) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+              value: m.id,
+              children: m.provider ? `${m.provider}/${m.id}` : m.id
+            }, m.id, false, undefined, this))
+          ]
+        }, undefined, true, undefined, this),
+        selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(jsx_dev_runtime9.Fragment, {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+              optional: true,
+              children: "Thinking Level"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+              value: thinking,
+              onChange: (e) => setThinking(e.target.value),
+              children: levels.map((level) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                value: level,
+                children: level
+              }, level, false, undefined, this))
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          optional: true,
+          children: "Skill Templates"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+          rows: 3,
+          value: skillTemplatesText,
+          onChange: (e) => setSkillTemplatesText(e.target.value),
+          placeholder: spawnedSkillTemplates.map((template) => template.name).join(", ") || "common, frontend"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
+          templates: spawnedSkillTemplates,
+          selectedText: skillTemplatesText,
+          emptyText: "No spawned-agent skill templates defined yet.",
+          onToggle: (name2) => setSkillTemplatesText((prev) => toggleItemText(prev, name2))
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          optional: true,
+          children: "Extension Templates"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+          rows: 3,
+          value: extensionTemplatesText,
+          onChange: (e) => setExtensionTemplatesText(e.target.value),
+          placeholder: spawnedExtensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
+          templates: spawnedExtensionTemplates,
+          selectedText: extensionTemplatesText,
+          emptyText: "No extension templates defined yet.",
+          onToggle: (name2) => setExtensionTemplatesText((prev) => toggleItemText(prev, name2))
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+          optional: true,
+          children: "Prompt / Instructions"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+          rows: 7,
+          value: prompt,
+          onChange: (e) => setPrompt(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(ValidationSummary, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+              onClick: save,
+              disabled: !!errors.length,
+              children: "Save Type"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+
+// web/features/skill-library/SkillLibraryPanel.tsx
+var import_react5 = __toESM(require_react(), 1);
 
 // node_modules/devlop/lib/development.js
 var codesWarned = new Set;
@@ -19600,12 +21283,12 @@ function productionCreate(_, jsx, jsxs) {
     return key ? fn(type, props, key) : fn(type, props);
   }
 }
-function developmentCreate(filePath, jsxDEV) {
+function developmentCreate(filePath, jsxDEV10) {
   return create2;
   function create2(node, type, props, key) {
     const isStaticChildren = Array.isArray(props.children);
     const point3 = pointStart(node);
-    return jsxDEV(type, props, key, isStaticChildren, {
+    return jsxDEV10(type, props, key, isStaticChildren, {
       columnNumber: point3 ? point3.column - 1 : undefined,
       fileName: filePath,
       lineNumber: point3 ? point3.line : undefined
@@ -19819,7 +21502,7 @@ var urlAttributes = {
 };
 // node_modules/react-markdown/lib/index.js
 var import_jsx_runtime = __toESM(require_jsx_runtime(), 1);
-var import_react = __toESM(require_react(), 1);
+var import_react4 = __toESM(require_react(), 1);
 
 // node_modules/mdast-util-to-string/lib/index.js
 var emptyOptions2 = {};
@@ -29725,167 +31408,1132 @@ function remarkGfm(options) {
   fromMarkdownExtensions.push(gfmFromMarkdown());
   toMarkdownExtensions.push(gfmToMarkdown(settings));
 }
-// web/lib/utils.ts
-function cn(...classes) {
-  return classes.filter(Boolean).join(" ");
+// web/features/skill-library/SkillLibraryPanel.tsx
+var jsx_dev_runtime10 = __toESM(require_jsx_dev_runtime(), 1);
+async function responseErrorText3(res) {
+  const text7 = await res.text();
+  try {
+    const data = JSON.parse(text7);
+    return data?.error || text7;
+  } catch {
+    return text7;
+  }
 }
-
-// web/components/ui/badge.tsx
-var jsx_dev_runtime = __toESM(require_jsx_dev_runtime(), 1);
-var variants = {
-  default: "bg-primary/15 text-primary",
-  success: "bg-emerald-400/15 text-emerald-300",
-  warning: "bg-amber-400/15 text-amber-300",
-  destructive: "bg-destructive/15 text-destructive",
-  outline: "border border-border text-muted-foreground"
-};
-function Badge({ className, variant = "default", ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
-    className: cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", variants[variant], className),
-    ...props
+function FieldLabel3({ children, required, optional }) {
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("label", {
+    className: "block text-xs uppercase tracking-wide text-muted-foreground",
+    children: [
+      children,
+      " ",
+      required && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("span", {
+        className: "text-destructive",
+        children: "*"
+      }, undefined, false, undefined, this),
+      optional && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("span", {
+        className: "normal-case text-muted-foreground/70",
+        children: "(optional)"
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function FormMessage3({ children, tone = "muted" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("p", {
+    className: `text-xs ${className}`,
+    children
   }, undefined, false, undefined, this);
 }
-
-// web/components/ui/button.tsx
-var jsx_dev_runtime2 = __toESM(require_jsx_dev_runtime(), 1);
-var variants2 = {
-  default: "bg-primary text-primary-foreground border-primary hover:brightness-110",
-  secondary: "bg-transparent text-foreground border-border hover:bg-white/5",
-  destructive: "bg-destructive/15 text-destructive border-destructive hover:bg-destructive/25",
-  ghost: "bg-transparent text-foreground border-transparent hover:bg-white/5"
-};
-function Button({ className, variant = "default", ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
-    className: cn("inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/60 disabled:pointer-events-none disabled:opacity-50", variants2[variant], className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-
-// web/components/ui/card.tsx
-var jsx_dev_runtime3 = __toESM(require_jsx_dev_runtime(), 1);
-function Card({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
-    className: cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-function CardHeader({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
-    className: cn("flex flex-col space-y-1.5 p-4", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-function CardTitle({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("h3", {
-    className: cn("text-sm font-semibold leading-none tracking-tight", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-function CardContent({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime3.jsxDEV("div", {
-    className: cn("p-4 pt-0", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-
-// web/components/ui/dialog.tsx
-var jsx_dev_runtime4 = __toESM(require_jsx_dev_runtime(), 1);
-function Dialog({ open, title, onOpenChange, className, children, ...props }) {
-  if (!open)
+function ValidationSummary2({ errors, serverError }) {
+  if (!errors.length && !serverError)
     return null;
-  return /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4",
-    role: "dialog",
-    "aria-modal": "true",
-    children: /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("div", {
-      className: cn("max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-4 shadow-xl", className),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("div", {
-          className: "mb-4 flex items-center justify-between gap-4",
-          children: [
-            title ? /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("h2", {
-              className: "text-lg font-semibold",
-              children: title
-            }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime4.jsxDEV("span", {}, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime4.jsxDEV(Button, {
-              type: "button",
-              variant: "ghost",
-              onClick: () => onOpenChange?.(false),
-              "aria-label": "Close dialog",
-              children: "×"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        children
-      ]
-    }, undefined, true, undefined, this)
-  }, undefined, false, undefined, this);
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+    className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+    children: [
+      serverError && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+        children: serverError
+      }, undefined, false, undefined, this),
+      !!errors.length && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("ul", {
+        className: "list-disc pl-5",
+        children: errors.map((error) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("li", {
+          children: error
+        }, error, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
 }
-
-// web/components/ui/input.tsx
-var jsx_dev_runtime5 = __toESM(require_jsx_dev_runtime(), 1);
-function Input({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("input", {
-    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-function Textarea({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("textarea", {
-    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-
-// web/components/ui/select.tsx
-var jsx_dev_runtime6 = __toESM(require_jsx_dev_runtime(), 1);
-function Select({ className, ...props }) {
-  return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("select", {
-    className: cn("w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/60", className),
-    ...props
-  }, undefined, false, undefined, this);
-}
-
-// web/app.tsx
-var jsx_dev_runtime7 = __toESM(require_jsx_dev_runtime(), 1);
-var tabs = [
-  { id: "agents", label: "Live Agents" },
-  { id: "types", label: "Agent Types" },
-  { id: "skills", label: "Skill Library" },
-  { id: "orchestratorLibraries", label: "Orchestrator Libraries" },
-  { id: "skillTemplates", label: "Skill Templates" },
-  { id: "extensionTemplates", label: "Extension Templates" },
-  { id: "hierarchy", label: "Hierarchy" },
-  { id: "log", label: "Event Log" }
-];
-function shortPath(p) {
+function shortPath3(p) {
   if (!p)
     return "";
   return p.length > 42 ? "…" + p.slice(-39) : p;
 }
-function formatCompactNumber(n) {
-  if (typeof n !== "number" || !Number.isFinite(n))
-    return "—";
-  if (n >= 1e6)
-    return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1000)
-    return (n / 1000).toFixed(1) + "K";
-  return String(n);
-}
-function statusVariant(status) {
-  if (status === "idle")
-    return "success";
-  if (status === "error" || status === "exited")
-    return "destructive";
-  if (status === "streaming")
-    return "default";
-  return "outline";
-}
-function templateAudience(template) {
+function templateAudience2(template) {
   return template.audience || "spawned";
 }
 function templateAutoApply(template) {
+  if (template.autoApply)
+    return template.autoApply;
+  return template.applyToAll ? "spawned" : "none";
+}
+function displayScopeLabel(scope) {
+  if (scope === "user")
+    return "global";
+  return scope || "unknown";
+}
+function skillScopeLabel(skill) {
+  return displayScopeLabel(skill.scope || skill.source);
+}
+function skillTemplateItemValue(skill) {
+  return skill.ref || skill.name;
+}
+function SkillSourceBadges({ skill }) {
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(jsx_dev_runtime10.Fragment, {
+    children: [
+      skill.packageProvided && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+        variant: "outline",
+        children: "package"
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+        variant: "outline",
+        children: skillScopeLabel(skill)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function normalizeSkillName(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
+}
+function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate, onChanged }) {
+  const [query, setQuery] = import_react5.useState("");
+  const [scope, setScope] = import_react5.useState("all");
+  const [selectedId, setSelectedId] = import_react5.useState();
+  const [detail, setDetail] = import_react5.useState(null);
+  const [detailView, setDetailView] = import_react5.useState("preview");
+  const [tree, setTree] = import_react5.useState([]);
+  const [selectedFile, setSelectedFile] = import_react5.useState("SKILL.md");
+  const [fileDetail, setFileDetail] = import_react5.useState(null);
+  const [editing, setEditing] = import_react5.useState(false);
+  const [editContent, setEditContent] = import_react5.useState("");
+  const [saveError, setSaveError] = import_react5.useState("");
+  const [creating, setCreating] = import_react5.useState(false);
+  const [copying, setCopying] = import_react5.useState(null);
+  const [addTemplateName, setAddTemplateName] = import_react5.useState("");
+  const [templateError, setTemplateError] = import_react5.useState("");
+  const [editableFilter, setEditableFilter] = import_react5.useState("all");
+  const [referenceFilter, setReferenceFilter] = import_react5.useState("all");
+  const [orchestratorLibraries, setOrchestratorLibraries] = import_react5.useState(null);
+  const [loading, setLoading] = import_react5.useState(false);
+  const [error, setError] = import_react5.useState("");
+  const scopes = import_react5.useMemo(() => Array.from(new Set(skills.map(skillScopeLabel))).sort(), [skills]);
+  const selectedSkill = import_react5.useMemo(() => skills.find((skill) => skill.id === selectedId) || skills[0], [selectedId, skills]);
+  const filtered = import_react5.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return skills.filter((skill) => {
+      if (scope !== "all" && skillScopeLabel(skill) !== scope)
+        return false;
+      if (editableFilter === "editable" && !skill.editable)
+        return false;
+      if (editableFilter === "readonly" && skill.editable)
+        return false;
+      const itemValue = skillTemplateItemValue(skill);
+      const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
+      if (referenceFilter === "referenced" && !referenced)
+        return false;
+      if (referenceFilter === "unreferenced" && referenced)
+        return false;
+      if (!q)
+        return true;
+      return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
+    });
+  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
+  const templatesUsingSkill = import_react5.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const templatesMissingSkill = import_react5.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
+  const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
+  import_react5.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/orchestrator-libraries").then((res) => res.ok ? res.json() : undefined).then((data) => {
+      if (!cancelled && data)
+        setOrchestratorLibraries(data);
+    }).catch(() => {
+      if (!cancelled)
+        setOrchestratorLibraries(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [skills.length]);
+  import_react5.useEffect(() => {
+    setDetail(null);
+    setTree([]);
+    setSelectedFile("SKILL.md");
+    setFileDetail(null);
+    setEditContent("");
+    setEditing(false);
+    setSaveError("");
+    if (!selectedSkill?.id) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}`).then(async (res) => {
+      if (!res.ok)
+        throw new Error(await responseErrorText3(res));
+      return res.json();
+    }).then((data) => {
+      if (!cancelled) {
+        setDetail(data);
+        setSelectedFile("SKILL.md");
+        setFileDetail(null);
+        setEditContent(data.content || "");
+        setEditing(false);
+        setSaveError("");
+      }
+    }).catch((err) => {
+      if (!cancelled) {
+        setDetail(null);
+        setError(err.message);
+      }
+    }).finally(() => {
+      if (!cancelled)
+        setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkill?.id]);
+  import_react5.useEffect(() => {
+    if (selectedId && skills.some((skill) => skill.id === selectedId))
+      return;
+    setSelectedId(skills[0]?.id);
+  }, [selectedId, skills]);
+  import_react5.useEffect(() => {
+    setTree([]);
+    if (!selectedSkill?.id)
+      return;
+    let cancelled = false;
+    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`).then(async (res) => {
+      if (!res.ok)
+        throw new Error(await responseErrorText3(res));
+      return res.json();
+    }).then((data) => {
+      if (!cancelled)
+        setTree(Array.isArray(data.files) ? data.files : []);
+    }).catch(() => {
+      if (!cancelled)
+        setTree([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkill?.id]);
+  const openSkillFile = import_react5.useCallback(async (relativePath) => {
+    if (!selectedSkill?.id)
+      return;
+    if (relativePath === "SKILL.md") {
+      setSelectedFile("SKILL.md");
+      setFileDetail(null);
+      return;
+    }
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/files?path=${encodeURIComponent(relativePath)}`);
+    if (!res.ok)
+      return setSaveError(await responseErrorText3(res));
+    const file = await res.json();
+    setSelectedFile(file.path);
+    setFileDetail(file);
+    setEditing(false);
+    setDetailView("preview");
+  }, [selectedSkill?.id]);
+  const saveEdit = async () => {
+    if (!detail?.skill.id)
+      return;
+    setSaveError("");
+    if (fileDetail) {
+      const res2 = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: fileDetail.hash }) });
+      if (!res2.ok)
+        return setSaveError(await responseErrorText3(res2));
+      const next2 = await res2.json();
+      setFileDetail(next2);
+      setEditContent(next2.content || "");
+      setEditing(false);
+      return;
+    }
+    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
+    if (!res.ok)
+      return setSaveError(await responseErrorText3(res));
+    const next = await res.json();
+    setDetail(next);
+    setEditContent(next.content || "");
+    setEditing(false);
+    onChanged();
+  };
+  const displayedContent = fileDetail?.content ?? detail?.content ?? "";
+  const displayedBody = fileDetail ? fileDetail.content : detail?.body || detail?.content || "";
+  const deleteSelected = async () => {
+    if (!detail?.skill.id || !detailMatchesSelected)
+      return;
+    if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`))
+      return;
+    setSaveError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "DELETE" });
+    if (!res.ok)
+      return setSaveError(await responseErrorText3(res));
+    setDetail(null);
+    setEditing(false);
+    setSelectedId(undefined);
+    onChanged();
+  };
+  const addToTemplate = async () => {
+    if (!selectedSkill || !addTemplateName)
+      return;
+    const template = skillTemplates.find((candidate) => candidate.name === addTemplateName);
+    if (!template)
+      return;
+    setTemplateError("");
+    const skills2 = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
+    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, audience: templateAudience2(template), autoApply: templateAutoApply(template), skills: skills2 }) });
+    if (!res.ok)
+      return setTemplateError(await responseErrorText3(res));
+    setAddTemplateName("");
+    onChanged();
+  };
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+    className: "grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(380px,460px)_1fr]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Card, {
+        className: "min-h-0 overflow-hidden",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+              className: "flex items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardTitle, {
+                  children: "Skill Library"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                  variant: "secondary",
+                  className: "px-2 py-1 text-xs",
+                  onClick: () => setCreating(true),
+                  children: "+ New Skill"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardContent, {
+            className: "flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Input, {
+                value: query,
+                onChange: (e) => setQuery(e.target.value),
+                placeholder: "Search skills…"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                className: "grid gap-2",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+                    value: scope,
+                    onChange: (e) => setScope(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "all",
+                        children: "All sources"
+                      }, undefined, false, undefined, this),
+                      scopes.map((value) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value,
+                        children: value
+                      }, value, false, undefined, this))
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+                    value: editableFilter,
+                    onChange: (e) => setEditableFilter(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "all",
+                        children: "Editable + read-only"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "editable",
+                        children: "Editable only"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "readonly",
+                        children: "Read-only only"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+                    value: referenceFilter,
+                    onChange: (e) => setReferenceFilter(e.target.value),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "all",
+                        children: "All template usage"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "referenced",
+                        children: "In a template"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                        value: "unreferenced",
+                        children: "Not in templates"
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              !!diagnostics.length && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-200",
+                children: [
+                  diagnostics.length,
+                  " skill diagnostic",
+                  diagnostics.length === 1 ? "" : "s",
+                  ". Select Metadata or inspect invalid skill files for details."
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                className: "min-h-0 flex-1 space-y-2 overflow-auto pr-1",
+                children: !filtered.length ? /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground",
+                  children: "No skills found."
+                }, undefined, false, undefined, this) : filtered.map((skill) => {
+                  const active = skill.id === selectedSkill?.id;
+                  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("button", {
+                    className: `w-full rounded-md border p-3 text-left transition ${active ? "border-primary bg-primary/10" : "border-border hover:bg-white/5"}`,
+                    onClick: () => setSelectedId(skill.id),
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                        className: "flex items-center justify-between gap-2",
+                        children: [
+                          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("span", {
+                            className: "text-sm font-semibold",
+                            children: skill.name
+                          }, undefined, false, undefined, this),
+                          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                            className: "flex gap-1",
+                            children: [
+                              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(SkillSourceBadges, {
+                                skill
+                              }, undefined, false, undefined, this),
+                              skill.editable && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+                                variant: "success",
+                                children: "editable"
+                              }, undefined, false, undefined, this)
+                            ]
+                          }, undefined, true, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                        className: "mt-1 line-clamp-2 text-xs text-muted-foreground",
+                        children: skill.description || "No description."
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                        className: "mt-2 truncate text-[11px] text-muted-foreground",
+                        title: skill.path,
+                        children: shortPath3(skill.path)
+                      }, undefined, false, undefined, this)
+                    ]
+                  }, skill.id || skill.path, true, undefined, this);
+                })
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Card, {
+        className: "min-h-0 overflow-hidden",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardHeader, {
+            className: "border-b border-border",
+            children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+              className: "flex flex-wrap items-center justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardTitle, {
+                  children: selectedSkill?.name || "Select a skill"
+                }, undefined, false, undefined, this),
+                selectedSkill && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "flex flex-wrap items-center gap-2",
+                  children: [
+                    !editing && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: () => setCopying(selectedSkill),
+                      children: "Copy"
+                    }, undefined, false, undefined, this),
+                    detailMatchesSelected && detail?.skill.editable && !editing && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(jsx_dev_runtime10.Fragment, {
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => {
+                            setEditContent(fileDetail?.content ?? detail.content);
+                            setEditing(true);
+                            setDetailView("preview");
+                          },
+                          children: "Edit"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                          variant: "destructive",
+                          className: "px-2 py-1 text-xs",
+                          onClick: deleteSelected,
+                          children: "Delete"
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    detailMatchesSelected && editing && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(jsx_dev_runtime10.Fragment, {
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => {
+                            setEditing(false);
+                            setEditContent(fileDetail?.content ?? detail?.content ?? "");
+                            setSaveError("");
+                          },
+                          children: "Cancel"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                          className: "px-2 py-1 text-xs",
+                          onClick: saveEdit,
+                          children: "Save"
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "flex rounded-md border border-border bg-background p-1",
+                      children: ["preview", "raw", "metadata"].map((view) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("button", {
+                        type: "button",
+                        className: `rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
+                        onClick: () => setDetailView(view),
+                        children: view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"
+                      }, view, false, undefined, this))
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CardContent, {
+            className: "flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4",
+            children: !selectedSkill ? /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+              className: "rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground",
+              children: "No skills discovered."
+            }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(jsx_dev_runtime10.Fragment, {
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "flex flex-wrap gap-2",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(SkillSourceBadges, {
+                      skill: selectedSkill
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+                      variant: "outline",
+                      children: selectedSkill.kind || "skill"
+                    }, undefined, false, undefined, this),
+                    selectedSkill.editable ? /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+                      variant: "success",
+                      children: "editable"
+                    }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+                      variant: "warning",
+                      children: "read-only"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground",
+                  children: selectedSkill.path
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "rounded-md border border-border bg-background p-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "mb-2 flex flex-wrap items-center justify-between gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "text-xs uppercase tracking-wide text-muted-foreground",
+                          children: "Skill templates using this skill"
+                        }, undefined, false, undefined, this),
+                        !!templatesMissingSkill.length && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "flex gap-2",
+                          children: [
+                            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+                              value: addTemplateName,
+                              onChange: (e) => setAddTemplateName(e.target.value),
+                              className: "py-1 text-xs",
+                              children: [
+                                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                                  value: "",
+                                  children: "Add to template…"
+                                }, undefined, false, undefined, this),
+                                templatesMissingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+                                  value: template.name,
+                                  children: template.name
+                                }, template.name, false, undefined, this))
+                              ]
+                            }, undefined, true, undefined, this),
+                            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+                              variant: "secondary",
+                              className: "px-2 py-1 text-xs",
+                              onClick: addToTemplate,
+                              disabled: !addTemplateName,
+                              children: "Add"
+                            }, undefined, false, undefined, this)
+                          ]
+                        }, undefined, true, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "flex flex-wrap gap-1",
+                      children: templatesUsingSkill.length ? templatesUsingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("button", {
+                        type: "button",
+                        onClick: () => onEditTemplate(template),
+                        title: "Edit template",
+                        className: "rounded-full",
+                        children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Badge, {
+                          variant: "default",
+                          children: template.name
+                        }, undefined, false, undefined, this)
+                      }, template.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("span", {
+                        className: "text-xs text-muted-foreground",
+                        children: "No skill templates include this skill yet."
+                      }, undefined, false, undefined, this)
+                    }, undefined, false, undefined, this),
+                    templateError && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "mt-2 text-xs text-destructive",
+                      children: templateError
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                loading && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "text-sm text-muted-foreground",
+                  children: "Loading preview…"
+                }, undefined, false, undefined, this),
+                error && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+                  children: error
+                }, undefined, false, undefined, this),
+                saveError && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+                  children: saveError
+                }, undefined, false, undefined, this),
+                loading && !detailMatchesSelected && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "min-h-0 rounded-md border border-border bg-background p-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "mb-2 h-3 w-16 animate-pulse rounded bg-muted"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "space-y-2",
+                          children: [0, 1, 2, 3].map((idx) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                            className: "h-5 animate-pulse rounded bg-muted/70"
+                          }, idx, false, undefined, this))
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "min-h-0 rounded-md border border-border bg-background p-5",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "mb-4 h-6 w-48 animate-pulse rounded bg-muted"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "space-y-3",
+                          children: [0, 1, 2, 3, 4].map((idx) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                            className: "h-4 animate-pulse rounded bg-muted/70"
+                          }, idx, false, undefined, this))
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                detailMatchesSelected && detail && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "min-h-0 overflow-auto rounded-md border border-border bg-background p-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "mb-2 text-xs uppercase tracking-wide text-muted-foreground",
+                          children: "Files"
+                        }, undefined, false, undefined, this),
+                        tree.length ? tree.map((file) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("button", {
+                          type: "button",
+                          disabled: file.type === "directory",
+                          className: `block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
+                          style: { paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` },
+                          onClick: () => file.type === "file" && openSkillFile(file.path),
+                          children: [
+                            file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• ",
+                            file.name
+                          ]
+                        }, file.path, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                          className: "text-xs text-muted-foreground",
+                          children: "No file tree available."
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                      className: "min-h-0 overflow-hidden",
+                      children: editing ? /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+                        className: "grid h-full gap-3 xl:grid-cols-2",
+                        children: [
+                          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Textarea, {
+                            className: "h-full resize-none font-mono text-xs",
+                            value: editContent,
+                            onChange: (e) => setEditContent(e.target.value)
+                          }, undefined, false, undefined, this),
+                          /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(MarkdownPreview, {
+                            content: parseMarkdownBody(editContent)
+                          }, undefined, false, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(jsx_dev_runtime10.Fragment, {
+                        children: [
+                          detailView === "preview" && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(MarkdownPreview, {
+                            content: displayedBody,
+                            basePath: selectedFile,
+                            onOpenRelative: openSkillFile
+                          }, undefined, false, undefined, this),
+                          detailView === "raw" && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("pre", {
+                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
+                            children: displayedContent
+                          }, undefined, false, undefined, this),
+                          detailView === "metadata" && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("pre", {
+                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
+                            children: JSON.stringify({ skill: detail.skill, selectedFile, file: fileDetail, frontmatter: detail.frontmatter, diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath), mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)
+                          }, undefined, false, undefined, this)
+                        ]
+                      }, undefined, true, undefined, this)
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CreateSkillDialog, {
+        open: creating,
+        libraries: orchestratorLibraries,
+        onClose: () => setCreating(false),
+        onCreated: (created) => {
+          setCreating(false);
+          setSelectedId(created.skill.id);
+          setDetail(created);
+          setEditContent(created.content);
+          onChanged();
+        }
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CopySkillDialog, {
+        source: copying,
+        onClose: () => setCopying(null),
+        onCopied: (copied) => {
+          setCopying(null);
+          setSelectedId(copied.skill.id);
+          setDetail(copied);
+          setEditContent(copied.content);
+          onChanged();
+        }
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function parseMarkdownBody(content3) {
+  const match = content3.match(/^---\s*\n[\s\S]*?\n---\s*\n?/);
+  return match ? content3.slice(match[0].length) : content3;
+}
+function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
+  const libraryTargets = import_react5.useMemo(() => (libraries?.libraries || []).filter((library) => library.valid && library.manifest?.name), [libraries]);
+  const defaultTarget = libraryTargets[0]?.manifest?.name ? `library:${libraryTargets[0].manifest.name}` : "global";
+  const [target, setTarget] = import_react5.useState(defaultTarget);
+  const [name2, setName] = import_react5.useState("");
+  const [description, setDescription] = import_react5.useState("");
+  const [body, setBody] = import_react5.useState("");
+  const [scaffold, setScaffold] = import_react5.useState("minimal");
+  const [serverError, setServerError] = import_react5.useState("");
+  import_react5.useEffect(() => {
+    if (open) {
+      setTarget(defaultTarget);
+      setName("");
+      setDescription("");
+      setBody("");
+      setScaffold("minimal");
+      setServerError("");
+    }
+  }, [defaultTarget, open]);
+  const savedName = normalizeSkillName(name2);
+  const errors = [!savedName ? "Name is required." : undefined, !description.trim() ? "Description is required." : undefined].filter(Boolean);
+  const create2 = async () => {
+    setServerError("");
+    if (errors.length)
+      return;
+    const payload = target.startsWith("library:") ? { targetLibrary: target.slice("library:".length), name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold } : { scope: "global", name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold };
+    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok)
+      return setServerError(await responseErrorText3(res));
+    onCreated(await res.json());
+  };
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Dialog, {
+    open,
+    title: "New Skill",
+    onOpenChange: onClose,
+    className: "max-w-3xl",
+    children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "Target"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+          value: target,
+          onChange: (e) => setTarget(e.target.value),
+          children: [
+            libraryTargets.map((library) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: `library:${library.manifest.name}`,
+              children: [
+                "Orchestrator Library: ",
+                library.manifest.name
+              ]
+            }, library.root, true, undefined, this)),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: "global",
+              children: "Global Pi skills (~/.pi/agent/skills)"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
+          tone: libraryTargets.length ? "success" : "muted",
+          children: libraryTargets.length ? "New skills default to the first configured Orchestrator Library by load order." : "No Orchestrator Library is configured; new skills fall back to the global Pi skills folder."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "Name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Input, {
+          value: name2,
+          onChange: (e) => setName(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
+          tone: savedName ? "success" : "muted",
+          children: [
+            "Will be saved as: ",
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
+              className: "rounded bg-muted px-1 py-0.5 text-foreground",
+              children: savedName || "—"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "Description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          optional: true,
+          children: "Scaffold"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+          value: scaffold,
+          onChange: (e) => setScaffold(e.target.value),
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: "minimal",
+              children: "Minimal SKILL.md only"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: "rich",
+              children: "Rich directory with references/scripts/assets/examples"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          optional: true,
+          children: "Initial body"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Textarea, {
+          rows: 8,
+          value: body,
+          onChange: (e) => setBody(e.target.value),
+          placeholder: "# My Skill\\n\\n## Workflow\\n\\n1. ..."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(ValidationSummary2, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+              onClick: create2,
+              disabled: !!errors.length,
+              children: "Create Skill"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+function CopySkillDialog({ source, onClose, onCopied }) {
+  const [scope, setScope] = import_react5.useState("project");
+  const [name2, setName] = import_react5.useState("");
+  const [description, setDescription] = import_react5.useState("");
+  const [serverError, setServerError] = import_react5.useState("");
+  const open = !!source;
+  import_react5.useEffect(() => {
+    if (source) {
+      setScope("project");
+      setName(`${source.name}-copy`);
+      setDescription(source.description ? `${source.description} (derived copy)` : "Derived copy");
+      setServerError("");
+    }
+  }, [source?.id, source?.name]);
+  const savedName = normalizeSkillName(name2);
+  const errors = [
+    !source?.id ? "Select a source skill." : undefined,
+    !savedName ? "Name is required." : undefined,
+    source && savedName === source.name ? "Choose a new skill name; duplicate names collide and Pi keeps the first discovered skill." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
+  const copy = async () => {
+    if (!source?.id || errors.length)
+      return;
+    setServerError("");
+    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim() }) });
+    if (!res.ok)
+      return setServerError(await responseErrorText3(res));
+    onCopied(await res.json());
+  };
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Dialog, {
+    open,
+    title: source ? `Copy Skill: ${source.name}` : "Copy Skill",
+    onOpenChange: onClose,
+    className: "max-w-2xl",
+    children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+          className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100",
+          children: [
+            "Copy creates a new editable skill directory and rewrites ",
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
+              children: "SKILL.md"
+            }, undefined, false, undefined, this),
+            " frontmatter. Do not reuse an existing skill name: duplicate names collide during Pi discovery and Pi keeps the first discovered skill."
+          ]
+        }, undefined, true, undefined, this),
+        source && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+          className: "rounded-md border border-border bg-background p-2 text-xs text-muted-foreground",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+              children: [
+                "Source: ",
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("span", {
+                  className: "text-foreground",
+                  children: source.name
+                }, undefined, false, undefined, this),
+                " (",
+                skillScopeLabel(source),
+                ")"
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+              className: "truncate",
+              title: source.path,
+              children: source.path
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "Target scope"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
+          value: scope,
+          onChange: (e) => setScope(e.target.value),
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: "project",
+              children: "Project (.pi/skills)"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: "global",
+              children: "Global / all repos (~/.pi/agent/skills)"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "New name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Input, {
+          value: name2,
+          onChange: (e) => setName(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
+          tone: savedName && savedName !== source?.name ? "success" : "muted",
+          children: [
+            "Will be saved as: ",
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
+              className: "rounded bg-muted px-1 py-0.5 text-foreground",
+              children: savedName || "—"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
+          required: true,
+          children: "New description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(ValidationSummary2, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
+              onClick: copy,
+              disabled: !!errors.length,
+              children: "Copy Skill"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+function resolveRelativeMarkdownLink(basePath, href) {
+  if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href))
+    return;
+  const clean = href.split("#")[0].split("?")[0];
+  if (!clean.toLowerCase().endsWith(".md"))
+    return;
+  const baseParts = basePath.includes("/") ? basePath.split("/").slice(0, -1) : [];
+  const parts = [];
+  for (const part of [...baseParts, ...clean.split("/")]) {
+    if (!part || part === ".")
+      continue;
+    if (part === "..")
+      parts.pop();
+    else
+      parts.push(part);
+  }
+  return parts.join("/");
+}
+function escapeXmlLikeBlocks(content3) {
+  return content3.replace(/^<([a-z][\w-]*)([^>]*)>$/gim, "`<$1$2>`").replace(/^<\/([a-z][\w-]*)>$/gim, "`</$1>`");
+}
+function MarkdownPreview({ content: content3, basePath = "SKILL.md", onOpenRelative }) {
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+    className: "h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6",
+    children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Markdown, {
+      remarkPlugins: [remarkGfm],
+      components: {
+        h1: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("h1", {
+          className: "mb-3 border-b border-border pb-2 text-2xl font-semibold",
+          children
+        }, undefined, false, undefined, this),
+        h2: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("h2", {
+          className: "mb-2 mt-4 text-xl font-semibold",
+          children
+        }, undefined, false, undefined, this),
+        h3: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("h3", {
+          className: "mb-2 mt-3 text-lg font-semibold",
+          children
+        }, undefined, false, undefined, this),
+        p: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("p", {
+          className: "mb-3 text-foreground/90",
+          children
+        }, undefined, false, undefined, this),
+        a: ({ href, children }) => {
+          const relative = resolveRelativeMarkdownLink(basePath, href);
+          return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("a", {
+            href,
+            target: relative ? undefined : "_blank",
+            rel: relative ? undefined : "noreferrer",
+            className: "text-primary underline underline-offset-2",
+            onClick: (e) => {
+              if (relative && onOpenRelative) {
+                e.preventDefault();
+                onOpenRelative(relative);
+              }
+            },
+            children
+          }, undefined, false, undefined, this);
+        },
+        ul: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("ul", {
+          className: "mb-3 list-disc pl-5",
+          children
+        }, undefined, false, undefined, this),
+        ol: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("ol", {
+          className: "mb-3 list-decimal pl-5",
+          children
+        }, undefined, false, undefined, this),
+        code: ({ children, className }) => className ? /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
+          className,
+          children
+        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
+          className: "rounded bg-muted px-1 py-0.5 font-mono text-xs",
+          children
+        }, undefined, false, undefined, this),
+        pre: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("pre", {
+          className: "mb-3 overflow-auto rounded-md bg-muted p-3 font-mono text-xs",
+          children
+        }, undefined, false, undefined, this),
+        blockquote: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("blockquote", {
+          className: "mb-3 border-l-2 border-border pl-3 text-muted-foreground",
+          children
+        }, undefined, false, undefined, this),
+        table: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
+          className: "mb-3 overflow-auto",
+          children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("table", {
+            className: "w-full border-collapse text-xs",
+            children
+          }, undefined, false, undefined, this)
+        }, undefined, false, undefined, this),
+        th: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("th", {
+          className: "border border-border px-2 py-1 text-left font-semibold",
+          children
+        }, undefined, false, undefined, this),
+        td: ({ children }) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("td", {
+          className: "border border-border px-2 py-1",
+          children
+        }, undefined, false, undefined, this)
+      },
+      children: escapeXmlLikeBlocks(content3)
+    }, undefined, false, undefined, this)
+  }, undefined, false, undefined, this);
+}
+
+// web/features/templates/TemplatesPanel.tsx
+var import_react6 = __toESM(require_react(), 1);
+var jsx_dev_runtime11 = __toESM(require_jsx_dev_runtime(), 1);
+function templateAudience3(template) {
+  return template.audience || "spawned";
+}
+function templateAutoApply2(template) {
   if (template.autoApply)
     return template.autoApply;
   return template.applyToAll ? "spawned" : "none";
@@ -29904,31 +32552,540 @@ function autoApplyLabel(autoApply) {
     return "auto: all spawned";
   return "manual";
 }
-function isSpawnedTemplate(template) {
-  const audience = templateAudience(template);
-  return audience === "spawned" || audience === "all";
+function skillTemplateItemValue2(skill) {
+  return skill.ref || skill.name;
 }
+function splitItems2(text7) {
+  return Array.from(new Set(text7.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)));
+}
+function normalizeTemplateName(value) {
+  return value.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/\.{2,}/g, ".").replace(/^[^a-zA-Z0-9]+/, "").replace(/[._-]+$/, "");
+}
+async function responseErrorText4(res) {
+  const text7 = await res.text();
+  try {
+    const data = JSON.parse(text7);
+    return data?.error || text7;
+  } catch {
+    return text7;
+  }
+}
+function FieldLabel4({ children, required, optional }) {
+  return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("label", {
+    className: "block text-xs uppercase tracking-wide text-muted-foreground",
+    children: [
+      children,
+      " ",
+      required && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("span", {
+        className: "text-destructive",
+        children: "*"
+      }, undefined, false, undefined, this),
+      optional && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("span", {
+        className: "normal-case text-muted-foreground/70",
+        children: "(optional)"
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function FormMessage4({ children, tone = "muted" }) {
+  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
+  return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("p", {
+    className: `text-xs ${className}`,
+    children
+  }, undefined, false, undefined, this);
+}
+function ValidationSummary3({ errors, serverError }) {
+  if (!errors.length && !serverError)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+    className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
+    children: [
+      serverError && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+        children: serverError
+      }, undefined, false, undefined, this),
+      !!errors.length && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("ul", {
+        className: "list-disc pl-5",
+        children: errors.map((error) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("li", {
+          children: error
+        }, error, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
+  const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
+  const [smokeTests, setSmokeTests] = import_react6.useState({});
+  const deleteTemplate = async (name2) => {
+    if (!confirm(`Delete ${label.slice(0, -1).toLowerCase()} '${name2}'?`))
+      return;
+    const res = await fetch(`/api/${kind}-templates/${encodeURIComponent(name2)}`, { method: "DELETE" });
+    if (!res.ok)
+      return pushLog(`Delete failed: ${await res.text()}`, "error");
+    pushLog(`Deleted template '${name2}'`, "warn");
+    onDeleted();
+  };
+  const smokeTest = async (name2) => {
+    setSmokeTests((prev) => ({ ...prev, [name2]: { loading: true } }));
+    try {
+      const res = await fetch(`/api/extension-templates/${encodeURIComponent(name2)}/smoke-test`, { method: "POST" });
+      if (!res.ok)
+        throw new Error(await responseErrorText4(res));
+      const result = await res.json();
+      setSmokeTests((prev) => ({ ...prev, [name2]: result }));
+      pushLog(`Smoke test ${result.success ? "passed" : "failed"} for extension template '${name2}'`, result.success ? "success" : "error");
+    } catch (e) {
+      setSmokeTests((prev) => ({ ...prev, [name2]: { success: false, template: name2, extensions: [], missingExtensions: [], diagnostics: [{ level: "error", message: e.message }] } }));
+      pushLog(`Smoke test failed for extension template '${name2}': ${e.message}`, "error");
+    }
+  };
+  return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Card, {
+    className: "min-h-[70vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(CardHeader, {
+        className: "border-b border-border",
+        children: /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "flex items-center justify-between gap-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(CardTitle, {
+              children: label
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+              variant: "secondary",
+              className: "px-2 py-1 text-xs",
+              onClick: onNew,
+              children: [
+                "+ New ",
+                kind === "skill" ? "Skill" : "Extension",
+                " Template"
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(CardContent, {
+        className: "pt-4",
+        children: !templates.length ? /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("p", {
+          className: "text-sm text-muted-foreground",
+          children: [
+            "No ",
+            label.toLowerCase(),
+            " found."
+          ]
+        }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "grid gap-3 md:grid-cols-2",
+          children: templates.map((template) => {
+            const smoke = smokeTests[template.name];
+            const loading = !!smoke && "loading" in smoke;
+            const result = smoke && !("loading" in smoke) ? smoke : undefined;
+            return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "rounded-md border border-border p-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                  className: "flex items-start justify-between gap-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                      className: "min-w-0",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                          className: "flex flex-wrap items-center gap-2 text-sm font-semibold",
+                          children: [
+                            template.name,
+                            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Badge, {
+                              variant: "outline",
+                              children: audienceLabel(templateAudience3(template))
+                            }, undefined, false, undefined, this),
+                            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Badge, {
+                              variant: templateAutoApply2(template) === "none" ? "outline" : "default",
+                              children: autoApplyLabel(templateAutoApply2(template))
+                            }, undefined, false, undefined, this),
+                            !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Badge, {
+                              variant: "destructive",
+                              children: "invalid"
+                            }, undefined, false, undefined, this),
+                            result && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Badge, {
+                              variant: result.success ? "success" : "destructive",
+                              children: result.success ? "smoke passed" : "smoke failed"
+                            }, undefined, false, undefined, this)
+                          ]
+                        }, undefined, true, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                          className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
+                          children: template.description
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                      className: "flex shrink-0 gap-2",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => onEdit(template),
+                          children: "Edit"
+                        }, undefined, false, undefined, this),
+                        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          disabled: loading,
+                          onClick: () => smokeTest(template.name),
+                          children: loading ? "Testing…" : "Smoke Test"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+                          variant: "destructive",
+                          className: "px-2 py-1 text-xs",
+                          onClick: () => deleteTemplate(template.name),
+                          children: "Delete"
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                  className: "mt-3 flex flex-wrap gap-1",
+                  children: template.items.length ? template.items.map((item) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Badge, {
+                    variant: "outline",
+                    children: item
+                  }, item, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("span", {
+                    className: "text-xs text-muted-foreground",
+                    children: "No items."
+                  }, undefined, false, undefined, this)
+                }, undefined, false, undefined, this),
+                !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                  className: "mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive",
+                  children: template.validationErrors.join("; ")
+                }, undefined, false, undefined, this),
+                result && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                  className: "mt-3 space-y-2 rounded-md border border-border bg-background/60 p-2 text-xs",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                      className: "font-medium",
+                      children: "Runtime diagnostics"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("ul", {
+                      className: "space-y-1",
+                      children: result.diagnostics.map((diagnostic, index2) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("li", {
+                        className: diagnostic.level === "error" ? "text-destructive" : diagnostic.level === "warning" ? "text-amber-300" : "text-muted-foreground",
+                        children: [
+                          diagnostic.level,
+                          ": ",
+                          diagnostic.message
+                        ]
+                      }, index2, true, undefined, this))
+                    }, undefined, false, undefined, this),
+                    result.runtimeTools && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                      className: "text-muted-foreground",
+                      children: [
+                        "Tools: ",
+                        result.runtimeTools.active.map((tool) => tool.name).join(", ") || "none reported"
+                      ]
+                    }, undefined, true, undefined, this),
+                    result.stderrTail && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("details", {
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("summary", {
+                          className: "cursor-pointer text-muted-foreground",
+                          children: "stderr tail"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("pre", {
+                          className: "mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-muted-foreground",
+                          children: result.stderrTail
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, template.name, true, undefined, this);
+          })
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TemplateEditorDialog({ open, kind, template, availableSkills, availableExtensions, onClose, onSaved }) {
+  const [name2, setName] = import_react6.useState("");
+  const [description, setDescription] = import_react6.useState("");
+  const [audience, setAudience] = import_react6.useState("spawned");
+  const [autoApply, setAutoApply] = import_react6.useState("none");
+  const [itemsText, setItemsText] = import_react6.useState("");
+  const [serverError, setServerError] = import_react6.useState("");
+  import_react6.useEffect(() => {
+    if (!open)
+      return;
+    setName(template?.name || "");
+    setDescription(template?.description || "");
+    setAudience(kind === "skill" ? templateAudience3(template || { name: "", description: "", items: [], source: "", filePath: "" }) : "spawned");
+    setAutoApply(kind === "skill" ? templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }) : templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }) === "all" ? "spawned" : templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }));
+    setItemsText((template?.items || []).join(`
+`));
+    setServerError("");
+  }, [open, template, kind]);
+  const field = kind === "skill" ? "skills" : "extensions";
+  const savedName = template ? name2.trim() : normalizeTemplateName(name2);
+  const templateLabel = kind === "skill" ? "skill" : "extension";
+  const setAudienceSafe = (next) => {
+    setAudience(next);
+    if (next === "orchestrator" && autoApply === "spawned")
+      setAutoApply("none");
+    if (next !== "all" && autoApply === "all")
+      setAutoApply(next === "spawned" ? "spawned" : "none");
+  };
+  const setAutoApplySafe = (next) => {
+    if (kind === "extension" && next === "all")
+      return setAutoApply("spawned");
+    if (next === "all")
+      setAudience("all");
+    if (next === "spawned" && audience === "orchestrator")
+      setAudience("all");
+    setAutoApply(next);
+  };
+  const errors = [
+    !savedName ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined,
+    kind === "extension" && audience !== "spawned" ? "Extension templates are only available to spawned agents." : undefined,
+    kind === "extension" && autoApply === "all" ? "Extension templates cannot auto-apply to the orchestrator." : undefined,
+    autoApply === "spawned" && audience === "orchestrator" ? "Apply to all spawned agents requires spawned or both audience." : undefined,
+    autoApply === "all" && audience !== "all" ? "Apply everywhere requires both audience." : undefined
+  ].filter(Boolean);
+  const save = async () => {
+    setServerError("");
+    if (errors.length)
+      return;
+    const payload = { name: savedName, description: description.trim(), audience: kind === "skill" ? audience : "spawned", autoApply, [field]: splitItems2(itemsText) };
+    const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok)
+      return setServerError("Failed to save: " + await responseErrorText4(res));
+    onSaved();
+  };
+  const title = `${template ? "Edit" : "New"} ${kind === "skill" ? "Skill" : "Extension"} Template`;
+  return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Dialog, {
+    open,
+    title,
+    onOpenChange: onClose,
+    children: /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+          required: true,
+          children: "Name"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Input, {
+          value: name2,
+          onChange: (e) => setName(e.target.value),
+          readOnly: !!template,
+          "aria-invalid": !savedName,
+          className: !savedName ? "border-destructive/60" : undefined
+        }, undefined, false, undefined, this),
+        !template && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
+          tone: savedName ? "success" : "muted",
+          children: [
+            "Will be saved as: ",
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("code", {
+              className: "rounded bg-muted px-1 py-0.5 text-foreground",
+              children: savedName || "—"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
+          children: "Required. Spaces and unsupported characters are converted to dashes; saved names may contain letters, numbers, dot, underscore, and dash."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+          required: true,
+          children: "Description"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Input, {
+          value: description,
+          onChange: (e) => setDescription(e.target.value),
+          "aria-invalid": !description.trim(),
+          className: !description.trim() ? "border-destructive/60" : undefined
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "grid gap-3 md:grid-cols-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "space-y-1",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+                  optional: true,
+                  children: "Available to"
+                }, undefined, false, undefined, this),
+                kind === "skill" ? /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Select, {
+                  value: audience,
+                  onChange: (e) => setAudienceSafe(e.target.value),
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "spawned",
+                      children: "Spawned agents"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "orchestrator",
+                      children: "Orchestrator"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "all",
+                      children: "Spawned agents + orchestrator"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+                  className: "rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground",
+                  children: "Spawned agents only"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "space-y-1",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+                  optional: true,
+                  children: "Automatic application"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Select, {
+                  value: autoApply,
+                  onChange: (e) => setAutoApplySafe(e.target.value),
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "none",
+                      children: "Specific/manual assignment only"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "spawned",
+                      children: "Apply to all spawned agents"
+                    }, undefined, false, undefined, this),
+                    kind === "skill" && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                      value: "all",
+                      children: "Apply everywhere, including orchestrator"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
+          children: kind === "skill" ? "Audience controls where the template may be used; automatic application controls whether it is applied without explicit assignment." : "Extension templates are spawned-agent capabilities only."
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+          optional: true,
+          children: kind === "skill" ? "Skills" : "Extensions"
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Textarea, {
+          rows: 7,
+          value: itemsText,
+          onChange: (e) => setItemsText(e.target.value),
+          placeholder: `Optional ${templateLabel} names, comma or newline separated`
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
+          children: [
+            "Optional. Leave empty to create a template shell and add ",
+            field,
+            " later."
+          ]
+        }, undefined, true, undefined, this),
+        kind === "skill" && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "space-y-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "text-xs uppercase tracking-wide text-muted-foreground",
+              children: "Discovered skills"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "flex flex-wrap gap-1",
+              children: availableSkills.length ? availableSkills.map((skill) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("button", {
+                title: skill.ref ? `${skill.ref}
+${skill.description || skill.path}` : skill.description || skill.path,
+                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
+                onClick: () => setItemsText((prev) => splitItems2(`${prev}
+${skillTemplateItemValue2(skill)}`).join(`
+`)),
+                children: [
+                  skill.name,
+                  skill.ref ? ` (${skill.scope})` : ""
+                ]
+              }, skill.id || skill.ref || skill.name, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("span", {
+                className: "text-xs text-muted-foreground",
+                children: "No skills discovered."
+              }, undefined, false, undefined, this)
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "space-y-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "text-xs uppercase tracking-wide text-muted-foreground",
+              children: "Discovered extensions"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+              className: "flex flex-wrap gap-1",
+              children: availableExtensions.length ? availableExtensions.map((ext) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("button", {
+                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
+                onClick: () => setItemsText((prev) => splitItems2(`${prev}
+${ext.name}`).join(`
+`)),
+                children: ext.name
+              }, ext.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("span", {
+                className: "text-xs text-muted-foreground",
+                children: "No extensions discovered."
+              }, undefined, false, undefined, this)
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(ValidationSummary3, {
+          errors,
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "flex justify-end gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+              variant: "secondary",
+              onClick: onClose,
+              children: "Cancel"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
+              onClick: save,
+              disabled: !!errors.length,
+              children: "Save Template"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+
+// web/app.tsx
+var jsx_dev_runtime12 = __toESM(require_jsx_dev_runtime(), 1);
+var tabs = [
+  { id: "agents", label: "Live Agents" },
+  { id: "types", label: "Agent Types" },
+  { id: "skills", label: "Skill Library" },
+  { id: "orchestratorLibraries", label: "Orchestrator Libraries" },
+  { id: "skillTemplates", label: "Skill Templates" },
+  { id: "extensionTemplates", label: "Extension Templates" },
+  { id: "hierarchy", label: "Hierarchy" },
+  { id: "log", label: "Event Log" }
+];
 function App() {
-  const [activeTab, setActiveTab] = import_react2.useState("agents");
-  const [connected, setConnected] = import_react2.useState(false);
-  const [agents, setAgents] = import_react2.useState({});
-  const [agentStats, setAgentStats] = import_react2.useState({});
-  const [logs, setLogs] = import_react2.useState([]);
-  const [types2, setTypes] = import_react2.useState([]);
-  const [models, setModels] = import_react2.useState([]);
-  const [skillTemplates, setSkillTemplates] = import_react2.useState([]);
-  const [extensionTemplates, setExtensionTemplates] = import_react2.useState([]);
-  const [skills, setSkills] = import_react2.useState([]);
-  const [skillDiagnostics, setSkillDiagnostics] = import_react2.useState([]);
-  const [extensions, setExtensions] = import_react2.useState([]);
-  const [editingTemplate, setEditingTemplate] = import_react2.useState(null);
-  const [editingType, setEditingType] = import_react2.useState(undefined);
-  const [inspectAgentName, setInspectAgentName] = import_react2.useState(null);
-  const [inspectText, setInspectText] = import_react2.useState("Loading…");
-  const pushLog = import_react2.useCallback((text7, level = "info") => {
+  const [activeTab, setActiveTab] = import_react7.useState("agents");
+  const [connected, setConnected] = import_react7.useState(false);
+  const [agents, setAgents] = import_react7.useState({});
+  const [agentStats, setAgentStats] = import_react7.useState({});
+  const [logs, setLogs] = import_react7.useState([]);
+  const [types2, setTypes] = import_react7.useState([]);
+  const [models, setModels] = import_react7.useState([]);
+  const [skillTemplates, setSkillTemplates] = import_react7.useState([]);
+  const [extensionTemplates, setExtensionTemplates] = import_react7.useState([]);
+  const [skills, setSkills] = import_react7.useState([]);
+  const [skillDiagnostics, setSkillDiagnostics] = import_react7.useState([]);
+  const [extensions, setExtensions] = import_react7.useState([]);
+  const [editingTemplate, setEditingTemplate] = import_react7.useState(null);
+  const [editingType, setEditingType] = import_react7.useState(undefined);
+  const [inspectAgentName, setInspectAgentName] = import_react7.useState(null);
+  const [inspectText, setInspectText] = import_react7.useState("Loading…");
+  const pushLog = import_react7.useCallback((text7, level = "info") => {
     setLogs((prev) => [{ id: Date.now() + Math.random(), level, text: `${new Date().toLocaleTimeString()}  ${text7}` }, ...prev].slice(0, 100));
   }, []);
-  const refreshTypes = import_react2.useCallback(async () => {
+  const refreshTypes = import_react7.useCallback(async () => {
     try {
       const res = await fetch("/api/agent-types");
       if (!res.ok)
@@ -29938,7 +33095,7 @@ function App() {
       pushLog(`Failed to load agent types: ${e.message}`, "error");
     }
   }, [pushLog]);
-  const refreshModels = import_react2.useCallback(async () => {
+  const refreshModels = import_react7.useCallback(async () => {
     try {
       const res = await fetch("/api/models");
       if (!res.ok)
@@ -29949,14 +33106,14 @@ function App() {
       setModels([]);
     }
   }, []);
-  const refreshStats = import_react2.useCallback(async () => {
+  const refreshStats = import_react7.useCallback(async () => {
     try {
       const res = await fetch("/api/agent-stats");
       if (res.ok)
         setAgentStats(await res.json());
     } catch {}
   }, []);
-  const refreshTemplates = import_react2.useCallback(async () => {
+  const refreshTemplates = import_react7.useCallback(async () => {
     try {
       const [skillTemplatesRes, extsRes, availableExtsRes, skillsRes] = await Promise.all([
         fetch("/api/skill-templates"),
@@ -29989,7 +33146,7 @@ function App() {
       pushLog(`Failed to load templates: ${e.message}`, "error");
     }
   }, [pushLog]);
-  const handleEvent = import_react2.useCallback((ev) => {
+  const handleEvent = import_react7.useCallback((ev) => {
     switch (ev.type) {
       case "init":
         setAgents(Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [k, { ...v }])));
@@ -30032,7 +33189,7 @@ function App() {
         break;
     }
   }, [pushLog]);
-  import_react2.useEffect(() => {
+  import_react7.useEffect(() => {
     let stopped = false;
     let es = null;
     let retry;
@@ -30056,7 +33213,7 @@ function App() {
         clearTimeout(retry);
     };
   }, [handleEvent]);
-  import_react2.useEffect(() => {
+  import_react7.useEffect(() => {
     refreshTypes();
     refreshModels();
     refreshTemplates();
@@ -30091,25 +33248,25 @@ function App() {
       setInspectText(`Inspect failed: ${e.message}`);
     }
   };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+  return /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
     className: "flex min-h-screen flex-col bg-background text-foreground",
     children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("header", {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("header", {
         className: "sticky top-0 z-10 border-b border-border bg-background/85 px-4 py-3 backdrop-blur",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
           className: "flex flex-wrap items-center justify-between gap-3",
           children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
               className: "flex min-w-0 flex-1 flex-wrap items-center gap-3",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h1", {
+                /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("h1", {
                   className: "whitespace-nowrap text-xl font-semibold tracking-tight",
                   children: "\uD83E\uDDE0 Pi Orchestrator"
                 }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("nav", {
+                /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("nav", {
                   className: "flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-md border border-border bg-card/50 p-1",
                   "aria-label": "Dashboard sections",
-                  children: tabs.map((tab2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
+                  children: tabs.map((tab2) => /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("button", {
                     type: "button",
                     className: `whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition ${activeTab === tab2.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
                     onClick: () => setActiveTab(tab2.id),
@@ -30118,20 +33275,20 @@ function App() {
                 }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
               className: "flex shrink-0 items-center gap-3",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("span", {
                   className: "flex items-center gap-2 text-sm text-muted-foreground",
                   children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
+                    /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("span", {
                       className: `h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-muted-foreground"}`
                     }, undefined, false, undefined, this),
                     " ",
                     connected ? "Connected" : "Disconnected"
                   ]
                 }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(Button, {
                   variant: "destructive",
                   onClick: emergencyStop,
                   children: "\uD83D\uDED1 Emergency Stop"
@@ -30141,49 +33298,42 @@ function App() {
           ]
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("main", {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("main", {
         className: "flex-1 overflow-hidden p-4",
         children: [
-          activeTab === "agents" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(AgentsPanel, {
+          activeTab === "agents" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(AgentsPanel, {
             agents,
             stats: agentStats,
             onInspect: inspect,
             pushLog
           }, undefined, false, undefined, this),
-          activeTab === "types" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "types" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(AgentTypesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(AgentTypesPanel, {
               types: types2,
               onNew: () => setEditingType(null),
               onEdit: (type) => setEditingType(type),
               large: true
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "skills" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillLibraryPanel, {
+          activeTab === "skills" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(SkillLibraryPanel, {
             skills,
             diagnostics: skillDiagnostics,
             skillTemplates,
             onEditTemplate: (template) => setEditingTemplate({ kind: "skill", template }),
             onChanged: refreshTemplates
           }, undefined, false, undefined, this),
-          activeTab === "orchestratorLibraries" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "orchestratorLibraries" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(OrchestratorLibrariesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(OrchestratorLibrariesPanel, {
               pushLog,
               onDisplaySettingsChanged: refreshTypes,
               onNativeSettingsSaved: refreshTemplates
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "resourceSettings" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
-            mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceSettingsPanel, {
-              onSaved: refreshTemplates,
-              pushLog
-            }, undefined, false, undefined, this)
-          }, undefined, false, undefined, this),
-          activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplatesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(TemplatesPanel, {
               kind: "skill",
               templates: skillTemplates,
               onNew: () => setEditingTemplate({ kind: "skill" }),
@@ -30192,9 +33342,9 @@ function App() {
               pushLog
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "extensionTemplates" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "extensionTemplates" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplatesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(TemplatesPanel, {
               kind: "extension",
               templates: extensionTemplates,
               onNew: () => setEditingTemplate({ kind: "extension" }),
@@ -30203,21 +33353,21 @@ function App() {
               pushLog
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "hierarchy" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "hierarchy" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(HierarchyPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(HierarchyPanel, {
               agents
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "log" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
+          activeTab === "log" && /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(EventLog, {
+            children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(EventLog, {
               logs
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TypeEditorDialog, {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(TypeEditorDialog, {
         open: editingType !== undefined,
         typeDef: editingType ?? undefined,
         models,
@@ -30230,7 +33380,7 @@ function App() {
           pushLog("Saved agent type", "success");
         }
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplateEditorDialog, {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(TemplateEditorDialog, {
         open: !!editingTemplate,
         kind: editingTemplate?.kind || "skill",
         template: editingTemplate?.template,
@@ -30243,12 +33393,12 @@ function App() {
           pushLog("Saved template", "success");
         }
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(Dialog, {
         open: !!inspectAgentName,
         title: `Inspect ${inspectAgentName || "Agent"}`,
         onOpenChange: () => setInspectAgentName(null),
         className: "max-w-5xl",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
+        children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("pre", {
           className: "max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 text-sm leading-6",
           children: inspectText
         }, undefined, false, undefined, this)
@@ -30258,2856 +33408,29 @@ function App() {
 }
 function PageFrame({ mode, children }) {
   const className = mode === "centered" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-7xl";
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+  return /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
     className,
     children
   }, undefined, false, undefined, this);
 }
-function AgentsPanel({ agents, stats, onInspect, pushLog }) {
-  const entries = Object.entries(agents);
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: "min-h-[70vh]",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-          children: "Active Agents"
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        children: !entries.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground",
-          children: "No agents running."
-        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "grid gap-4 xl:grid-cols-2 2xl:grid-cols-3",
-          children: entries.map(([name2, agent]) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(AgentCard, {
-            name: name2,
-            agent,
-            stats: stats[name2],
-            onInspect,
-            pushLog
-          }, name2, false, undefined, this))
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function AgentCard({ name: name2, agent, stats, onInspect, pushLog }) {
-  const [message, setMessage] = import_react2.useState("");
-  const send = async () => {
-    if (!message.trim())
-      return;
-    const body = message.trim();
-    setMessage("");
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(name2)}/send`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: body }) });
-      if (!res.ok)
-        throw new Error(String(res.status));
-      pushLog(`Queued message for ${name2}`);
-    } catch (e) {
-      pushLog(`Send to ${name2} failed: ${e.message}`, "error");
-    }
-  };
-  const kill = async () => {
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(name2)}/kill`, { method: "POST" });
-      if (!res.ok)
-        throw new Error(String(res.status));
-    } catch (e) {
-      pushLog(`Kill ${name2} failed: ${e.message}`, "error");
-    }
-  };
-  const copyPath = async () => {
-    try {
-      await navigator.clipboard.writeText(agent.worktree || "");
-      pushLog(`Copied worktree path for ${name2}`, "success");
-    } catch {
-      pushLog(`Worktree path: ${agent.worktree}`);
-    }
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: agent.status === "streaming" ? "border-primary/50" : "",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        className: "border-b border-border",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex items-center justify-between gap-3",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-              children: name2
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-              variant: statusVariant(agent.status),
-              children: agent.status
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        className: "space-y-3 pt-4",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                children: agent.definition ? `type: ${agent.definition}` : "no type"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                children: agent.parent ? `parent: ${agent.parent}` : "root"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                children: [
-                  "turns: ",
-                  agent.turns || 0
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Stats, {
-                stats
-              }, undefined, false, undefined, this),
-              agent.worktree && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                    title: agent.worktree,
-                    children: [
-                      "worktree: ",
-                      shortPath(agent.worktree)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                    variant: "secondary",
-                    className: "px-2 py-1 text-xs",
-                    onClick: copyPath,
-                    children: "Copy Path"
-                  }, undefined, false, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
-                children: [
-                  "tools: ",
-                  agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
-                ]
-              }, undefined, true, undefined, this),
-              !!agent.runtimeTools?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                variant: "warning",
-                title: agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join(`
-`),
-                children: [
-                  "tool conflicts: ",
-                  agent.runtimeTools.conflicts.length
-                ]
-              }, undefined, true, undefined, this)
-            ]
-          }, undefined, true, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-            className: "max-h-72 min-h-28 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6",
-            children: agent.text || ""
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "flex gap-2",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-                value: message,
-                onChange: (e) => setMessage(e.target.value),
-                onKeyDown: (e) => {
-                  if (e.key === "Enter")
-                    send();
-                },
-                placeholder: "Message…"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                onClick: send,
-                children: "Send"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                variant: "secondary",
-                onClick: () => onInspect(name2),
-                children: "Inspect"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                variant: "destructive",
-                onClick: kill,
-                children: "Kill"
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function Stats({ stats }) {
-  if (!stats || stats.error)
-    return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-          children: "ctx: —"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-          children: "cost: —"
-        }, undefined, false, undefined, this)
-      ]
-    }, undefined, true, undefined, this);
-  const s = stats.stats || {};
-  const state = stats.state || {};
-  const context = s.contextUsage || {};
-  const used = context.tokens ?? context.current ?? s.tokens?.total;
-  const max = context.contextWindow ?? context.max ?? state.model?.contextWindow;
-  const pct = used && max ? Math.round(used / max * 100) : undefined;
-  const cost = typeof s.cost === "number" ? `$${s.cost.toFixed(4)}` : "—";
-  const tokenText = used && max ? `${formatCompactNumber(used)} / ${formatCompactNumber(max)}` : formatCompactNumber(s.tokens?.total);
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-        children: [
-          "ctx: ",
-          pct !== undefined ? `${pct}% ` : "",
-          tokenText
-        ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-        children: [
-          "cost: ",
-          cost
-        ]
-      }, undefined, true, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-var spawnableAgentClasses = ["lead", "scout", "implementer", "reviewer"];
-function AgentTypesPanel({ types: types2, onNew, onEdit, large }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: large ? "min-h-[70vh]" : "",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        className: "border-b border-border",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex items-center justify-between gap-3",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-              children: "Agent Types"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              className: "px-2 py-1 text-xs",
-              onClick: onNew,
-              children: "+ New Type"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        className: "pt-4",
-        children: !types2.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-          className: "text-sm text-muted-foreground",
-          children: "No agent types found."
-        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "grid gap-3 md:grid-cols-2",
-          children: types2.map((type) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "rounded-md border border-border p-3",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex items-start justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "min-w-0",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "flex flex-wrap items-center gap-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                          className: "truncate text-sm font-semibold",
-                          children: type.name
-                        }, undefined, false, undefined, this),
-                        type.agentClass && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                          variant: "outline",
-                          children: type.agentClass
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
-                      children: type.description
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                  variant: "secondary",
-                  className: "shrink-0 px-2 py-1 text-xs",
-                  onClick: () => onEdit(type),
-                  children: "Edit"
-                }, undefined, false, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, type.name, false, undefined, this))
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function HierarchyPanel({ agents }) {
-  const [expanded, setExpanded] = import_react2.useState(new Set);
-  const childrenByParent = import_react2.useMemo(() => {
-    const map3 = new Map;
-    for (const agent of Object.values(agents)) {
-      if (!agent.parent)
-        continue;
-      map3.set(agent.parent, [...map3.get(agent.parent) || [], agent.name]);
-    }
-    return map3;
-  }, [agents]);
-  const roots = Object.values(agents).filter((a) => !a.parent || !agents[a.parent]);
-  const renderNode = (agent, depth = 0) => {
-    const children = Array.from(new Set([...agent.children || [], ...childrenByParent.get(agent.name) || []])).filter((name2) => agents[name2]);
-    const hasChildren = children.length > 0;
-    const isExpanded = expanded.has(agent.name);
-    return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-          className: "w-full py-1 text-left text-sm",
-          style: { paddingLeft: depth * 16 },
-          onClick: () => hasChildren && setExpanded((prev) => {
-            const next = new Set(prev);
-            next.has(agent.name) ? next.delete(agent.name) : next.add(agent.name);
-            return next;
-          }),
-          children: [
-            hasChildren ? isExpanded ? "▼ " : "▶ " : "  ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("strong", {
-              children: agent.name
-            }, undefined, false, undefined, this),
-            " ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-              className: "text-xs text-muted-foreground",
-              children: [
-                "[",
-                agent.definition || "custom",
-                "]"
-              ]
-            }, undefined, true, undefined, this),
-            " ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-              variant: statusVariant(agent.status),
-              children: agent.status
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        isExpanded && children.map((child) => renderNode(agents[child], depth + 1))
-      ]
-    }, agent.name, true, undefined, this);
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: "min-h-[70vh]",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-          children: "Hierarchy"
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        children: roots.length ? roots.map((root4) => renderNode(root4)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "text-sm text-muted-foreground",
-          children: "No agents yet."
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
 function EventLog({ logs }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
+  return /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(Card, {
     className: "min-h-[70vh]",
     children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(CardHeader, {
+        children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(CardTitle, {
           children: "Event Log"
         }, undefined, false, undefined, this)
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
+      /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(CardContent, {
         className: "max-h-[70vh] space-y-1 overflow-auto font-mono text-xs text-muted-foreground",
-        children: logs.length ? logs.map((line) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+        children: logs.length ? logs.map((line) => /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
           className: `border-l-2 pl-2 ${line.level === "error" ? "border-destructive" : line.level === "success" ? "border-emerald-400" : line.level === "warn" ? "border-amber-400" : "border-primary"}`,
           children: line.text
         }, line.id, false, undefined, this)) : "Waiting for events…"
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
-}
-function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativeSettingsSaved }) {
-  const [data, setData] = import_react2.useState(null);
-  const [loading, setLoading] = import_react2.useState(false);
-  const [savingScope, setSavingScope] = import_react2.useState(null);
-  const [savingDisplay, setSavingDisplay] = import_react2.useState(false);
-  const [showNativeSettings, setShowNativeSettings] = import_react2.useState(false);
-  const [error, setError] = import_react2.useState("");
-  const load = import_react2.useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/orchestrator-libraries");
-      if (!res.ok)
-        throw new Error(await res.text());
-      setData(await res.json());
-    } catch (e) {
-      setError(e.message || "Failed to load Orchestrator Libraries");
-      pushLog(`Failed to load Orchestrator Libraries: ${e.message}`, "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [pushLog]);
-  import_react2.useEffect(() => {
-    load();
-  }, [load]);
-  const moveLibrary = async (root4, direction) => {
-    if (!data)
-      return;
-    const library = data.libraries.find((candidate) => candidate.root === root4);
-    if (!library)
-      return;
-    const scope = root4.includes("/.pi/") ? "project" : "global";
-    const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
-    const index2 = scoped.findIndex((candidate) => candidate.root === root4);
-    const nextIndex = index2 + direction;
-    if (index2 < 0 || nextIndex < 0 || nextIndex >= scoped.length)
-      return;
-    const reordered = [...scoped];
-    [reordered[index2], reordered[nextIndex]] = [reordered[nextIndex], reordered[index2]];
-    setSavingScope(scope);
-    try {
-      const res = await fetch("/api/orchestrator-libraries/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, libraries: reordered.map((item) => item.root) }) });
-      if (!res.ok)
-        throw new Error(await res.text());
-      pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
-      await load();
-    } catch (e) {
-      setError(e.message || "Failed to reorder Orchestrator Libraries");
-      pushLog(`Failed to reorder Orchestrator Libraries: ${e.message}`, "error");
-    } finally {
-      setSavingScope(null);
-    }
-  };
-  const setShowPackageExamples = async (showPackageExamples) => {
-    setSavingDisplay(true);
-    setError("");
-    try {
-      const res = await fetch("/api/orchestrator-libraries/display-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples }) });
-      if (!res.ok)
-        throw new Error(await responseErrorText(res));
-      pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
-      await load();
-      onDisplaySettingsChanged();
-    } catch (e) {
-      setError(e.message || "Failed to update display settings");
-      pushLog(`Failed to update display settings: ${e.message}`, "error");
-    } finally {
-      setSavingDisplay(false);
-    }
-  };
-  const counts = import_react2.useMemo(() => {
-    const result = {};
-    for (const resource of data?.resources || []) {
-      result[resource.libraryName] ||= {};
-      result[resource.libraryName][resource.kind] = (result[resource.libraryName][resource.kind] || 0) + 1;
-    }
-    return result;
-  }, [data]);
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "space-y-4",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            className: "border-b border-border",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex items-center justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: "Orchestrator Libraries"
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                  variant: "secondary",
-                  onClick: load,
-                  disabled: loading,
-                  children: "Refresh"
-                }, undefined, false, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "space-y-2 pt-4 text-sm text-muted-foreground",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                children: "Orchestrator Libraries are user-owned, version-controlled folders for agent types, skill templates, extension templates, and curated skills/extensions."
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                children: [
-                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "piAgentOrchestrator.libraries"
-                  }, undefined, false, undefined, this),
-                  " in global or project settings; earlier libraries influence defaults and diagnostics."
-                ]
-              }, undefined, true, undefined, this),
-              loading && !data && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "space-y-3 pt-1",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "rounded-md border border-border bg-background/60 p-3",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mb-2 h-4 w-48 animate-pulse rounded bg-muted"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "h-3 w-full max-w-2xl animate-pulse rounded bg-muted/70"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mt-2 h-3 w-3/4 max-w-xl animate-pulse rounded bg-muted/70"
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "rounded-md border border-dashed border-border p-6",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mx-auto mb-2 h-4 w-64 animate-pulse rounded bg-muted"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mx-auto h-3 w-80 max-w-full animate-pulse rounded bg-muted/70"
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              data?.settings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/60 p-3",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "font-medium text-foreground",
-                        children: "Package example resources"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "text-xs",
-                        children: [
-                          "Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings: ",
-                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                            children: "piAgentOrchestrator.showPackageExamples"
-                          }, undefined, false, undefined, this),
-                          "."
-                        ]
-                      }, undefined, true, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
-                    className: "flex shrink-0 items-center gap-2 text-sm text-foreground",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("input", {
-                        type: "checkbox",
-                        checked: data.settings.showPackageExamples,
-                        disabled: savingDisplay,
-                        onChange: (e) => setShowPackageExamples(e.target.checked)
-                      }, undefined, false, undefined, this),
-                      " Show package examples"
-                    ]
-                  }, undefined, true, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive",
-                children: error
-              }, undefined, false, undefined, this),
-              data && !data.libraries.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "rounded-md border border-dashed border-border p-6 text-center",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "font-medium text-foreground",
-                    children: "No Orchestrator Library configured yet."
-                  }, undefined, false, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "mt-1",
-                    children: "Set up a library to version-control your agent types and templates."
-                  }, undefined, false, undefined, this)
-                ]
-              }, undefined, true, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      data?.diagnostics.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-              children: "Diagnostics"
-            }, undefined, false, undefined, this)
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "space-y-2",
-            children: data.diagnostics.map((diagnostic, index2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: `rounded-md border p-2 text-sm ${diagnostic.level === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-amber-400/40 bg-amber-400/10 text-amber-200"}`,
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("strong", {
-                  children: [
-                    diagnostic.level,
-                    ":"
-                  ]
-                }, undefined, true, undefined, this),
-                " ",
-                diagnostic.message,
-                diagnostic.path ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "mt-1 font-mono text-xs opacity-80",
-                  children: diagnostic.path
-                }, undefined, false, undefined, this) : null
-              ]
-            }, index2, true, undefined, this))
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this) : null,
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            className: "border-b border-border",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex items-center justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                      children: "Advanced native Pi resource paths"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "mt-1 text-xs text-muted-foreground",
-                      children: "Optional escape hatch for Pi's raw skills/extensions settings. Prefer Orchestrator Libraries for orchestrator resources."
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                  variant: "secondary",
-                  onClick: () => setShowNativeSettings((value) => !value),
-                  children: [
-                    showNativeSettings ? "Hide" : "Show",
-                    " native paths"
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this),
-          showNativeSettings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "pt-4",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceSettingsPanel, {
-              onSaved: onNativeSettingsSaved,
-              pushLog
-            }, undefined, false, undefined, this)
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      data?.libraries.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "grid gap-4 xl:grid-cols-2",
-        children: data.libraries.map((library) => {
-          const name2 = library.manifest?.name || shortPath(library.root);
-          const libraryCounts = counts[name2] || {};
-          const scope = library.root.includes("/.pi/") ? "project" : "global";
-          const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
-          const scopeIndex = scoped.findIndex((candidate) => candidate.root === library.root);
-          return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-            className: !library.valid ? "border-destructive/50" : "",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-                className: "border-b border-border",
-                children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "flex items-start justify-between gap-3",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                          children: name2
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "mt-1 font-mono text-xs text-muted-foreground",
-                          children: library.root
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "flex shrink-0 items-center gap-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                          variant: "outline",
-                          children: scope
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          disabled: scopeIndex <= 0 || savingScope === scope,
-                          onClick: () => moveLibrary(library.root, -1),
-                          children: "↑"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          disabled: scopeIndex < 0 || scopeIndex >= scoped.length - 1 || savingScope === scope,
-                          onClick: () => moveLibrary(library.root, 1),
-                          children: "↓"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                          variant: library.valid ? "success" : "destructive",
-                          children: library.valid ? "valid" : "invalid"
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-                className: "space-y-3 pt-4 text-sm",
-                children: [
-                  library.manifest?.description && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                    className: "text-muted-foreground",
-                    children: library.manifest.description
-                  }, undefined, false, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "grid grid-cols-2 gap-2 text-xs text-muted-foreground md:grid-cols-3",
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        children: [
-                          "Agents: ",
-                          libraryCounts.agents || 0
-                        ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        children: [
-                          "Skill templates: ",
-                          libraryCounts.skillTemplates || 0
-                        ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        children: [
-                          "Extension templates: ",
-                          libraryCounts.extensionTemplates || 0
-                        ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        children: [
-                          "Skills: ",
-                          libraryCounts.skills || 0
-                        ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        children: [
-                          "Extensions: ",
-                          libraryCounts.extensions || 0
-                        ]
-                      }, undefined, true, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this),
-                  library.diagnostics.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                    className: "space-y-1",
-                    children: library.diagnostics.map((diagnostic, index2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "text-xs text-muted-foreground",
-                      children: [
-                        diagnostic.level,
-                        ": ",
-                        diagnostic.message
-                      ]
-                    }, index2, true, undefined, this))
-                  }, undefined, false, undefined, this) : null
-                ]
-              }, undefined, true, undefined, this)
-            ]
-          }, library.root, true, undefined, this);
-        })
-      }, undefined, false, undefined, this) : null
-    ]
-  }, undefined, true, undefined, this);
-}
-function ResourceSettingsPanel({ onSaved, pushLog }) {
-  const [settings, setSettings] = import_react2.useState(null);
-  const [drafts, setDrafts] = import_react2.useState({ global: { skills: [], extensions: [] }, project: { skills: [], extensions: [] } });
-  const [loading, setLoading] = import_react2.useState(false);
-  const [saving, setSaving] = import_react2.useState(null);
-  const [error, setError] = import_react2.useState("");
-  const load = import_react2.useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/resource-settings");
-      if (!res.ok)
-        throw new Error(await res.text());
-      const data = await res.json();
-      setSettings(data);
-      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
-    } catch (e) {
-      setError(e.message || "Failed to load skill and extension paths");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-  import_react2.useEffect(() => {
-    load();
-  }, [load]);
-  const save = async (scope) => {
-    const missing = [...drafts[scope].skills, ...drafts[scope].extensions].filter((value) => value.trim() && !value.trim().startsWith("!") && !/[*?\[\]{}]/.test(value)).filter((value) => {
-      const current = settings?.[scope];
-      const found = current?.validation.skills.concat(current.validation.extensions).find((item) => item.rawPath === value);
-      return found?.exists === false;
-    });
-    if (missing.length && !confirm(`Some paths do not exist yet:
-${missing.join(`
-`)}
-
-Save anyway?`))
-      return;
-    if (drafts[scope].extensions.length && !confirm("Extension source paths execute code with full system permissions. Save only trusted paths. Continue?"))
-      return;
-    setSaving(scope);
-    setError("");
-    try {
-      const res = await fetch("/api/resource-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, ...drafts[scope] }) });
-      if (!res.ok)
-        throw new Error(await res.text());
-      const data = await res.json();
-      setSettings(data);
-      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
-      pushLog(`Saved ${scope} skill and extension paths. Reload/restart may be needed for all sessions.`, "success");
-      onSaved();
-    } catch (e) {
-      setError(e.message || "Failed to save skill and extension paths");
-      pushLog(`Failed to save skill and extension paths: ${e.message}`, "error");
-    } finally {
-      setSaving(null);
-    }
-  };
-  const changed = (scope) => JSON.stringify(drafts[scope]) !== JSON.stringify({ skills: settings?.[scope].skills || [], extensions: settings?.[scope].extensions || [] });
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "space-y-4",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            className: "border-b border-border",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex items-center justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: "Advanced: Native Pi Skill & Extension Paths"
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                  variant: "secondary",
-                  onClick: load,
-                  disabled: loading,
-                  children: "Refresh"
-                }, undefined, false, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "space-y-2 pt-4 text-sm text-muted-foreground",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                children: [
-                  "Advanced/native Pi settings only. Prefer Orchestrator Libraries for orchestrator-managed agents, templates, skills, and extensions; use these raw ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "settings.json"
-                  }, undefined, false, undefined, this),
-                  " arrays only for native Pi resources that must be loaded outside a library."
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                children: [
-                  "Paths may be absolute, ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "~"
-                  }, undefined, false, undefined, this),
-                  "-prefixed, relative, globs, or exclusions. Global relative paths resolve from ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "~/.pi/agent"
-                  }, undefined, false, undefined, this),
-                  "; project relative paths resolve from ",
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: ".pi"
-                  }, undefined, false, undefined, this),
-                  "."
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                className: "text-amber-300",
-                children: "Extensions execute code with full system permissions. Only configure extension paths you trust. Settings changes may require Pi reload/restart for all running sessions to see them."
-              }, undefined, false, undefined, this),
-              error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive",
-                children: error
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      settings ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "grid gap-4 xl:grid-cols-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceScopePanel, {
-            scope: settings.global,
-            draft: drafts.global,
-            onDraft: (draft) => setDrafts((prev) => ({ ...prev, global: draft })),
-            changed: changed("global"),
-            saving: saving === "global",
-            onSave: () => save("global"),
-            onReset: () => setDrafts((prev) => ({ ...prev, global: { skills: settings.global.skills, extensions: settings.global.extensions } }))
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceScopePanel, {
-            scope: settings.project,
-            draft: drafts.project,
-            onDraft: (draft) => setDrafts((prev) => ({ ...prev, project: draft })),
-            changed: changed("project"),
-            saving: saving === "project",
-            onSave: () => save("project"),
-            onReset: () => setDrafts((prev) => ({ ...prev, project: { skills: settings.project.skills, extensions: settings.project.extensions } }))
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-          className: "p-6 text-sm text-muted-foreground",
-          children: loading ? "Loading skill and extension paths…" : "No settings loaded."
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function ResourceScopePanel({ scope, draft, onDraft, changed, saving, onSave, onReset }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: "min-h-[60vh]",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        className: "border-b border-border",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex items-start justify-between gap-3",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: scope.label
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "mt-1 text-xs text-muted-foreground",
-                  title: scope.settingsPath,
-                  children: [
-                    scope.settingsPath,
-                    scope.exists ? "" : " (will be created)"
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, undefined, true, undefined, this),
-            changed && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-              variant: "default",
-              children: "Unsaved"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        className: "space-y-5 pt-4",
-        children: [
-          (scope.parseError || scope.readError) && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive",
-            children: scope.parseError || scope.readError
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceListEditor, {
-            title: "Skill source paths",
-            kind: "skills",
-            values: draft.skills,
-            validation: scope.validation.skills,
-            onChange: (skills) => onDraft({ ...draft, skills })
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceListEditor, {
-            title: "Extension source paths",
-            kind: "extensions",
-            values: draft.extensions,
-            validation: scope.validation.extensions,
-            onChange: (extensions) => onDraft({ ...draft, extensions })
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            className: "flex gap-2 border-t border-border pt-4",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                onClick: onSave,
-                disabled: !changed || saving,
-                children: saving ? "Saving…" : "Save changes"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                variant: "secondary",
-                onClick: onReset,
-                disabled: !changed || saving,
-                children: "Reset"
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function ResourceListEditor({ title, kind, values: values2, validation, onChange }) {
-  const update = (index2, value) => onChange(values2.map((item, i) => i === index2 ? value : item));
-  const remove = (index2) => onChange(values2.filter((_, i) => i !== index2));
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "space-y-2",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "flex items-center justify-between gap-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h3", {
-                className: "text-sm font-semibold",
-                children: title
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-                className: "text-xs text-muted-foreground",
-                children: kind === "skills" ? "Markdown instruction sources; skills may reference scripts agents can invoke." : "Trusted local extension files/directories only."
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-            variant: "secondary",
-            className: "px-2 py-1 text-xs",
-            onClick: () => onChange([...values2, ""]),
-            children: "+ Add path"
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      !values2.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground",
-        children: [
-          "No ",
-          kind,
-          " paths configured."
-        ]
-      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "space-y-2",
-        children: values2.map((value, index2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourcePathRow, {
-          value,
-          validation: validation.find((item) => item.rawPath === value),
-          onChange: (next) => update(index2, next),
-          onRemove: () => remove(index2)
-        }, index2, false, undefined, this))
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function ResourcePathRow({ value, validation, onChange, onRemove }) {
-  const variant = validation?.errors.length ? "destructive" : validation?.exists ? "success" : "outline";
-  const label = validation ? validation.type === "glob" || validation.type === "exclusion" ? validation.type : validation.exists ? `${validation.type}${typeof validation.count === "number" ? ` · ${validation.count}` : ""}` : "missing" : "pending";
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "rounded-md border border-border p-2",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "flex gap-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-            value,
-            onChange: (e) => onChange(e.target.value),
-            placeholder: "e.g. ~/my-pi-skills or ../shared/extensions"
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-            variant: "destructive",
-            className: "px-2 py-1 text-xs",
-            onClick: onRemove,
-            children: "Remove"
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-            variant,
-            children: label
-          }, undefined, false, undefined, this),
-          validation?.resolvedPath && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-            title: validation.resolvedPath,
-            children: shortPath(validation.resolvedPath)
-          }, undefined, false, undefined, this),
-          validation?.warnings.map((warning, i) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-            className: "text-amber-300",
-            children: [
-              "⚠ ",
-              warning
-            ]
-          }, i, true, undefined, this)),
-          validation?.errors.map((err, i) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-            className: "text-destructive",
-            children: err
-          }, i, false, undefined, this))
-        ]
-      }, undefined, true, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function displayScopeLabel(scope) {
-  if (scope === "user")
-    return "global";
-  return scope || "unknown";
-}
-function skillScopeLabel(skill) {
-  return displayScopeLabel(skill.scope || skill.source);
-}
-function skillTemplateItemValue(skill) {
-  return skill.ref || skill.name;
-}
-function SkillSourceBadges({ skill }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-    children: [
-      skill.packageProvided && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-        variant: "outline",
-        children: "package"
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-        variant: "outline",
-        children: skillScopeLabel(skill)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function normalizeSkillName(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
-}
-function SkillLibraryPanel({ skills, diagnostics, skillTemplates, onEditTemplate, onChanged }) {
-  const [query, setQuery] = import_react2.useState("");
-  const [scope, setScope] = import_react2.useState("all");
-  const [selectedId, setSelectedId] = import_react2.useState();
-  const [detail, setDetail] = import_react2.useState(null);
-  const [detailView, setDetailView] = import_react2.useState("preview");
-  const [tree, setTree] = import_react2.useState([]);
-  const [selectedFile, setSelectedFile] = import_react2.useState("SKILL.md");
-  const [fileDetail, setFileDetail] = import_react2.useState(null);
-  const [editing, setEditing] = import_react2.useState(false);
-  const [editContent, setEditContent] = import_react2.useState("");
-  const [saveError, setSaveError] = import_react2.useState("");
-  const [creating, setCreating] = import_react2.useState(false);
-  const [copying, setCopying] = import_react2.useState(null);
-  const [addTemplateName, setAddTemplateName] = import_react2.useState("");
-  const [templateError, setTemplateError] = import_react2.useState("");
-  const [editableFilter, setEditableFilter] = import_react2.useState("all");
-  const [referenceFilter, setReferenceFilter] = import_react2.useState("all");
-  const [orchestratorLibraries, setOrchestratorLibraries] = import_react2.useState(null);
-  const [loading, setLoading] = import_react2.useState(false);
-  const [error, setError] = import_react2.useState("");
-  const scopes = import_react2.useMemo(() => Array.from(new Set(skills.map(skillScopeLabel))).sort(), [skills]);
-  const selectedSkill = import_react2.useMemo(() => skills.find((skill) => skill.id === selectedId) || skills[0], [selectedId, skills]);
-  const filtered = import_react2.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return skills.filter((skill) => {
-      if (scope !== "all" && skillScopeLabel(skill) !== scope)
-        return false;
-      if (editableFilter === "editable" && !skill.editable)
-        return false;
-      if (editableFilter === "readonly" && skill.editable)
-        return false;
-      const itemValue = skillTemplateItemValue(skill);
-      const referenced = skillTemplates.some((template) => template.items.includes(itemValue) || template.items.includes(skill.name));
-      if (referenceFilter === "referenced" && !referenced)
-        return false;
-      if (referenceFilter === "unreferenced" && referenced)
-        return false;
-      if (!q)
-        return true;
-      return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
-    });
-  }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
-  const templatesUsingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const templatesMissingSkill = import_react2.useMemo(() => selectedSkill ? skillTemplates.filter((template) => !template.items.includes(skillTemplateItemValue(selectedSkill)) && !template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
-  const detailMatchesSelected = !!selectedSkill?.id && detail?.skill.id === selectedSkill.id;
-  import_react2.useEffect(() => {
-    let cancelled = false;
-    fetch("/api/orchestrator-libraries").then((res) => res.ok ? res.json() : undefined).then((data) => {
-      if (!cancelled && data)
-        setOrchestratorLibraries(data);
-    }).catch(() => {
-      if (!cancelled)
-        setOrchestratorLibraries(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [skills.length]);
-  import_react2.useEffect(() => {
-    setDetail(null);
-    setTree([]);
-    setSelectedFile("SKILL.md");
-    setFileDetail(null);
-    setEditContent("");
-    setEditing(false);
-    setSaveError("");
-    if (!selectedSkill?.id) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}`).then(async (res) => {
-      if (!res.ok)
-        throw new Error(await responseErrorText(res));
-      return res.json();
-    }).then((data) => {
-      if (!cancelled) {
-        setDetail(data);
-        setSelectedFile("SKILL.md");
-        setFileDetail(null);
-        setEditContent(data.content || "");
-        setEditing(false);
-        setSaveError("");
-      }
-    }).catch((err) => {
-      if (!cancelled) {
-        setDetail(null);
-        setError(err.message);
-      }
-    }).finally(() => {
-      if (!cancelled)
-        setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSkill?.id]);
-  import_react2.useEffect(() => {
-    if (selectedId && skills.some((skill) => skill.id === selectedId))
-      return;
-    setSelectedId(skills[0]?.id);
-  }, [selectedId, skills]);
-  import_react2.useEffect(() => {
-    setTree([]);
-    if (!selectedSkill?.id)
-      return;
-    let cancelled = false;
-    fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/tree`).then(async (res) => {
-      if (!res.ok)
-        throw new Error(await responseErrorText(res));
-      return res.json();
-    }).then((data) => {
-      if (!cancelled)
-        setTree(Array.isArray(data.files) ? data.files : []);
-    }).catch(() => {
-      if (!cancelled)
-        setTree([]);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedSkill?.id]);
-  const openSkillFile = import_react2.useCallback(async (relativePath) => {
-    if (!selectedSkill?.id)
-      return;
-    if (relativePath === "SKILL.md") {
-      setSelectedFile("SKILL.md");
-      setFileDetail(null);
-      return;
-    }
-    setSaveError("");
-    const res = await fetch(`/api/skills/${encodeURIComponent(selectedSkill.id)}/files?path=${encodeURIComponent(relativePath)}`);
-    if (!res.ok)
-      return setSaveError(await responseErrorText(res));
-    const file = await res.json();
-    setSelectedFile(file.path);
-    setFileDetail(file);
-    setEditing(false);
-    setDetailView("preview");
-  }, [selectedSkill?.id]);
-  const saveEdit = async () => {
-    if (!detail?.skill.id)
-      return;
-    setSaveError("");
-    if (fileDetail) {
-      const res2 = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: fileDetail.hash }) });
-      if (!res2.ok)
-        return setSaveError(await responseErrorText(res2));
-      const next2 = await res2.json();
-      setFileDetail(next2);
-      setEditContent(next2.content || "");
-      setEditing(false);
-      return;
-    }
-    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
-    if (!res.ok)
-      return setSaveError(await responseErrorText(res));
-    const next = await res.json();
-    setDetail(next);
-    setEditContent(next.content || "");
-    setEditing(false);
-    onChanged();
-  };
-  const displayedContent = fileDetail?.content ?? detail?.content ?? "";
-  const displayedBody = fileDetail ? fileDetail.content : detail?.body || detail?.content || "";
-  const deleteSelected = async () => {
-    if (!detail?.skill.id || !detailMatchesSelected)
-      return;
-    if (!confirm(`Delete skill '${detail.skill.name}'? This removes ${detail.skill.kind === "directory" ? "the entire skill directory" : "the skill file"}.`))
-      return;
-    setSaveError("");
-    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "DELETE" });
-    if (!res.ok)
-      return setSaveError(await responseErrorText(res));
-    setDetail(null);
-    setEditing(false);
-    setSelectedId(undefined);
-    onChanged();
-  };
-  const addToTemplate = async () => {
-    if (!selectedSkill || !addTemplateName)
-      return;
-    const template = skillTemplates.find((candidate) => candidate.name === addTemplateName);
-    if (!template)
-      return;
-    setTemplateError("");
-    const skills2 = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
-    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, audience: templateAudience(template), autoApply: templateAutoApply(template), skills: skills2 }) });
-    if (!res.ok)
-      return setTemplateError(await responseErrorText(res));
-    setAddTemplateName("");
-    onChanged();
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "grid h-[calc(100vh-6.5rem)] min-h-[620px] gap-4 lg:grid-cols-[minmax(380px,460px)_1fr]",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        className: "min-h-0 overflow-hidden",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            className: "border-b border-border",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex items-center justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: "Skill Library"
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                  variant: "secondary",
-                  className: "px-2 py-1 text-xs",
-                  onClick: () => setCreating(true),
-                  children: "+ New Skill"
-                }, undefined, false, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-                value: query,
-                onChange: (e) => setQuery(e.target.value),
-                placeholder: "Search skills…"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "grid gap-2",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                    value: scope,
-                    onChange: (e) => setScope(e.target.value),
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "all",
-                        children: "All sources"
-                      }, undefined, false, undefined, this),
-                      scopes.map((value) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value,
-                        children: value
-                      }, value, false, undefined, this))
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                    value: editableFilter,
-                    onChange: (e) => setEditableFilter(e.target.value),
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "all",
-                        children: "Editable + read-only"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "editable",
-                        children: "Editable only"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "readonly",
-                        children: "Read-only only"
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                    value: referenceFilter,
-                    onChange: (e) => setReferenceFilter(e.target.value),
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "all",
-                        children: "All template usage"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "referenced",
-                        children: "In a template"
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                        value: "unreferenced",
-                        children: "Not in templates"
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, undefined, true, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              !!diagnostics.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-200",
-                children: [
-                  diagnostics.length,
-                  " skill diagnostic",
-                  diagnostics.length === 1 ? "" : "s",
-                  ". Select Metadata or inspect invalid skill files for details."
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                className: "min-h-0 flex-1 space-y-2 overflow-auto pr-1",
-                children: !filtered.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground",
-                  children: "No skills found."
-                }, undefined, false, undefined, this) : filtered.map((skill) => {
-                  const active = skill.id === selectedSkill?.id;
-                  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                    className: `w-full rounded-md border p-3 text-left transition ${active ? "border-primary bg-primary/10" : "border-border hover:bg-white/5"}`,
-                    onClick: () => setSelectedId(skill.id),
-                    children: [
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "flex items-center justify-between gap-2",
-                        children: [
-                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                            className: "text-sm font-semibold",
-                            children: skill.name
-                          }, undefined, false, undefined, this),
-                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                            className: "flex gap-1",
-                            children: [
-                              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillSourceBadges, {
-                                skill
-                              }, undefined, false, undefined, this),
-                              skill.editable && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                                variant: "success",
-                                children: "editable"
-                              }, undefined, false, undefined, this)
-                            ]
-                          }, undefined, true, undefined, this)
-                        ]
-                      }, undefined, true, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mt-1 line-clamp-2 text-xs text-muted-foreground",
-                        children: skill.description || "No description."
-                      }, undefined, false, undefined, this),
-                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "mt-2 truncate text-[11px] text-muted-foreground",
-                        title: skill.path,
-                        children: shortPath(skill.path)
-                      }, undefined, false, undefined, this)
-                    ]
-                  }, skill.id || skill.path, true, undefined, this);
-                })
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-        className: "min-h-0 overflow-hidden",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-            className: "border-b border-border",
-            children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex flex-wrap items-center justify-between gap-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: selectedSkill?.name || "Select a skill"
-                }, undefined, false, undefined, this),
-                selectedSkill && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "flex flex-wrap items-center gap-2",
-                  children: [
-                    !editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                      variant: "secondary",
-                      className: "px-2 py-1 text-xs",
-                      onClick: () => setCopying(selectedSkill),
-                      children: "Copy"
-                    }, undefined, false, undefined, this),
-                    detailMatchesSelected && detail?.skill.editable && !editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          onClick: () => {
-                            setEditContent(fileDetail?.content ?? detail.content);
-                            setEditing(true);
-                            setDetailView("preview");
-                          },
-                          children: "Edit"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "destructive",
-                          className: "px-2 py-1 text-xs",
-                          onClick: deleteSelected,
-                          children: "Delete"
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    detailMatchesSelected && editing && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          onClick: () => {
-                            setEditing(false);
-                            setEditContent(fileDetail?.content ?? detail?.content ?? "");
-                            setSaveError("");
-                          },
-                          children: "Cancel"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          className: "px-2 py-1 text-xs",
-                          onClick: saveEdit,
-                          children: "Save"
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "flex rounded-md border border-border bg-background p-1",
-                      children: ["preview", "raw", "metadata"].map((view) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                        type: "button",
-                        className: `rounded px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${detailView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
-                        onClick: () => setDetailView(view),
-                        children: view === "preview" ? "Preview" : view === "raw" ? "Raw" : "Metadata"
-                      }, view, false, undefined, this))
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-            className: "flex h-[calc(100%-4.5rem)] flex-col gap-3 pt-4",
-            children: !selectedSkill ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground",
-              children: "No skills discovered."
-            }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "flex flex-wrap gap-2",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(SkillSourceBadges, {
-                      skill: selectedSkill
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                      variant: "outline",
-                      children: selectedSkill.kind || "skill"
-                    }, undefined, false, undefined, this),
-                    selectedSkill.editable ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                      variant: "success",
-                      children: "editable"
-                    }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                      variant: "warning",
-                      children: "read-only"
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "break-all rounded-md border border-border bg-background p-2 font-mono text-xs text-muted-foreground",
-                  children: selectedSkill.path
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "rounded-md border border-border bg-background p-3",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "mb-2 flex flex-wrap items-center justify-between gap-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "text-xs uppercase tracking-wide text-muted-foreground",
-                          children: "Skill templates using this skill"
-                        }, undefined, false, undefined, this),
-                        !!templatesMissingSkill.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "flex gap-2",
-                          children: [
-                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                              value: addTemplateName,
-                              onChange: (e) => setAddTemplateName(e.target.value),
-                              className: "py-1 text-xs",
-                              children: [
-                                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                                  value: "",
-                                  children: "Add to template…"
-                                }, undefined, false, undefined, this),
-                                templatesMissingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                                  value: template.name,
-                                  children: template.name
-                                }, template.name, false, undefined, this))
-                              ]
-                            }, undefined, true, undefined, this),
-                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                              variant: "secondary",
-                              className: "px-2 py-1 text-xs",
-                              onClick: addToTemplate,
-                              disabled: !addTemplateName,
-                              children: "Add"
-                            }, undefined, false, undefined, this)
-                          ]
-                        }, undefined, true, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "flex flex-wrap gap-1",
-                      children: templatesUsingSkill.length ? templatesUsingSkill.map((template) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                        type: "button",
-                        onClick: () => onEditTemplate(template),
-                        title: "Edit template",
-                        className: "rounded-full",
-                        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                          variant: "default",
-                          children: template.name
-                        }, undefined, false, undefined, this)
-                      }, template.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                        className: "text-xs text-muted-foreground",
-                        children: "No skill templates include this skill yet."
-                      }, undefined, false, undefined, this)
-                    }, undefined, false, undefined, this),
-                    templateError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "mt-2 text-xs text-destructive",
-                      children: templateError
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                loading && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "text-sm text-muted-foreground",
-                  children: "Loading preview…"
-                }, undefined, false, undefined, this),
-                error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
-                  children: error
-                }, undefined, false, undefined, this),
-                saveError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
-                  children: saveError
-                }, undefined, false, undefined, this),
-                loading && !detailMatchesSelected && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "min-h-0 rounded-md border border-border bg-background p-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "mb-2 h-3 w-16 animate-pulse rounded bg-muted"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "space-y-2",
-                          children: [0, 1, 2, 3].map((idx) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                            className: "h-5 animate-pulse rounded bg-muted/70"
-                          }, idx, false, undefined, this))
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "min-h-0 rounded-md border border-border bg-background p-5",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "mb-4 h-6 w-48 animate-pulse rounded bg-muted"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "space-y-3",
-                          children: [0, 1, 2, 3, 4].map((idx) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                            className: "h-4 animate-pulse rounded bg-muted/70"
-                          }, idx, false, undefined, this))
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                detailMatchesSelected && detail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "grid min-h-0 flex-1 gap-3 xl:grid-cols-[260px_1fr]",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "min-h-0 overflow-auto rounded-md border border-border bg-background p-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "mb-2 text-xs uppercase tracking-wide text-muted-foreground",
-                          children: "Files"
-                        }, undefined, false, undefined, this),
-                        tree.length ? tree.map((file) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                          type: "button",
-                          disabled: file.type === "directory",
-                          className: `block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
-                          style: { paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` },
-                          onClick: () => file.type === "file" && openSkillFile(file.path),
-                          children: [
-                            file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• ",
-                            file.name
-                          ]
-                        }, file.path, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "text-xs text-muted-foreground",
-                          children: "No file tree available."
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "min-h-0 overflow-hidden",
-                      children: editing ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                        className: "grid h-full gap-3 xl:grid-cols-2",
-                        children: [
-                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-                            className: "h-full resize-none font-mono text-xs",
-                            value: editContent,
-                            onChange: (e) => setEditContent(e.target.value)
-                          }, undefined, false, undefined, this),
-                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
-                            content: parseMarkdownBody(editContent)
-                          }, undefined, false, undefined, this)
-                        ]
-                      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-                        children: [
-                          detailView === "preview" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(MarkdownPreview, {
-                            content: displayedBody,
-                            basePath: selectedFile,
-                            onOpenRelative: openSkillFile
-                          }, undefined, false, undefined, this),
-                          detailView === "raw" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
-                            children: displayedContent
-                          }, undefined, false, undefined, this),
-                          detailView === "metadata" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-                            className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
-                            children: JSON.stringify({ skill: detail.skill, selectedFile, file: fileDetail, frontmatter: detail.frontmatter, diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath), mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)
-                          }, undefined, false, undefined, this)
-                        ]
-                      }, undefined, true, undefined, this)
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CreateSkillDialog, {
-        open: creating,
-        libraries: orchestratorLibraries,
-        onClose: () => setCreating(false),
-        onCreated: (created) => {
-          setCreating(false);
-          setSelectedId(created.skill.id);
-          setDetail(created);
-          setEditContent(created.content);
-          onChanged();
-        }
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CopySkillDialog, {
-        source: copying,
-        onClose: () => setCopying(null),
-        onCopied: (copied) => {
-          setCopying(null);
-          setSelectedId(copied.skill.id);
-          setDetail(copied);
-          setEditContent(copied.content);
-          onChanged();
-        }
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function parseMarkdownBody(content3) {
-  const match = content3.match(/^---\s*\n[\s\S]*?\n---\s*\n?/);
-  return match ? content3.slice(match[0].length) : content3;
-}
-function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
-  const libraryTargets = import_react2.useMemo(() => (libraries?.libraries || []).filter((library) => library.valid && library.manifest?.name), [libraries]);
-  const defaultTarget = libraryTargets[0]?.manifest?.name ? `library:${libraryTargets[0].manifest.name}` : "global";
-  const [target, setTarget] = import_react2.useState(defaultTarget);
-  const [name2, setName] = import_react2.useState("");
-  const [description, setDescription] = import_react2.useState("");
-  const [body, setBody] = import_react2.useState("");
-  const [scaffold, setScaffold] = import_react2.useState("minimal");
-  const [serverError, setServerError] = import_react2.useState("");
-  import_react2.useEffect(() => {
-    if (open) {
-      setTarget(defaultTarget);
-      setName("");
-      setDescription("");
-      setBody("");
-      setScaffold("minimal");
-      setServerError("");
-    }
-  }, [defaultTarget, open]);
-  const savedName = normalizeSkillName(name2);
-  const errors = [!savedName ? "Name is required." : undefined, !description.trim() ? "Description is required." : undefined].filter(Boolean);
-  const create2 = async () => {
-    setServerError("");
-    if (errors.length)
-      return;
-    const payload = target.startsWith("library:") ? { targetLibrary: target.slice("library:".length), name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold } : { scope: "global", name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold };
-    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok)
-      return setServerError(await responseErrorText(res));
-    onCreated(await res.json());
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
-    open,
-    title: "New Skill",
-    onOpenChange: onClose,
-    className: "max-w-3xl",
-    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-      className: "space-y-3",
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Target"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-          value: target,
-          onChange: (e) => setTarget(e.target.value),
-          children: [
-            libraryTargets.map((library) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: `library:${library.manifest.name}`,
-              children: [
-                "Orchestrator Library: ",
-                library.manifest.name
-              ]
-            }, library.root, true, undefined, this)),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "global",
-              children: "Global Pi skills (~/.pi/agent/skills)"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          tone: libraryTargets.length ? "success" : "muted",
-          children: libraryTargets.length ? "New skills default to the first configured Orchestrator Library by load order." : "No Orchestrator Library is configured; new skills fall back to the global Pi skills folder."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Name"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: name2,
-          onChange: (e) => setName(e.target.value)
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          tone: savedName ? "success" : "muted",
-          children: [
-            "Will be saved as: ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-              className: "rounded bg-muted px-1 py-0.5 text-foreground",
-              children: savedName || "—"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Description"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: description,
-          onChange: (e) => setDescription(e.target.value)
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Scaffold"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-          value: scaffold,
-          onChange: (e) => setScaffold(e.target.value),
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "minimal",
-              children: "Minimal SKILL.md only"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "rich",
-              children: "Rich directory with references/scripts/assets/examples"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Initial body"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-          rows: 8,
-          value: body,
-          onChange: (e) => setBody(e.target.value),
-          placeholder: "# My Skill\\n\\n## Workflow\\n\\n1. ..."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ValidationSummary, {
-          errors,
-          serverError
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex justify-end gap-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              onClick: onClose,
-              children: "Cancel"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              onClick: create2,
-              disabled: !!errors.length,
-              children: "Create Skill"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      ]
-    }, undefined, true, undefined, this)
-  }, undefined, false, undefined, this);
-}
-function CopySkillDialog({ source, onClose, onCopied }) {
-  const [scope, setScope] = import_react2.useState("project");
-  const [name2, setName] = import_react2.useState("");
-  const [description, setDescription] = import_react2.useState("");
-  const [serverError, setServerError] = import_react2.useState("");
-  const open = !!source;
-  import_react2.useEffect(() => {
-    if (source) {
-      setScope("project");
-      setName(`${source.name}-copy`);
-      setDescription(source.description ? `${source.description} (derived copy)` : "Derived copy");
-      setServerError("");
-    }
-  }, [source?.id, source?.name]);
-  const savedName = normalizeSkillName(name2);
-  const errors = [
-    !source?.id ? "Select a source skill." : undefined,
-    !savedName ? "Name is required." : undefined,
-    source && savedName === source.name ? "Choose a new skill name; duplicate names collide and Pi keeps the first discovered skill." : undefined,
-    !description.trim() ? "Description is required." : undefined
-  ].filter(Boolean);
-  const copy = async () => {
-    if (!source?.id || errors.length)
-      return;
-    setServerError("");
-    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim() }) });
-    if (!res.ok)
-      return setServerError(await responseErrorText(res));
-    onCopied(await res.json());
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
-    open,
-    title: source ? `Copy Skill: ${source.name}` : "Copy Skill",
-    onOpenChange: onClose,
-    className: "max-w-2xl",
-    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-      className: "space-y-3",
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100",
-          children: [
-            "Copy creates a new editable skill directory and rewrites ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-              children: "SKILL.md"
-            }, undefined, false, undefined, this),
-            " frontmatter. Do not reuse an existing skill name: duplicate names collide during Pi discovery and Pi keeps the first discovered skill."
-          ]
-        }, undefined, true, undefined, this),
-        source && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "rounded-md border border-border bg-background p-2 text-xs text-muted-foreground",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              children: [
-                "Source: ",
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                  className: "text-foreground",
-                  children: source.name
-                }, undefined, false, undefined, this),
-                " (",
-                skillScopeLabel(source),
-                ")"
-              ]
-            }, undefined, true, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "truncate",
-              title: source.path,
-              children: source.path
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Target scope"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-          value: scope,
-          onChange: (e) => setScope(e.target.value),
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "project",
-              children: "Project (.pi/skills)"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "global",
-              children: "Global / all repos (~/.pi/agent/skills)"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "New name"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: name2,
-          onChange: (e) => setName(e.target.value)
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          tone: savedName && savedName !== source?.name ? "success" : "muted",
-          children: [
-            "Will be saved as: ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-              className: "rounded bg-muted px-1 py-0.5 text-foreground",
-              children: savedName || "—"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "New description"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: description,
-          onChange: (e) => setDescription(e.target.value)
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ValidationSummary, {
-          errors,
-          serverError
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex justify-end gap-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              onClick: onClose,
-              children: "Cancel"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              onClick: copy,
-              disabled: !!errors.length,
-              children: "Copy Skill"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      ]
-    }, undefined, true, undefined, this)
-  }, undefined, false, undefined, this);
-}
-function resolveRelativeMarkdownLink(basePath, href) {
-  if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href))
-    return;
-  const clean = href.split("#")[0].split("?")[0];
-  if (!clean.toLowerCase().endsWith(".md"))
-    return;
-  const baseParts = basePath.includes("/") ? basePath.split("/").slice(0, -1) : [];
-  const parts = [];
-  for (const part of [...baseParts, ...clean.split("/")]) {
-    if (!part || part === ".")
-      continue;
-    if (part === "..")
-      parts.pop();
-    else
-      parts.push(part);
-  }
-  return parts.join("/");
-}
-function escapeXmlLikeBlocks(content3) {
-  return content3.replace(/^<([a-z][\w-]*)([^>]*)>$/gim, "`<$1$2>`").replace(/^<\/([a-z][\w-]*)>$/gim, "`</$1>`");
-}
-function MarkdownPreview({ content: content3, basePath = "SKILL.md", onOpenRelative }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6",
-    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Markdown, {
-      remarkPlugins: [remarkGfm],
-      components: {
-        h1: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h1", {
-          className: "mb-3 border-b border-border pb-2 text-2xl font-semibold",
-          children
-        }, undefined, false, undefined, this),
-        h2: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h2", {
-          className: "mb-2 mt-4 text-xl font-semibold",
-          children
-        }, undefined, false, undefined, this),
-        h3: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("h3", {
-          className: "mb-2 mt-3 text-lg font-semibold",
-          children
-        }, undefined, false, undefined, this),
-        p: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-          className: "mb-3 text-foreground/90",
-          children
-        }, undefined, false, undefined, this),
-        a: ({ href, children }) => {
-          const relative = resolveRelativeMarkdownLink(basePath, href);
-          return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("a", {
-            href,
-            target: relative ? undefined : "_blank",
-            rel: relative ? undefined : "noreferrer",
-            className: "text-primary underline underline-offset-2",
-            onClick: (e) => {
-              if (relative && onOpenRelative) {
-                e.preventDefault();
-                onOpenRelative(relative);
-              }
-            },
-            children
-          }, undefined, false, undefined, this);
-        },
-        ul: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ul", {
-          className: "mb-3 list-disc pl-5",
-          children
-        }, undefined, false, undefined, this),
-        ol: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ol", {
-          className: "mb-3 list-decimal pl-5",
-          children
-        }, undefined, false, undefined, this),
-        code: ({ children, className }) => className ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-          className,
-          children
-        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-          className: "rounded bg-muted px-1 py-0.5 font-mono text-xs",
-          children
-        }, undefined, false, undefined, this),
-        pre: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-          className: "mb-3 overflow-auto rounded-md bg-muted p-3 font-mono text-xs",
-          children
-        }, undefined, false, undefined, this),
-        blockquote: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("blockquote", {
-          className: "mb-3 border-l-2 border-border pl-3 text-muted-foreground",
-          children
-        }, undefined, false, undefined, this),
-        table: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "mb-3 overflow-auto",
-          children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("table", {
-            className: "w-full border-collapse text-xs",
-            children
-          }, undefined, false, undefined, this)
-        }, undefined, false, undefined, this),
-        th: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("th", {
-          className: "border border-border px-2 py-1 text-left font-semibold",
-          children
-        }, undefined, false, undefined, this),
-        td: ({ children }) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("td", {
-          className: "border border-border px-2 py-1",
-          children
-        }, undefined, false, undefined, this)
-      },
-      children: escapeXmlLikeBlocks(content3)
-    }, undefined, false, undefined, this)
-  }, undefined, false, undefined, this);
-}
-function splitItems(text7) {
-  return Array.from(new Set(text7.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)));
-}
-function toggleItemText(text7, item) {
-  const items = splitItems(text7);
-  const next = items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
-  return next.join(`
-`);
-}
-function normalizeTemplateName(value) {
-  return value.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/\.{2,}/g, ".").replace(/^[^a-zA-Z0-9]+/, "").replace(/[._-]+$/, "");
-}
-async function responseErrorText(res) {
-  const text7 = await res.text();
-  try {
-    const data = JSON.parse(text7);
-    return data?.error || text7;
-  } catch {
-    return text7;
-  }
-}
-function FieldLabel({ children, required, optional }) {
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
-    className: "block text-xs uppercase tracking-wide text-muted-foreground",
-    children: [
-      children,
-      " ",
-      required && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-        className: "text-destructive",
-        children: "*"
-      }, undefined, false, undefined, this),
-      optional && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-        className: "normal-case text-muted-foreground/70",
-        children: "(optional)"
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function FormMessage({ children, tone = "muted" }) {
-  const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-    className: `text-xs ${className}`,
-    children
-  }, undefined, false, undefined, this);
-}
-function ValidationSummary({ errors, serverError }) {
-  if (!errors.length && !serverError)
-    return null;
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive",
-    children: [
-      serverError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        children: serverError
-      }, undefined, false, undefined, this),
-      !!errors.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ul", {
-        className: "list-disc pl-5",
-        children: errors.map((error) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("li", {
-          children: error
-        }, error, false, undefined, this))
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
-  const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
-  const [smokeTests, setSmokeTests] = import_react2.useState({});
-  const deleteTemplate = async (name2) => {
-    if (!confirm(`Delete ${label.slice(0, -1).toLowerCase()} '${name2}'?`))
-      return;
-    const res = await fetch(`/api/${kind}-templates/${encodeURIComponent(name2)}`, { method: "DELETE" });
-    if (!res.ok)
-      return pushLog(`Delete failed: ${await res.text()}`, "error");
-    pushLog(`Deleted template '${name2}'`, "warn");
-    onDeleted();
-  };
-  const smokeTest = async (name2) => {
-    setSmokeTests((prev) => ({ ...prev, [name2]: { loading: true } }));
-    try {
-      const res = await fetch(`/api/extension-templates/${encodeURIComponent(name2)}/smoke-test`, { method: "POST" });
-      if (!res.ok)
-        throw new Error(await responseErrorText(res));
-      const result = await res.json();
-      setSmokeTests((prev) => ({ ...prev, [name2]: result }));
-      pushLog(`Smoke test ${result.success ? "passed" : "failed"} for extension template '${name2}'`, result.success ? "success" : "error");
-    } catch (e) {
-      setSmokeTests((prev) => ({ ...prev, [name2]: { success: false, template: name2, extensions: [], missingExtensions: [], diagnostics: [{ level: "error", message: e.message }] } }));
-      pushLog(`Smoke test failed for extension template '${name2}': ${e.message}`, "error");
-    }
-  };
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-    className: "min-h-[70vh]",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
-        className: "border-b border-border",
-        children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex items-center justify-between gap-3",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-              children: label
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              className: "px-2 py-1 text-xs",
-              onClick: onNew,
-              children: [
-                "+ New ",
-                kind === "skill" ? "Skill" : "Extension",
-                " Template"
-              ]
-            }, undefined, true, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
-        className: "pt-4",
-        children: !templates.length ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
-          className: "text-sm text-muted-foreground",
-          children: [
-            "No ",
-            label.toLowerCase(),
-            " found."
-          ]
-        }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "grid gap-3 md:grid-cols-2",
-          children: templates.map((template) => {
-            const smoke = smokeTests[template.name];
-            const loading = !!smoke && "loading" in smoke;
-            const result = smoke && !("loading" in smoke) ? smoke : undefined;
-            return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "rounded-md border border-border p-3",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "flex items-start justify-between gap-3",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "min-w-0",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "flex flex-wrap items-center gap-2 text-sm font-semibold",
-                          children: [
-                            template.name,
-                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                              variant: "outline",
-                              children: audienceLabel(templateAudience(template))
-                            }, undefined, false, undefined, this),
-                            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                              variant: templateAutoApply(template) === "none" ? "outline" : "default",
-                              children: autoApplyLabel(templateAutoApply(template))
-                            }, undefined, false, undefined, this),
-                            !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                              variant: "destructive",
-                              children: "invalid"
-                            }, undefined, false, undefined, this),
-                            result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                              variant: result.success ? "success" : "destructive",
-                              children: result.success ? "smoke passed" : "smoke failed"
-                            }, undefined, false, undefined, this)
-                          ]
-                        }, undefined, true, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                          className: "mt-1 line-clamp-3 text-xs text-muted-foreground",
-                          children: template.description
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "flex shrink-0 gap-2",
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          onClick: () => onEdit(template),
-                          children: "Edit"
-                        }, undefined, false, undefined, this),
-                        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          disabled: loading,
-                          onClick: () => smokeTest(template.name),
-                          children: loading ? "Testing…" : "Smoke Test"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "destructive",
-                          className: "px-2 py-1 text-xs",
-                          onClick: () => deleteTemplate(template.name),
-                          children: "Delete"
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "mt-3 flex flex-wrap gap-1",
-                  children: template.items.length ? template.items.map((item) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
-                    variant: "outline",
-                    children: item
-                  }, item, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                    className: "text-xs text-muted-foreground",
-                    children: "No items."
-                  }, undefined, false, undefined, this)
-                }, undefined, false, undefined, this),
-                !!template.validationErrors?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive",
-                  children: template.validationErrors.join("; ")
-                }, undefined, false, undefined, this),
-                result && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "mt-3 space-y-2 rounded-md border border-border bg-background/60 p-2 text-xs",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "font-medium",
-                      children: "Runtime diagnostics"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("ul", {
-                      className: "space-y-1",
-                      children: result.diagnostics.map((diagnostic, index2) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("li", {
-                        className: diagnostic.level === "error" ? "text-destructive" : diagnostic.level === "warning" ? "text-amber-300" : "text-muted-foreground",
-                        children: [
-                          diagnostic.level,
-                          ": ",
-                          diagnostic.message
-                        ]
-                      }, index2, true, undefined, this))
-                    }, undefined, false, undefined, this),
-                    result.runtimeTools && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                      className: "text-muted-foreground",
-                      children: [
-                        "Tools: ",
-                        result.runtimeTools.active.map((tool) => tool.name).join(", ") || "none reported"
-                      ]
-                    }, undefined, true, undefined, this),
-                    result.stderrTail && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("details", {
-                      children: [
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("summary", {
-                          className: "cursor-pointer text-muted-foreground",
-                          children: "stderr tail"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("pre", {
-                          className: "mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 text-muted-foreground",
-                          children: result.stderrTail
-                        }, undefined, false, undefined, this)
-                      ]
-                    }, undefined, true, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, template.name, true, undefined, this);
-          })
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function TemplateEditorDialog({ open, kind, template, availableSkills, availableExtensions, onClose, onSaved }) {
-  const [name2, setName] = import_react2.useState("");
-  const [description, setDescription] = import_react2.useState("");
-  const [audience, setAudience] = import_react2.useState("spawned");
-  const [autoApply, setAutoApply] = import_react2.useState("none");
-  const [itemsText, setItemsText] = import_react2.useState("");
-  const [serverError, setServerError] = import_react2.useState("");
-  import_react2.useEffect(() => {
-    if (!open)
-      return;
-    setName(template?.name || "");
-    setDescription(template?.description || "");
-    setAudience(kind === "skill" ? templateAudience(template || { name: "", description: "", items: [], source: "", filePath: "" }) : "spawned");
-    setAutoApply(kind === "skill" ? templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }) : templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }) === "all" ? "spawned" : templateAutoApply(template || { name: "", description: "", items: [], source: "", filePath: "" }));
-    setItemsText((template?.items || []).join(`
-`));
-    setServerError("");
-  }, [open, template, kind]);
-  const field = kind === "skill" ? "skills" : "extensions";
-  const savedName = template ? name2.trim() : normalizeTemplateName(name2);
-  const templateLabel = kind === "skill" ? "skill" : "extension";
-  const setAudienceSafe = (next) => {
-    setAudience(next);
-    if (next === "orchestrator" && autoApply === "spawned")
-      setAutoApply("none");
-    if (next !== "all" && autoApply === "all")
-      setAutoApply(next === "spawned" ? "spawned" : "none");
-  };
-  const setAutoApplySafe = (next) => {
-    if (kind === "extension" && next === "all")
-      return setAutoApply("spawned");
-    if (next === "all")
-      setAudience("all");
-    if (next === "spawned" && audience === "orchestrator")
-      setAudience("all");
-    setAutoApply(next);
-  };
-  const errors = [
-    !savedName ? "Name is required." : undefined,
-    !description.trim() ? "Description is required." : undefined,
-    kind === "extension" && audience !== "spawned" ? "Extension templates are only available to spawned agents." : undefined,
-    kind === "extension" && autoApply === "all" ? "Extension templates cannot auto-apply to the orchestrator." : undefined,
-    autoApply === "spawned" && audience === "orchestrator" ? "Apply to all spawned agents requires spawned or both audience." : undefined,
-    autoApply === "all" && audience !== "all" ? "Apply everywhere requires both audience." : undefined
-  ].filter(Boolean);
-  const save = async () => {
-    setServerError("");
-    if (errors.length)
-      return;
-    const payload = { name: savedName, description: description.trim(), audience: kind === "skill" ? audience : "spawned", autoApply, [field]: splitItems(itemsText) };
-    const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok)
-      return setServerError("Failed to save: " + await responseErrorText(res));
-    onSaved();
-  };
-  const title = `${template ? "Edit" : "New"} ${kind === "skill" ? "Skill" : "Extension"} Template`;
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
-    open,
-    title,
-    onOpenChange: onClose,
-    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-      className: "space-y-3",
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Name"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: name2,
-          onChange: (e) => setName(e.target.value),
-          readOnly: !!template,
-          "aria-invalid": !savedName,
-          className: !savedName ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        !template && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          tone: savedName ? "success" : "muted",
-          children: [
-            "Will be saved as: ",
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-              className: "rounded bg-muted px-1 py-0.5 text-foreground",
-              children: savedName || "—"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          children: "Required. Spaces and unsupported characters are converted to dashes; saved names may contain letters, numbers, dot, underscore, and dash."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Description"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: description,
-          onChange: (e) => setDescription(e.target.value),
-          "aria-invalid": !description.trim(),
-          className: !description.trim() ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "grid gap-3 md:grid-cols-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "space-y-1",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-                  optional: true,
-                  children: "Available to"
-                }, undefined, false, undefined, this),
-                kind === "skill" ? /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                  value: audience,
-                  onChange: (e) => setAudienceSafe(e.target.value),
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "spawned",
-                      children: "Spawned agents"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "orchestrator",
-                      children: "Orchestrator"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "all",
-                      children: "Spawned agents + orchestrator"
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground",
-                  children: "Spawned agents only"
-                }, undefined, false, undefined, this)
-              ]
-            }, undefined, true, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "space-y-1",
-              children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-                  optional: true,
-                  children: "Automatic application"
-                }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-                  value: autoApply,
-                  onChange: (e) => setAutoApplySafe(e.target.value),
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "none",
-                      children: "Specific/manual assignment only"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "spawned",
-                      children: "Apply to all spawned agents"
-                    }, undefined, false, undefined, this),
-                    kind === "skill" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                      value: "all",
-                      children: "Apply everywhere, including orchestrator"
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
-              ]
-            }, undefined, true, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          children: kind === "skill" ? "Audience controls where the template may be used; automatic application controls whether it is applied without explicit assignment." : "Extension templates are spawned-agent capabilities only."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: kind === "skill" ? "Skills" : "Extensions"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-          rows: 7,
-          value: itemsText,
-          onChange: (e) => setItemsText(e.target.value),
-          placeholder: `Optional ${templateLabel} names, comma or newline separated`
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          children: [
-            "Optional. Leave empty to create a template shell and add ",
-            field,
-            " later."
-          ]
-        }, undefined, true, undefined, this),
-        kind === "skill" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "space-y-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "text-xs uppercase tracking-wide text-muted-foreground",
-              children: "Discovered skills"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex flex-wrap gap-1",
-              children: availableSkills.length ? availableSkills.map((skill) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                title: skill.ref ? `${skill.ref}
-${skill.description || skill.path}` : skill.description || skill.path,
-                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
-                onClick: () => setItemsText((prev) => splitItems(`${prev}
-${skillTemplateItemValue(skill)}`).join(`
-`)),
-                children: [
-                  skill.name,
-                  skill.ref ? ` (${skill.scope})` : ""
-                ]
-              }, skill.id || skill.ref || skill.name, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                className: "text-xs text-muted-foreground",
-                children: "No skills discovered."
-              }, undefined, false, undefined, this)
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        kind === "extension" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "space-y-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "text-xs uppercase tracking-wide text-muted-foreground",
-              children: "Discovered extensions"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "flex flex-wrap gap-1",
-              children: availableExtensions.length ? availableExtensions.map((ext) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-                className: "rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground",
-                onClick: () => setItemsText((prev) => splitItems(`${prev}
-${ext.name}`).join(`
-`)),
-                children: ext.name
-              }, ext.name, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-                className: "text-xs text-muted-foreground",
-                children: "No extensions discovered."
-              }, undefined, false, undefined, this)
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ValidationSummary, {
-          errors,
-          serverError
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex justify-end gap-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              onClick: onClose,
-              children: "Cancel"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              onClick: save,
-              disabled: !!errors.length,
-              children: "Save Template"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      ]
-    }, undefined, true, undefined, this)
-  }, undefined, false, undefined, this);
-}
-function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
-  const selected = new Set(splitItems(selectedText));
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-    className: "space-y-2",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "text-xs text-muted-foreground",
-        children: "Click to assign/unassign existing templates."
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-        className: "flex flex-wrap gap-1",
-        children: templates.length ? templates.map((template) => {
-          const active = selected.has(template.name);
-          return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("button", {
-            type: "button",
-            title: template.description,
-            className: `rounded-full border px-2 py-1 text-xs transition ${active ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`,
-            onClick: () => onToggle(template.name),
-            children: [
-              active ? "✓ " : "",
-              template.name
-            ]
-          }, template.name, true, undefined, this);
-        }) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("span", {
-          className: "text-xs text-muted-foreground",
-          children: emptyText
-        }, undefined, false, undefined, this)
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemplates, onClose, onSaved }) {
-  const [name2, setName] = import_react2.useState("");
-  const [description, setDescription] = import_react2.useState("");
-  const [agentClass, setAgentClass] = import_react2.useState("implementer");
-  const [model, setModel] = import_react2.useState("");
-  const [thinking, setThinking] = import_react2.useState("");
-  const [skillTemplatesText, setSkillTemplatesText] = import_react2.useState("");
-  const [extensionTemplatesText, setExtensionTemplatesText] = import_react2.useState("");
-  const [prompt, setPrompt] = import_react2.useState("");
-  const [serverError, setServerError] = import_react2.useState("");
-  import_react2.useEffect(() => {
-    if (!open)
-      return;
-    setName(typeDef?.name || "");
-    setDescription(typeDef?.description || "");
-    setAgentClass(spawnableAgentClasses.includes(typeDef?.agentClass) ? typeDef.agentClass : "implementer");
-    setModel(typeDef?.model || "");
-    setThinking(typeDef?.thinking || "medium");
-    setSkillTemplatesText((typeDef?.skillTemplates || []).join(`
-`));
-    setExtensionTemplatesText((typeDef?.extensionTemplates || []).join(`
-`));
-    setPrompt("");
-    setServerError("");
-  }, [open, typeDef]);
-  const selectedModel = models.find((m) => m.id === model);
-  const levels = selectedModel?.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
-  const errors = [
-    !name2.trim() ? "Name is required." : undefined,
-    !description.trim() ? "Description is required." : undefined
-  ].filter(Boolean);
-  const save = async () => {
-    setServerError("");
-    if (errors.length)
-      return;
-    const payload = { name: name2.trim(), description: description.trim(), agentClass, model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
-    const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!res.ok)
-      return setServerError("Failed to save: " + await responseErrorText(res));
-    onSaved();
-  };
-  const spawnedSkillTemplates = skillTemplates.filter(isSpawnedTemplate);
-  const spawnedExtensionTemplates = extensionTemplates.filter(isSpawnedTemplate);
-  return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
-    open,
-    title: typeDef ? `Edit ${typeDef.name}` : "New Agent Type",
-    onOpenChange: onClose,
-    children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-      className: "space-y-3",
-      children: [
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Name"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: name2,
-          onChange: (e) => setName(e.target.value),
-          readOnly: !!typeDef,
-          "aria-invalid": !name2.trim(),
-          className: !name2.trim() ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Description"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-          value: description,
-          onChange: (e) => setDescription(e.target.value),
-          "aria-invalid": !description.trim(),
-          className: !description.trim() ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          required: true,
-          children: "Agent class"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-          value: agentClass,
-          onChange: (e) => setAgentClass(e.target.value),
-          children: spawnableAgentClasses.map((value) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-            value,
-            children: value
-          }, value, false, undefined, this))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-          children: "Choose what kind of child agent this type can spawn as. The root orchestrator role is reserved for the interactive /orchestrate session and is not spawnable."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Model"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-          value: model,
-          onChange: (e) => setModel(e.target.value),
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: "",
-              children: "-- default --"
-            }, undefined, false, undefined, this),
-            models.map((m) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-              value: m.id,
-              children: m.provider ? `${m.provider}/${m.id}` : m.id
-            }, m.id, false, undefined, this))
-          ]
-        }, undefined, true, undefined, this),
-        selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(jsx_dev_runtime7.Fragment, {
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-              optional: true,
-              children: "Thinking Level"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Select, {
-              value: thinking,
-              onChange: (e) => setThinking(e.target.value),
-              children: levels.map((level) => /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("option", {
-                value: level,
-                children: level
-              }, level, false, undefined, this))
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Skill Templates"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-          rows: 3,
-          value: skillTemplatesText,
-          onChange: (e) => setSkillTemplatesText(e.target.value),
-          placeholder: spawnedSkillTemplates.map((template) => template.name).join(", ") || "common, frontend"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplateChips, {
-          templates: spawnedSkillTemplates,
-          selectedText: skillTemplatesText,
-          emptyText: "No spawned-agent skill templates defined yet.",
-          onToggle: (name3) => setSkillTemplatesText((prev) => toggleItemText(prev, name3))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Extension Templates"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-          rows: 3,
-          value: extensionTemplatesText,
-          onChange: (e) => setExtensionTemplatesText(e.target.value),
-          placeholder: spawnedExtensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(TemplateChips, {
-          templates: spawnedExtensionTemplates,
-          selectedText: extensionTemplatesText,
-          emptyText: "No extension templates defined yet.",
-          onToggle: (name3) => setExtensionTemplatesText((prev) => toggleItemText(prev, name3))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-          optional: true,
-          children: "Prompt / Instructions"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Textarea, {
-          rows: 7,
-          value: prompt,
-          onChange: (e) => setPrompt(e.target.value)
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ValidationSummary, {
-          errors,
-          serverError
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-          className: "flex justify-end gap-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              variant: "secondary",
-              onClick: onClose,
-              children: "Cancel"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-              onClick: save,
-              disabled: !!errors.length,
-              children: "Save Type"
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      ]
-    }, undefined, true, undefined, this)
-  }, undefined, false, undefined, this);
 }
 function formatInspectData(data) {
   const lines = [`status: ${data.status}`, `worktree: ${data.worktree}`];
@@ -33157,6 +33480,6 @@ function formatInspectData(data) {
   return lines.join(`
 `);
 }
-import_client.createRoot(document.getElementById("root")).render(/* @__PURE__ */ jsx_dev_runtime7.jsxDEV(import_react2.StrictMode, {
-  children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(App, {}, undefined, false, undefined, this)
+import_client.createRoot(document.getElementById("root")).render(/* @__PURE__ */ jsx_dev_runtime12.jsxDEV(import_react7.StrictMode, {
+  children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(App, {}, undefined, false, undefined, this)
 }, undefined, false, undefined, this));

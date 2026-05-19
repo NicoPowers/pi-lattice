@@ -43,6 +43,7 @@ describe("dashboard bundle smoke test", () => {
       fetch: globalThis.fetch,
       confirm: globalThis.confirm,
     };
+    const bootstrapRequests: any[] = [];
 
     try {
       (window as any).event = undefined;
@@ -52,7 +53,7 @@ describe("dashboard bundle smoke test", () => {
         document: window.document,
         navigator: window.navigator,
         EventSource: FakeEventSource,
-        fetch: async (input: RequestInfo | URL) => {
+        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
           const url = String(input);
           if (url.includes("/api/agent-types")) return Response.json([]);
           if (url.includes("/api/models")) return Response.json([]);
@@ -60,6 +61,10 @@ describe("dashboard bundle smoke test", () => {
           if (url.includes("/api/skill-templates")) return Response.json([]);
           if (url.includes("/api/extension-templates")) return Response.json([]);
           if (url.includes("/api/extensions")) return Response.json([]);
+          if (url.includes("/api/orchestrator-libraries/bootstrap") && init?.method === "POST") {
+            bootstrapRequests.push(JSON.parse(String(init.body || "{}")));
+            return Response.json({ success: true, scope: "project", library: { root: "/tmp/repo/.pi/orchestrator-library", manifestPath: "/tmp/repo/.pi/orchestrator-library/orchestrator-library.json", manifest: { schema: "pio.orchestrator-library.v1", name: "team-ai", description: "Team library", resources: {} }, diagnostics: [], valid: true } });
+          }
           if (url.includes("/api/orchestrator-libraries")) return Response.json({ libraries: [], resources: [], diagnostics: [], valid: true, settings: { showPackageExamples: true, settingsPath: "/tmp/.pi/settings.json", exists: false } });
           if (url.endsWith("/api/skills/demo-id")) return Response.json({ skill: { id: "demo-id", name: "demo", description: "Demo skill", path: "/tmp/demo/SKILL.md", scope: "project", kind: "directory", editable: true, packageProvided: false }, content: "---\nname: demo\ndescription: Demo skill\n---\n# Demo Skill\n\nSkill body.", frontmatter: { name: "demo", description: "Demo skill" }, body: "# Demo Skill\n\nSkill body.", mtimeMs: 1, hash: "hash" });
           if (url.endsWith("/api/skills")) return Response.json([{ id: "demo-id", name: "demo", description: "Demo skill", path: "/tmp/demo/SKILL.md", scope: "project", kind: "directory", editable: true, packageProvided: false }, { id: "librarian-id", name: "librarian", description: "Package skill", path: "/home/ubuntu/.pi/agent/npm/node_modules/pi-web-access/skills/librarian/SKILL.md", scope: "global", kind: "directory", editable: false, packageProvided: true }]);
@@ -73,6 +78,13 @@ describe("dashboard bundle smoke test", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(window.document.getElementById("root")?.textContent).toContain("Pi Orchestrator");
+      expect(window.document.getElementById("root")?.textContent).toContain("No agents running.");
+      const hierarchyNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Hierarchy"));
+      hierarchyNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(window.document.getElementById("root")?.textContent).toContain("No agents yet.");
+
       const skillNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Skill Library"));
       skillNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();
@@ -84,6 +96,37 @@ describe("dashboard bundle smoke test", () => {
       expect(text).toContain("Metadata");
       expect(text).toContain("package");
       expect(text).not.toContain("Skill & Extension Paths");
+
+      const libraryNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Orchestrator Libraries"));
+      libraryNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const libraryText = window.document.getElementById("root")?.textContent || "";
+      expect(libraryText).toContain("Click here to scaffold your first Orchestrator Library");
+      expect(libraryText).not.toContain("Target path");
+      expect(libraryText).not.toContain("Create library");
+
+      const scaffoldButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Click here to scaffold your first Orchestrator Library"));
+      scaffoldButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const modalText = window.document.getElementById("root")?.textContent || "";
+      expect(modalText).toContain("inside this repo uses project settings; outside this repo uses global settings");
+      expect(modalText).toContain("Target path");
+      expect(modalText).toContain("Library name");
+      expect(modalText).toContain("Create library");
+
+      const targetInput = Array.from(window.document.getElementsByTagName("input")).find((input) => input.getAttribute("placeholder") === "./.pi/orchestrator-library");
+      const nameInput = Array.from(window.document.getElementsByTagName("input")).find((input) => input.getAttribute("placeholder") === "team-ai");
+      const descriptionInput = Array.from(window.document.getElementsByTagName("textarea")).find((input) => input.getAttribute("placeholder") === "Shared team orchestrator resources.");
+      expect(targetInput?.value).toBe("./.pi/orchestrator-library");
+      expect(nameInput).toBeTruthy();
+      expect(descriptionInput).toBeTruthy();
+      const createButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Create library"));
+      createButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(bootstrapRequests).toEqual([{ targetPath: "./.pi/orchestrator-library" }]);
       expect(text).not.toContain("name: demodescription:");
       expect(errors).toEqual([]);
     } finally {

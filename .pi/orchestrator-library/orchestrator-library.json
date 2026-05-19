@@ -1,0 +1,16 @@
+{
+  "schema": "pi-orchestrator-library/v1",
+  "name": "test123",
+  "description": "User-owned Pi Orchestrator Library",
+  "compatibility": {
+    "piAgentOrchestrator": ">=0.3.0"
+  },
+  "resources": {
+    "agents": "agents",
+    "skillTemplates": "skill-templates",
+    "extensionTemplates": "extension-templates",
+    "skills": "skills",
+    "extensions": "extensions",
+    "orchestratorProfiles": "orchestrator-profiles"
+  }
+}
