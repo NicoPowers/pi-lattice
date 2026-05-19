@@ -162,11 +162,20 @@ export interface OrchestratorLibraryResourceInfo {
   diagnostics: OrchestratorLibraryDiagnosticInfo[];
 }
 
+export interface OrchestratorDisplaySettingsInfo {
+  showPackageExamples: boolean;
+  settingsPath: string;
+  exists: boolean;
+  parseError?: string;
+  readError?: string;
+}
+
 export interface OrchestratorLibrariesInfo {
   libraries: OrchestratorLibraryInfo[];
   resources: OrchestratorLibraryResourceInfo[];
   diagnostics: OrchestratorLibraryDiagnosticInfo[];
   valid: boolean;
+  settings: OrchestratorDisplaySettingsInfo;
 }
 
 export type ServerEvent =

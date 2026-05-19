@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ORCHESTRATOR_LIBRARY_SCHEMA, bootstrapOrchestratorLibrary, discoverConfiguredOrchestratorLibraries, discoverOrchestratorLibraryResources, readOrchestratorLibraries, readOrchestratorLibrary, readOrchestratorLibrarySettings, updateOrchestratorLibrarySettings } from "../extensions/multi-agent/orchestrator-library.js";
+import { ORCHESTRATOR_LIBRARY_SCHEMA, bootstrapOrchestratorLibrary, discoverConfiguredOrchestratorLibraries, discoverOrchestratorLibraryResources, readOrchestratorLibraries, readOrchestratorLibrary, readOrchestratorDisplaySettings, readOrchestratorLibrarySettings, updateOrchestratorDisplaySettings, updateOrchestratorLibrarySettings } from "../extensions/multi-agent/orchestrator-library.js";
 
 function withTempDir(prefix: string, fn: (dir: string) => void) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -276,6 +276,22 @@ describe("configured orchestrator library discovery", () => {
       expect(discovery.valid).toBe(false);
       expect(discovery.diagnostics.some((diagnostic) => diagnostic.message.includes("Duplicate Orchestrator Library namespace 'team'"))).toBe(true);
       expect(discovery.resources.map((resource) => resource.name)).toEqual(["agent-a"]);
+    });
+  });
+});
+
+describe("orchestrator display settings", () => {
+  it("defaults to showing package examples and stores the toggle in project settings", () => {
+    withTempDir("pio-display-settings-", (dir) => {
+      const settingsPath = path.join(dir, ".pi", "settings.json");
+      expect(readOrchestratorDisplaySettings(dir, { globalSettingsPath: path.join(dir, "global-settings.json") }).showPackageExamples).toBe(true);
+
+      const result = updateOrchestratorDisplaySettings({ showPackageExamples: false }, dir, { globalSettingsPath: path.join(dir, "global-settings.json") });
+      expect(result.success).toBe(true);
+      expect(result.settings?.showPackageExamples).toBe(false);
+      expect(readOrchestratorDisplaySettings(dir, { globalSettingsPath: path.join(dir, "global-settings.json") }).showPackageExamples).toBe(false);
+      const raw = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      expect(raw.piAgentOrchestrator.showPackageExamples).toBe(false);
     });
   });
 });

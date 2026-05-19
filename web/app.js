@@ -30144,7 +30144,8 @@ function App() {
           activeTab === "orchestratorLibraries" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
             mode: "wide",
             children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(OrchestratorLibrariesPanel, {
-              pushLog
+              pushLog,
+              onDisplaySettingsChanged: refreshTypes
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
           activeTab === "resourceSettings" && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(PageFrame, {
@@ -30584,10 +30585,11 @@ function EventLog({ logs }) {
     ]
   }, undefined, true, undefined, this);
 }
-function OrchestratorLibrariesPanel({ pushLog }) {
+function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }) {
   const [data, setData] = import_react2.useState(null);
   const [loading, setLoading] = import_react2.useState(false);
   const [savingScope, setSavingScope] = import_react2.useState(null);
+  const [savingDisplay, setSavingDisplay] = import_react2.useState(false);
   const [error, setError] = import_react2.useState("");
   const load = import_react2.useCallback(async () => {
     setLoading(true);
@@ -30635,6 +30637,23 @@ function OrchestratorLibrariesPanel({ pushLog }) {
       setSavingScope(null);
     }
   };
+  const setShowPackageExamples = async (showPackageExamples) => {
+    setSavingDisplay(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orchestrator-libraries/display-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples }) });
+      if (!res.ok)
+        throw new Error(await responseErrorText(res));
+      pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
+      await load();
+      onDisplaySettingsChanged();
+    } catch (e) {
+      setError(e.message || "Failed to update display settings");
+      pushLog(`Failed to update display settings: ${e.message}`, "error");
+    } finally {
+      setSavingDisplay(false);
+    }
+  };
   const counts = import_react2.useMemo(() => {
     const result = {};
     for (const resource of data?.resources || []) {
@@ -30678,6 +30697,41 @@ function OrchestratorLibrariesPanel({ pushLog }) {
                     children: "piAgentOrchestrator.libraries"
                   }, undefined, false, undefined, this),
                   " in global or project settings. Libraries are loaded top to bottom within each scope; earlier libraries influence defaults and diagnostics."
+                ]
+              }, undefined, true, undefined, this),
+              data?.settings && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/60 p-3",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "font-medium text-foreground",
+                        children: "Package example resources"
+                      }, undefined, false, undefined, this),
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                        className: "text-xs",
+                        children: [
+                          "Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings: ",
+                          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                            children: "piAgentOrchestrator.showPackageExamples"
+                          }, undefined, false, undefined, this),
+                          "."
+                        ]
+                      }, undefined, true, undefined, this)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
+                    className: "flex shrink-0 items-center gap-2 text-sm text-foreground",
+                    children: [
+                      /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("input", {
+                        type: "checkbox",
+                        checked: data.settings.showPackageExamples,
+                        disabled: savingDisplay,
+                        onChange: (e) => setShowPackageExamples(e.target.checked)
+                      }, undefined, false, undefined, this),
+                      " Show package examples"
+                    ]
+                  }, undefined, true, undefined, this)
                 ]
               }, undefined, true, undefined, this),
               error && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {

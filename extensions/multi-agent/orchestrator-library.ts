@@ -95,11 +95,20 @@ export interface OrchestratorLibraryDiscovery {
   diagnostics: OrchestratorLibraryDiagnostic[];
 }
 
+export interface OrchestratorDisplaySettings {
+  showPackageExamples: boolean;
+  settingsPath: string;
+  exists: boolean;
+  parseError?: string;
+  readError?: string;
+}
+
 export interface OrchestratorLibrariesDiscovery {
   libraries: OrchestratorLibraryInfo[];
   resources: DiscoveredOrchestratorResource[];
   diagnostics: OrchestratorLibraryDiagnostic[];
   valid: boolean;
+  settings: OrchestratorDisplaySettings;
 }
 
 export interface BootstrapOrchestratorLibraryResult {
@@ -451,6 +460,38 @@ export function readOrchestratorLibrarySettings(repoCwd: string, paths: Orchestr
   };
 }
 
+export function readOrchestratorDisplaySettings(repoCwd: string, paths: OrchestratorLibrarySettingsPaths = {}): OrchestratorDisplaySettings {
+  const settingsPath = settingsPathFor("project", repoCwd, paths);
+  const read = readSettingsFile(settingsPath);
+  const orchestrator = getOrchestratorSettings(read.settings);
+  return {
+    showPackageExamples: orchestrator.showPackageExamples !== false,
+    settingsPath,
+    exists: read.exists,
+    parseError: read.parseError,
+    readError: read.readError,
+  };
+}
+
+export function updateOrchestratorDisplaySettings(
+  input: { showPackageExamples: boolean },
+  repoCwd: string,
+  paths: OrchestratorLibrarySettingsPaths = {}
+): { success: boolean; status?: number; error?: string; settings?: OrchestratorDisplaySettings } {
+  if (typeof input.showPackageExamples !== "boolean") return { success: false, status: 400, error: "showPackageExamples must be a boolean" };
+  const settingsPath = settingsPathFor("project", repoCwd, paths);
+  const read = readSettingsFile(settingsPath);
+  if (read.parseError || read.readError) return { success: false, status: 400, error: `Cannot update ${settingsPath}: ${read.parseError || read.readError}` };
+
+  const next = { ...read.settings };
+  const existingOrchestratorSettings = getOrchestratorSettings(read.settings);
+  next.piAgentOrchestrator = { ...existingOrchestratorSettings, showPackageExamples: input.showPackageExamples };
+
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+  return { success: true, settings: readOrchestratorDisplaySettings(repoCwd, paths) };
+}
+
 export function updateOrchestratorLibrarySettings(
   input: { scope: OrchestratorLibrarySettingsScope; libraries: Array<string | { path: string; editable?: boolean }> },
   repoCwd: string,
@@ -553,6 +594,7 @@ export function discoverConfiguredOrchestratorLibraries(repoCwd: string, paths: 
     resources,
     diagnostics,
     valid: set.valid && diagnostics.every((diagnostic) => diagnostic.level !== "error"),
+    settings: readOrchestratorDisplaySettings(repoCwd, paths),
   };
 }
 

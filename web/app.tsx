@@ -260,7 +260,7 @@ function App() {
         {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
         {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
         {activeTab === "skills" && <SkillLibraryPanel skills={skills} diagnostics={skillDiagnostics} skillTemplates={skillTemplates} onEditTemplate={(template) => setEditingTemplate({ kind: "skill", template })} onChanged={refreshTemplates} />}
-        {activeTab === "orchestratorLibraries" && <PageFrame mode="wide"><OrchestratorLibrariesPanel pushLog={pushLog} /></PageFrame>}
+        {activeTab === "orchestratorLibraries" && <PageFrame mode="wide"><OrchestratorLibrariesPanel pushLog={pushLog} onDisplaySettingsChanged={refreshTypes} /></PageFrame>}
         {activeTab === "resourceSettings" && <PageFrame mode="wide"><ResourceSettingsPanel onSaved={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "skillTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="skill" templates={skillTemplates} onNew={() => setEditingTemplate({ kind: "skill" })} onEdit={(template) => setEditingTemplate({ kind: "skill", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
         {activeTab === "extensionTemplates" && <PageFrame mode="centered"><TemplatesPanel kind="extension" templates={extensionTemplates} onNew={() => setEditingTemplate({ kind: "extension" })} onEdit={(template) => setEditingTemplate({ kind: "extension", template })} onDeleted={refreshTemplates} pushLog={pushLog} /></PageFrame>}
@@ -408,10 +408,11 @@ function EventLog({ logs }: { logs: LogLine[] }) {
 }
 
 
-function OrchestratorLibrariesPanel({ pushLog }: { pushLog: (text: string, level?: LogLine["level"]) => void }) {
+function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged }: { pushLog: (text: string, level?: LogLine["level"]) => void; onDisplaySettingsChanged: () => void }) {
   const [data, setData] = useState<OrchestratorLibrariesInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingScope, setSavingScope] = useState<"global" | "project" | null>(null);
+  const [savingDisplay, setSavingDisplay] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -456,6 +457,23 @@ function OrchestratorLibrariesPanel({ pushLog }: { pushLog: (text: string, level
     }
   };
 
+  const setShowPackageExamples = async (showPackageExamples: boolean) => {
+    setSavingDisplay(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orchestrator-libraries/display-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples }) });
+      if (!res.ok) throw new Error(await responseErrorText(res));
+      pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
+      await load();
+      onDisplaySettingsChanged();
+    } catch (e: any) {
+      setError(e.message || "Failed to update display settings");
+      pushLog(`Failed to update display settings: ${e.message}`, "error");
+    } finally {
+      setSavingDisplay(false);
+    }
+  };
+
   const counts = useMemo(() => {
     const result: Record<string, Record<string, number>> = {};
     for (const resource of data?.resources || []) {
@@ -471,6 +489,10 @@ function OrchestratorLibrariesPanel({ pushLog }: { pushLog: (text: string, level
       <CardContent className="space-y-2 pt-4 text-sm text-muted-foreground">
         <p>Orchestrator Libraries are user-owned, version-controlled folders for agent types, skill templates, extension templates, and curated skills/extensions.</p>
         <p>Configure libraries under <code>piAgentOrchestrator.libraries</code> in global or project settings. Libraries are loaded top to bottom within each scope; earlier libraries influence defaults and diagnostics.</p>
+        {data?.settings && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background/60 p-3">
+          <div><div className="font-medium text-foreground">Package example resources</div><div className="text-xs">Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings: <code>piAgentOrchestrator.showPackageExamples</code>.</div></div>
+          <label className="flex shrink-0 items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={data.settings.showPackageExamples} disabled={savingDisplay} onChange={(e) => setShowPackageExamples(e.target.checked)} /> Show package examples</label>
+        </div>}
         {error && <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-destructive">{error}</div>}
         {data && !data.libraries.length && <div className="rounded-md border border-dashed border-border p-6 text-center"><div className="font-medium text-foreground">No Orchestrator Library configured yet.</div><div className="mt-1">Set up a library to version-control your agent types and templates.</div></div>}
       </CardContent>

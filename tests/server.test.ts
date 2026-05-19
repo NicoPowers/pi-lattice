@@ -113,6 +113,43 @@ describe("template API", () => {
 });
 
 
+describe("orchestrator display settings API", () => {
+  it("hides package example agent types when the project toggle is off", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-display-api-"));
+    const definitions = [
+      { name: "pio-example-coder", description: "Example", systemPrompt: "", source: "package", filePath: "", readOnly: true, example: true },
+      { name: "team-coder", description: "Team", systemPrompt: "", source: "project", filePath: "" },
+    ];
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async () => ({ agent: undefined as any, error: "disabled in tests" }),
+      sendToAgent: async () => {},
+      removeWorktree: async () => {},
+      discoverDefinitions: () => definitions as any,
+      getDefinition: () => undefined,
+      discoverExtensions: () => [],
+    });
+
+    try {
+      let res = await fetch(`${handle.url}/api/agent-types`);
+      expect(res.status).toBe(200);
+      expect((await res.json()).map((item: any) => item.name)).toEqual(["pio-example-coder", "team-coder"]);
+
+      res = await fetch(`${handle.url}/api/orchestrator-libraries/display-settings`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples: false }) });
+      expect(res.status).toBe(200);
+      expect((await res.json()).showPackageExamples).toBe(false);
+
+      res = await fetch(`${handle.url}/api/agent-types`);
+      expect(res.status).toBe(200);
+      expect((await res.json()).map((item: any) => item.name)).toEqual(["team-coder"]);
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("extension template smoke-test API", () => {
   it("spawns a temporary agent, reads runtime tools, and cleans up", async () => {
     const { startServer } = await import("../extensions/multi-agent/server.js");

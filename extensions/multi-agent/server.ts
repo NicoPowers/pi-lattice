@@ -225,6 +225,20 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       else send(res, errorResponse(result.error || "Failed to update Orchestrator Library settings", result.status || 400));
       return;
     }
+    if (url.pathname === "/api/orchestrator-libraries/display-settings" && req.method === "PUT") {
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const { updateOrchestratorDisplaySettings } = await import("./orchestrator-library.js");
+      const result = updateOrchestratorDisplaySettings({ showPackageExamples: body.showPackageExamples }, deps.repoCwd);
+      if (result.success) send(res, jsonResponse(result.settings));
+      else send(res, errorResponse(result.error || "Failed to update display settings", result.status || 400));
+      return;
+    }
     if (url.pathname === "/api/orchestrator-libraries/bootstrap" && req.method === "POST") {
       let body: any;
       try {
@@ -364,7 +378,10 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 
     // GET /api/agent-types
     if (url.pathname === "/api/agent-types" && req.method === "GET") {
-      const defs = deps.discoverDefinitions(deps.repoCwd);
+      const { readOrchestratorDisplaySettings } = await import("./orchestrator-library.js");
+      const displaySettings = readOrchestratorDisplaySettings(deps.repoCwd);
+      const defs = deps.discoverDefinitions(deps.repoCwd)
+        .filter((d) => displaySettings.showPackageExamples || !(d.source === "package" && d.example));
       send(res, jsonResponse(
         defs.map((d) => ({
           name: d.name,
