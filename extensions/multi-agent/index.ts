@@ -9,7 +9,7 @@ import { sendToAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
 import { resolveCapabilities } from "./capability-resolution.js";
-import { readRuntimeToolSnapshot } from "./runtime-tools.js";
+import { logRuntimeToolConflicts, readRuntimeToolSnapshot } from "./runtime-tools.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
@@ -21,6 +21,7 @@ function displaySkillScope(scope?: string): string {
 
 function serializeAgentForDashboard(agent: import("./state.js").Agent) {
   agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
+  logRuntimeToolConflicts(agent.id, agent.runtimeTools);
   return {
     name: agent.id,
     status: agent.status,

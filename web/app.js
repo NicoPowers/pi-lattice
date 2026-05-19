@@ -30360,6 +30360,15 @@ function AgentCard({ name: name2, agent, stats, onInspect, pushLog }) {
                   "tools: ",
                   agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
                 ]
+              }, undefined, true, undefined, this),
+              !!agent.runtimeTools?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                variant: "warning",
+                title: agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join(`
+`),
+                children: [
+                  "tool conflicts: ",
+                  agent.runtimeTools.conflicts.length
+                ]
               }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this),
@@ -32869,6 +32878,9 @@ function formatInspectData(data) {
     lines.push(`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`);
     lines.push(`active tools: ${data.runtimeTools.active.map((tool) => tool.name).join(", ") || "(none)"}`);
     lines.push(`all tools: ${data.runtimeTools.all.map((tool) => tool.name).join(", ") || "(none)"}`);
+    for (const conflict of data.runtimeTools.conflicts || []) {
+      lines.push(`tool conflict: ${conflict.name} registered ${conflict.count} times${conflict.sources?.length ? ` by ${conflict.sources.join(", ")}` : ""}`);
+    }
   } else {
     lines.push("runtime tools: unknown");
   }

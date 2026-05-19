@@ -43,4 +43,24 @@ describe("runtime tool snapshots", () => {
     fs.writeFileSync(filePath, "not json", "utf-8");
     expect(readRuntimeToolSnapshot(tmpDir)).toBeUndefined();
   });
+
+  it("detects and labels duplicate runtime tool registrations", async () => {
+    const { readRuntimeToolSnapshot, runtimeToolsPath } = await import("../extensions/multi-agent/runtime-tools.js");
+    const filePath = runtimeToolsPath(tmpDir);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify({
+      active: [{ name: "conflict" }],
+      all: [
+        { name: "conflict", sourceInfo: { extension: "alpha" } },
+        { name: "conflict", sourceInfo: { extension: "beta" } },
+        { name: "unique", sourceInfo: { source: "core" } },
+      ],
+      reportedAt: 456,
+      source: "child-agent",
+    }), "utf-8");
+
+    const snapshot = readRuntimeToolSnapshot(tmpDir);
+    expect(snapshot?.all.map((tool) => tool.name)).toEqual(["conflict", "unique"]);
+    expect(snapshot?.conflicts).toEqual([{ name: "conflict", count: 2, sources: ["extension:alpha", "extension:beta"] }]);
+  });
 });

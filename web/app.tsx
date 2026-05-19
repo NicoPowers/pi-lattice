@@ -340,6 +340,7 @@ function AgentCard({ name, agent, stats, onInspect, pushLog }: { name: string; a
           <Stats stats={stats} />
           {agent.worktree && <><span title={agent.worktree}>worktree: {shortPath(agent.worktree)}</span><Button variant="secondary" className="px-2 py-1 text-xs" onClick={copyPath}>Copy Path</Button></>}
           <span title={agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet"}>tools: {agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"}</span>
+          {!!agent.runtimeTools?.conflicts?.length && <Badge variant="warning" title={agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join("\n")}>tool conflicts: {agent.runtimeTools.conflicts.length}</Badge>}
         </div>
         <pre className="max-h-72 min-h-28 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6">{agent.text || ""}</pre>
         <div className="flex gap-2">
@@ -1176,6 +1177,9 @@ function formatInspectData(data: any): string {
     lines.push(`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`);
     lines.push(`active tools: ${data.runtimeTools.active.map((tool: any) => tool.name).join(", ") || "(none)"}`);
     lines.push(`all tools: ${data.runtimeTools.all.map((tool: any) => tool.name).join(", ") || "(none)"}`);
+    for (const conflict of data.runtimeTools.conflicts || []) {
+      lines.push(`tool conflict: ${conflict.name} registered ${conflict.count} times${conflict.sources?.length ? ` by ${conflict.sources.join(", ")}` : ""}`);
+    }
   } else {
     lines.push("runtime tools: unknown");
   }

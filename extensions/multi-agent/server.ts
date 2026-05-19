@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { type Agent, type AgentDefinition, agents, log } from "./state.js";
 import { rpcCommand } from "./send.js";
-import { readRuntimeToolSnapshot } from "./runtime-tools.js";
+import { logRuntimeToolConflicts, readRuntimeToolSnapshot } from "./runtime-tools.js";
 
 // ── Types ──
 
@@ -45,6 +45,7 @@ export function broadcast(event: { type: string; data: any }) {
 
 function serializeAgent(agent: Agent) {
   agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
+  logRuntimeToolConflicts(agent.id, agent.runtimeTools);
   return {
     name: agent.id,
     status: agent.status,
@@ -646,6 +647,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         return;
       }
       agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
+      logRuntimeToolConflicts(agent.id, agent.runtimeTools);
       send(res, jsonResponse({
         name,
         status: agent.status,

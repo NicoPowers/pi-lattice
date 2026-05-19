@@ -1,7 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import type { RuntimeToolConflict, RuntimeToolInfo, RuntimeToolSnapshot } from "./state.js";
+import { log, type RuntimeToolConflict, type RuntimeToolInfo, type RuntimeToolSnapshot } from "./state.js";
+
+const loggedConflictKeys = new Set<string>();
 
 export function runtimeToolsPath(worktreePath: string): string {
   return path.join(worktreePath, ".pi", "comms", "runtime-tools.json");
@@ -55,6 +57,19 @@ export function detectRuntimeToolConflicts(value: unknown): RuntimeToolConflict[
       count: tools.length,
       sources: Array.from(new Set(tools.map(sourceLabel))),
     }));
+}
+
+export function logRuntimeToolConflicts(agentName: string, snapshot: RuntimeToolSnapshot | undefined): void {
+  if (!snapshot?.conflicts?.length) return;
+  for (const conflict of snapshot.conflicts) {
+    const key = `${agentName}:${snapshot.reportedAt}:${conflict.name}:${conflict.count}:${conflict.sources.join("|")}`;
+    if (loggedConflictKeys.has(key)) continue;
+    loggedConflictKeys.add(key);
+    log("runtime-tools", `Agent '${agentName}' reported conflicting runtime tool '${conflict.name}'`, {
+      count: conflict.count,
+      sources: conflict.sources,
+    });
+  }
 }
 
 export function readRuntimeToolSnapshot(worktreePath: string): RuntimeToolSnapshot | undefined {
