@@ -29853,7 +29853,7 @@ var tabs = [
   { id: "agents", label: "Live Agents" },
   { id: "types", label: "Agent Types" },
   { id: "skills", label: "Skill Library" },
-  { id: "resourceSettings", label: "Resource Sources" },
+  { id: "resourceSettings", label: "Skill & Extension Paths" },
   { id: "skillTemplates", label: "Skill Templates" },
   { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
@@ -30594,7 +30594,7 @@ function ResourceSettingsPanel({ onSaved, pushLog }) {
       setSettings(data);
       setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
     } catch (e) {
-      setError(e.message || "Failed to load resource settings");
+      setError(e.message || "Failed to load skill and extension paths");
     } finally {
       setLoading(false);
     }
@@ -30625,11 +30625,11 @@ Save anyway?`))
       const data = await res.json();
       setSettings(data);
       setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
-      pushLog(`Saved ${scope} resource sources. Reload/restart may be needed for all sessions.`, "success");
+      pushLog(`Saved ${scope} skill and extension paths. Reload/restart may be needed for all sessions.`, "success");
       onSaved();
     } catch (e) {
-      setError(e.message || "Failed to save resource settings");
-      pushLog(`Failed to save resource settings: ${e.message}`, "error");
+      setError(e.message || "Failed to save skill and extension paths");
+      pushLog(`Failed to save skill and extension paths: ${e.message}`, "error");
     } finally {
       setSaving(null);
     }
@@ -30646,7 +30646,7 @@ Save anyway?`))
               className: "flex items-center justify-between gap-3",
               children: [
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardTitle, {
-                  children: "Pi Resource Sources"
+                  children: "Skill & Extension Paths"
                 }, undefined, false, undefined, this),
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
                   variant: "secondary",
@@ -30731,7 +30731,7 @@ Save anyway?`))
       }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
         children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardContent, {
           className: "p-6 text-sm text-muted-foreground",
-          children: loading ? "Loading resource settings…" : "No settings loaded."
+          children: loading ? "Loading skill and extension paths…" : "No settings loaded."
         }, undefined, false, undefined, this)
       }, undefined, false, undefined, this)
     ]

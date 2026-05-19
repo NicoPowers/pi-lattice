@@ -659,7 +659,7 @@ Support rich directory skills where `SKILL.md` references co-located markdown, s
 
 ---
 
-# Phase 7G — Resource Source Settings UI
+# Phase 7G — Skill & Extension Paths UI
 
 **Status:** Implemented.
 
@@ -770,14 +770,14 @@ From Pi docs:
 - Relative project path resolves against `<repo>/.pi`.
 - Missing path shows warning but does not crash.
 
-### Issue 7G.4: Dashboard Resource Sources page
+### Issue 7G.4: Dashboard Skill & Extension Paths page
 
 **Status:** Implemented.
 
-**Goal**: Add a UI for managing Pi resource source settings.
+**Goal**: Add a UI for managing Pi skill and extension path settings.
 
 **What to do:**
-- Add a new dashboard section, e.g. `Resource Sources` or `Settings`.
+- Add a new dashboard section, `Skill & Extension Paths`.
 - Show two panels:
   - Global / all projects
   - Project / current repo

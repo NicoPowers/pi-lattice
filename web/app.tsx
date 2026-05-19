@@ -24,7 +24,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "agents", label: "Live Agents" },
   { id: "types", label: "Agent Types" },
   { id: "skills", label: "Skill Library" },
-  { id: "resourceSettings", label: "Resource Sources" },
+  { id: "resourceSettings", label: "Skill & Extension Paths" },
   { id: "skillTemplates", label: "Skill Templates" },
   { id: "extensionTemplates", label: "Extension Templates" },
   { id: "hierarchy", label: "Hierarchy" },
@@ -422,7 +422,7 @@ function ResourceSettingsPanel({ onSaved, pushLog }: { onSaved: () => void; push
       setSettings(data);
       setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
     } catch (e: any) {
-      setError(e.message || "Failed to load resource settings");
+      setError(e.message || "Failed to load skill and extension paths");
     } finally {
       setLoading(false);
     }
@@ -446,11 +446,11 @@ function ResourceSettingsPanel({ onSaved, pushLog }: { onSaved: () => void; push
       const data = await res.json() as ResourceSettingsInfo;
       setSettings(data);
       setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
-      pushLog(`Saved ${scope} resource sources. Reload/restart may be needed for all sessions.`, "success");
+      pushLog(`Saved ${scope} skill and extension paths. Reload/restart may be needed for all sessions.`, "success");
       onSaved();
     } catch (e: any) {
-      setError(e.message || "Failed to save resource settings");
-      pushLog(`Failed to save resource settings: ${e.message}`, "error");
+      setError(e.message || "Failed to save skill and extension paths");
+      pushLog(`Failed to save skill and extension paths: ${e.message}`, "error");
     } finally {
       setSaving(null);
     }
@@ -460,7 +460,7 @@ function ResourceSettingsPanel({ onSaved, pushLog }: { onSaved: () => void; push
 
   return <div className="space-y-4">
     <Card>
-      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Pi Resource Sources</CardTitle><Button variant="secondary" onClick={load} disabled={loading}>Refresh</Button></div></CardHeader>
+      <CardHeader className="border-b border-border"><div className="flex items-center justify-between gap-3"><CardTitle>Skill & Extension Paths</CardTitle><Button variant="secondary" onClick={load} disabled={loading}>Refresh</Button></div></CardHeader>
       <CardContent className="space-y-2 pt-4 text-sm text-muted-foreground">
         <p>Manage Pi's native <code>settings.json</code> resource arrays for <code>skills</code> and <code>extensions</code>. Global applies to all projects on this machine; project applies only to the current repository.</p>
         <p>Paths may be absolute, <code>~</code>-prefixed, relative, globs, or exclusions. Global relative paths resolve from <code>~/.pi/agent</code>; project relative paths resolve from <code>.pi</code>.</p>
@@ -471,7 +471,7 @@ function ResourceSettingsPanel({ onSaved, pushLog }: { onSaved: () => void; push
     {settings ? <div className="grid gap-4 xl:grid-cols-2">
       <ResourceScopePanel scope={settings.global} draft={drafts.global} onDraft={(draft) => setDrafts((prev) => ({ ...prev, global: draft }))} changed={changed("global")} saving={saving === "global"} onSave={() => save("global")} onReset={() => setDrafts((prev) => ({ ...prev, global: { skills: settings.global.skills, extensions: settings.global.extensions } }))} />
       <ResourceScopePanel scope={settings.project} draft={drafts.project} onDraft={(draft) => setDrafts((prev) => ({ ...prev, project: draft }))} changed={changed("project")} saving={saving === "project"} onSave={() => save("project")} onReset={() => setDrafts((prev) => ({ ...prev, project: { skills: settings.project.skills, extensions: settings.project.extensions } }))} />
-    </div> : <Card><CardContent className="p-6 text-sm text-muted-foreground">{loading ? "Loading resource settings…" : "No settings loaded."}</CardContent></Card>}
+    </div> : <Card><CardContent className="p-6 text-sm text-muted-foreground">{loading ? "Loading skill and extension paths…" : "No settings loaded."}</CardContent></Card>}
   </div>;
 }
 
