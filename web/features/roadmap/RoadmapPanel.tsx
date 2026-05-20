@@ -214,7 +214,7 @@ function IssueCard({ issue, compact, onSelectIssue }: { issue: RoadmapIssueView;
 function IssueDetailDialog({ overview, issue, onClose, onSelectIssue }: { overview: RoadmapOverview; issue?: RoadmapIssueView; onClose: () => void; onSelectIssue: (id: string) => void }) {
   const blockers = issue ? overview.dependencyMap.blockers[issue.id] || [] : [];
   const dependents = issue ? overview.dependencyMap.dependents[issue.id] || [] : [];
-  return <Dialog open={!!issue} title="Issue Details" onOpenChange={onClose} className="max-w-4xl">
+  return <Dialog open={!!issue} title={issue ? detailTitle(issue.type) : "Issue Details"} onOpenChange={onClose} className="max-w-4xl">
     {issue && <div className="space-y-4">
       <div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{issue.id}</span><Badge variant={statusBadgeVariant(issue.status)}>{formatStatus(issue.status)}</Badge><Badge variant="outline">P{issue.priority}</Badge><Badge variant="outline">{issue.type}</Badge></div>
@@ -268,6 +268,11 @@ function findFocusEpic(hierarchy: RoadmapHierarchy): RoadmapEpicGroup | undefine
 
 function flattenHierarchy(hierarchy: RoadmapHierarchy): RoadmapIssueView[] {
   return [...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped];
+}
+
+function detailTitle(type: string): string {
+  if (type === "epic") return "Epic Details";
+  return "Issue Details";
 }
 
 function formatDependency(dependency: RoadmapDependency): string {

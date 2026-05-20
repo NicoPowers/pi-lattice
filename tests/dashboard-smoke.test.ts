@@ -111,6 +111,15 @@ describe("dashboard bundle smoke test", () => {
       expect(roadmapText).toContain("9 total");
       expect(roadmapText).toContain("Roadmap tracer 4");
       expect(roadmapText).not.toContain("In Progress11Next Up22Blocked33Backlog / Open44Closed11");
+      const epicButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Epic: Read-only Roadmap dashboard backed by Seeds"));
+      epicButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(window.document.getElementById("root")?.textContent || "").toContain("Epic Details");
+      const epicDialog = window.document.querySelector('[role="dialog"]');
+      epicDialog?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const tracerButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Roadmap tracer 4"));
       tracerButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();

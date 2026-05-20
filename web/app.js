@@ -34273,7 +34273,7 @@ function IssueDetailDialog({ overview, issue, onClose, onSelectIssue }) {
   const dependents = issue ? overview.dependencyMap.dependents[issue.id] || [] : [];
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Dialog, {
     open: !!issue,
-    title: "Issue Details",
+    title: issue ? detailTitle(issue.type) : "Issue Details",
     onOpenChange: onClose,
     className: "max-w-4xl",
     children: issue && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
@@ -34467,6 +34467,11 @@ function findFocusEpic(hierarchy) {
 }
 function flattenHierarchy(hierarchy) {
   return [...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped];
+}
+function detailTitle(type) {
+  if (type === "epic")
+    return "Epic Details";
+  return "Issue Details";
 }
 function formatDependency(dependency) {
   return `${dependency.title || dependency.id} (${dependency.status})`;
