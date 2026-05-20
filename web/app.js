@@ -18119,7 +18119,7 @@ var require_extend = __commonJS((exports, module) => {
 });
 
 // web/app.tsx
-var import_react8 = __toESM(require_react(), 1);
+var import_react9 = __toESM(require_react(), 1);
 var import_client = __toESM(require_client(), 1);
 
 // web/features/live-agents/LiveAgentsPanel.tsx
@@ -33581,10 +33581,527 @@ function RootOrchestratorProfilesPanel({ profiles, onChanged, pushLog }) {
   }, undefined, true, undefined, this);
 }
 
-// web/app.tsx
+// web/features/roadmap/RoadmapPanel.tsx
+var import_react8 = __toESM(require_react(), 1);
+
+// web/features/roadmap/roadmap-view-model.ts
+function buildRoadmapHierarchy(overview) {
+  const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
+  const byId = new Map(issueViews.map((issue) => [issue.id, issue]));
+  const epics = issueViews.filter((issue) => issue.type === "epic");
+  const assigned = new Set;
+  const epicGroups = epics.map((epic) => {
+    assigned.add(epic.id);
+    const childIds = new Set;
+    for (const dependent of overview.dependencyMap.dependents[epic.id] || [])
+      childIds.add(dependent.id);
+    for (const blocker of overview.dependencyMap.blockers[epic.id] || [])
+      childIds.add(blocker.id);
+    for (const blockedId of epic.blocks)
+      childIds.add(blockedId);
+    for (const blockerId of epic.blockedBy)
+      childIds.add(blockerId);
+    const children = Array.from(childIds).map((id) => byId.get(id)).filter((issue) => !!issue && issue.id !== epic.id && issue.type !== "epic");
+    for (const child of children)
+      assigned.add(child.id);
+    return {
+      epic,
+      activeChildren: children.filter((issue) => issue.status !== "closed"),
+      closedChildren: children.filter((issue) => issue.status === "closed")
+    };
+  });
+  for (const issue of issueViews) {
+    if (assigned.has(issue.id) || issue.type === "epic")
+      continue;
+    const group = bestInferredEpicGroup(issue, epicGroups);
+    if (!group)
+      continue;
+    assigned.add(issue.id);
+    if (issue.status === "closed")
+      group.closedChildren.push(issue);
+    else
+      group.activeChildren.push(issue);
+  }
+  for (const group of epicGroups) {
+    group.activeChildren = sortIssueViews(group.activeChildren);
+    group.closedChildren = sortIssueViews(group.closedChildren);
+  }
+  const ungrouped = sortIssueViews(issueViews.filter((issue) => !assigned.has(issue.id)));
+  return { epics: sortEpicGroups(epicGroups), ungrouped };
+}
+function toIssueView(issue, overview) {
+  const blockers = overview.dependencyMap.blockers[issue.id] || [];
+  const unresolvedBlockers = overview.dependencyMap.unresolvedBlockers[issue.id] || [];
+  return {
+    ...issue,
+    unresolvedBlockers,
+    resolvedBlockerCount: Math.max(0, blockers.length - unresolvedBlockers.length),
+    dependentCount: (overview.dependencyMap.dependents[issue.id] || []).length
+  };
+}
+function sortEpicGroups(groups) {
+  return [...groups].sort((a, b) => compareIssues(a.epic, b.epic));
+}
+function bestInferredEpicGroup(issue, groups) {
+  let best;
+  for (const group of groups) {
+    const score = epicAffinityScore(issue, group.epic);
+    if (score <= 0)
+      continue;
+    if (!best || score > best.score || score === best.score && compareIssues(group.epic, best.group.epic) < 0)
+      best = { group, score };
+  }
+  return best?.group;
+}
+function epicAffinityScore(issue, epic) {
+  const issueLabels = distinctiveLabels(issue.labels);
+  const epicLabels = distinctiveLabels(epic.labels);
+  const sharedLabels = issueLabels.filter((label) => epicLabels.includes(label)).length;
+  if (sharedLabels > 0)
+    return sharedLabels * 10;
+  const issueTokens = titleTokens(issue.title);
+  const epicTokens = titleTokens(epic.title);
+  const sharedTokens = issueTokens.filter((token) => epicTokens.includes(token)).length;
+  return sharedTokens >= 2 ? sharedTokens : 0;
+}
+function distinctiveLabels(labels) {
+  const generic = new Set(["epic", "tracer", "dashboard", "frontend", "backend", "ux", "docs", "tests", "architecture", "dependencies", "next-up"]);
+  return labels.map((label) => label.toLowerCase()).filter((label) => !generic.has(label));
+}
+function titleTokens(title) {
+  const generic = new Set(["epic", "tracer", "add", "read", "only", "with", "and", "the", "for"]);
+  return title.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length >= 4 && !generic.has(token));
+}
+function sortIssueViews(issues) {
+  return [...issues].sort(compareIssues);
+}
+function compareIssues(a, b) {
+  const status = statusWeight(a.status) - statusWeight(b.status);
+  if (status !== 0)
+    return status;
+  const priority = a.priority - b.priority;
+  if (priority !== 0)
+    return priority;
+  const updated = (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+  if (updated !== 0)
+    return updated;
+  return a.id.localeCompare(b.id);
+}
+function statusWeight(status) {
+  if (status === "in_progress")
+    return 0;
+  if (status === "open")
+    return 1;
+  if (status === "closed")
+    return 2;
+  return 3;
+}
+
+// web/features/roadmap/RoadmapPanel.tsx
 var jsx_dev_runtime13 = __toESM(require_jsx_dev_runtime(), 1);
+var summaryCards = [
+  { key: "inProgress", label: "In Progress", tone: "default" },
+  { key: "nextUp", label: "Next Up", tone: "success" },
+  { key: "blocked", label: "Blocked", tone: "destructive" },
+  { key: "backlog", label: "Backlog / Open", tone: "warning" },
+  { key: "closed", label: "Closed", tone: "outline" }
+];
+function RoadmapPanel({ pushLog }) {
+  const [overview, setOverview] = import_react8.useState(null);
+  const [loading, setLoading] = import_react8.useState(true);
+  const [error, setError] = import_react8.useState("");
+  const refresh = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/roadmap");
+      if (!res.ok)
+        throw new Error(await res.text());
+      setOverview(await res.json());
+    } catch (err) {
+      const message = err?.message || "Failed to load roadmap";
+      setError(message);
+      pushLog?.(`Failed to load roadmap: ${message}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+  import_react8.useEffect(() => {
+    refresh();
+  }, []);
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Card, {
+    className: "min-h-[70vh]",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardHeader, {
+        className: "border-b border-border",
+        children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          className: "flex flex-wrap items-start justify-between gap-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardTitle, {
+                  children: "Project Roadmap"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+                  className: "mt-1 text-sm text-muted-foreground",
+                  children: "Read-only project status derived from the current roadmap source."
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Button, {
+              variant: "secondary",
+              className: "px-2 py-1 text-xs",
+              onClick: refresh,
+              disabled: loading,
+              children: "Refresh"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardContent, {
+        className: "space-y-4 pt-4",
+        children: [
+          loading && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "rounded-md border border-border bg-card/50 p-4 text-sm text-muted-foreground",
+            children: "Loading roadmap…"
+          }, undefined, false, undefined, this),
+          !loading && error && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive",
+            children: error
+          }, undefined, false, undefined, this),
+          !loading && !error && overview && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapSummary, {
+            overview
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function RoadmapSummary({ overview }) {
+  const hierarchy = buildRoadmapHierarchy(overview);
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "space-y-4",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "flex flex-wrap items-center gap-2 text-sm text-muted-foreground",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              overview.counts.total,
+              " total"
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+            children: [
+              "Source: ",
+              overview.source.exists ? "loaded" : "missing"
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+            className: "truncate",
+            children: overview.source.path
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
+        children: summaryCards.map((item) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          className: "rounded-md border border-border bg-background/40 p-4",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "flex items-center justify-between gap-2",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                  className: "text-sm font-medium",
+                  children: item.label
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: item.tone,
+                  children: overview.counts[item.key]
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "mt-2 text-3xl font-semibold tabular-nums",
+              children: overview.counts[item.key]
+            }, undefined, false, undefined, this)
+          ]
+        }, item.key, true, undefined, this))
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "grid gap-3 md:grid-cols-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(QueuePreview, {
+            title: "Next Up",
+            issueIds: overview.groups.nextUp,
+            overview,
+            emptyText: "No ready work found."
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(QueuePreview, {
+            title: "Blocked",
+            issueIds: overview.groups.blocked,
+            overview,
+            emptyText: "No blocked work found."
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapHierarchyView, {
+        hierarchy
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function QueuePreview({ title, issueIds, overview, emptyText }) {
+  const hierarchy = buildRoadmapHierarchy(overview);
+  const issueViewsById = new Map([...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped].map((issue) => [issue.id, issue]));
+  const visibleIssues = issueIds.map((id) => issueViewsById.get(id)).filter((issue) => !!issue).slice(0, 5);
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "rounded-md border border-border p-4",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "mb-3 flex items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h3", {
+            className: "text-sm font-semibold",
+            children: title
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: issueIds.length
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      visibleIssues.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "space-y-2",
+        children: [
+          visibleIssues.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+            issue,
+            compact: true
+          }, issue.id, false, undefined, this)),
+          issueIds.length > visibleIssues.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "text-xs text-muted-foreground",
+            children: [
+              "+ ",
+              issueIds.length - visibleIssues.length,
+              " more"
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "text-sm text-muted-foreground",
+        children: emptyText
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function RoadmapHierarchyView({ hierarchy }) {
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "space-y-3 rounded-md border border-border p-4",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "flex flex-wrap items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h3", {
+                className: "text-sm font-semibold",
+                children: "Epic Roadmap"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+                className: "mt-1 text-xs text-muted-foreground",
+                children: "Epics are shown as top-level groups; direct dependency links become child roadmap items."
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              hierarchy.epics.length,
+              " epics"
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      hierarchy.epics.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "space-y-3",
+        children: hierarchy.epics.map((group) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          className: "rounded-lg border border-border bg-background/40 p-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+              issue: group.epic,
+              epic: true
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "mt-3 space-y-2 border-l border-border pl-3",
+              children: [
+                group.activeChildren.length ? group.activeChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+                  issue
+                }, issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+                  className: "text-xs text-muted-foreground",
+                  children: "No active child issues linked to this epic."
+                }, undefined, false, undefined, this),
+                !!group.closedChildren.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("details", {
+                  className: "rounded border border-border/70 bg-card/30 p-2 text-xs text-muted-foreground",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("summary", {
+                      className: "cursor-pointer",
+                      children: [
+                        group.closedChildren.length,
+                        " closed child",
+                        group.closedChildren.length === 1 ? "" : "ren"
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                      className: "mt-2 space-y-2 opacity-70",
+                      children: group.closedChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+                        issue,
+                        compact: true
+                      }, issue.id, false, undefined, this))
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, group.epic.id, true, undefined, this))
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "text-sm text-muted-foreground",
+        children: "No epics found in the roadmap source."
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(UngroupedIssues, {
+        issues: hierarchy.ungrouped
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function UngroupedIssues({ issues }) {
+  const active = sortIssueViews(issues.filter((issue) => issue.status !== "closed"));
+  const closed = sortIssueViews(issues.filter((issue) => issue.status === "closed"));
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "space-y-2 border-t border-border pt-3",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "flex items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+            className: "text-sm font-semibold",
+            children: "Ungrouped"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: issues.length
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      active.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "grid gap-2 md:grid-cols-2",
+        children: active.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+          issue
+        }, issue.id, false, undefined, this))
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "text-sm text-muted-foreground",
+        children: "No ungrouped active issues."
+      }, undefined, false, undefined, this),
+      !!closed.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("details", {
+        className: "rounded border border-border/70 bg-card/30 p-2 text-xs text-muted-foreground",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("summary", {
+            className: "cursor-pointer",
+            children: [
+              closed.length,
+              " closed ungrouped issue",
+              closed.length === 1 ? "" : "s"
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "mt-2 grid gap-2 opacity-70 md:grid-cols-2",
+            children: closed.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+              issue,
+              compact: true
+            }, issue.id, false, undefined, this))
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function IssueCard({ issue, compact, epic }) {
+  const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: `rounded border ${epic ? "border-primary/40 bg-primary/5" : "border-border/70 bg-card/40"} ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`,
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+            children: issue.id
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: statusBadgeVariant(issue.status),
+            children: formatStatus(issue.status)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              "P",
+              issue.priority
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: issue.type
+          }, undefined, false, undefined, this),
+          !!issue.dependentCount && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "default",
+            children: [
+              "blocks ",
+              issue.dependentCount
+            ]
+          }, undefined, true, undefined, this),
+          !!issue.resolvedBlockerCount && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              issue.resolvedBlockerCount,
+              " resolved blocker",
+              issue.resolvedBlockerCount === 1 ? "" : "s"
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: `${compact ? "mt-1 text-sm" : "mt-2 text-sm"} font-medium`,
+        children: issue.title
+      }, undefined, false, undefined, this),
+      !!issue.unresolvedBlockers.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "mt-2 rounded border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive",
+        children: [
+          "Blocked by ",
+          blockerText
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function formatDependency(dependency) {
+  return `${dependency.title || dependency.id} (${dependency.status})`;
+}
+function formatStatus(status) {
+  return status.replace(/_/g, " ");
+}
+function statusBadgeVariant(status) {
+  if (status === "in_progress")
+    return "default";
+  if (status === "closed")
+    return "outline";
+  return "warning";
+}
+
+// web/app.tsx
+var jsx_dev_runtime14 = __toESM(require_jsx_dev_runtime(), 1);
 var tabs = [
   { id: "agents", label: "Live Agents" },
+  { id: "roadmap", label: "Roadmap" },
   { id: "types", label: "Agent Types" },
   { id: "rootProfiles", label: "Root Profiles" },
   { id: "skills", label: "Skill Library" },
@@ -33595,27 +34112,27 @@ var tabs = [
   { id: "log", label: "Event Log" }
 ];
 function App() {
-  const [activeTab, setActiveTab] = import_react8.useState("agents");
-  const [connected, setConnected] = import_react8.useState(false);
-  const [agents, setAgents] = import_react8.useState({});
-  const [agentStats, setAgentStats] = import_react8.useState({});
-  const [logs, setLogs] = import_react8.useState([]);
-  const [types2, setTypes] = import_react8.useState([]);
-  const [rootProfiles, setRootProfiles] = import_react8.useState([]);
-  const [models, setModels] = import_react8.useState([]);
-  const [skillTemplates, setSkillTemplates] = import_react8.useState([]);
-  const [extensionTemplates, setExtensionTemplates] = import_react8.useState([]);
-  const [skills, setSkills] = import_react8.useState([]);
-  const [skillDiagnostics, setSkillDiagnostics] = import_react8.useState([]);
-  const [extensions, setExtensions] = import_react8.useState([]);
-  const [editingTemplate, setEditingTemplate] = import_react8.useState(null);
-  const [editingType, setEditingType] = import_react8.useState(undefined);
-  const [inspectAgentName, setInspectAgentName] = import_react8.useState(null);
-  const [inspectText, setInspectText] = import_react8.useState("Loading…");
-  const pushLog = import_react8.useCallback((text7, level = "info") => {
+  const [activeTab, setActiveTab] = import_react9.useState("agents");
+  const [connected, setConnected] = import_react9.useState(false);
+  const [agents, setAgents] = import_react9.useState({});
+  const [agentStats, setAgentStats] = import_react9.useState({});
+  const [logs, setLogs] = import_react9.useState([]);
+  const [types2, setTypes] = import_react9.useState([]);
+  const [rootProfiles, setRootProfiles] = import_react9.useState([]);
+  const [models, setModels] = import_react9.useState([]);
+  const [skillTemplates, setSkillTemplates] = import_react9.useState([]);
+  const [extensionTemplates, setExtensionTemplates] = import_react9.useState([]);
+  const [skills, setSkills] = import_react9.useState([]);
+  const [skillDiagnostics, setSkillDiagnostics] = import_react9.useState([]);
+  const [extensions, setExtensions] = import_react9.useState([]);
+  const [editingTemplate, setEditingTemplate] = import_react9.useState(null);
+  const [editingType, setEditingType] = import_react9.useState(undefined);
+  const [inspectAgentName, setInspectAgentName] = import_react9.useState(null);
+  const [inspectText, setInspectText] = import_react9.useState("Loading…");
+  const pushLog = import_react9.useCallback((text7, level = "info") => {
     setLogs((prev) => [{ id: Date.now() + Math.random(), level, text: `${new Date().toLocaleTimeString()}  ${text7}` }, ...prev].slice(0, 100));
   }, []);
-  const refreshTypes = import_react8.useCallback(async () => {
+  const refreshTypes = import_react9.useCallback(async () => {
     try {
       const res = await fetch("/api/agent-types");
       if (!res.ok)
@@ -33625,7 +34142,7 @@ function App() {
       pushLog(`Failed to load agent types: ${e.message}`, "error");
     }
   }, [pushLog]);
-  const refreshRootProfiles = import_react8.useCallback(async () => {
+  const refreshRootProfiles = import_react9.useCallback(async () => {
     try {
       const res = await fetch("/api/root-profiles");
       if (!res.ok)
@@ -33636,7 +34153,7 @@ function App() {
       pushLog(`Failed to load root profiles: ${e.message}`, "error");
     }
   }, [pushLog]);
-  const refreshModels = import_react8.useCallback(async () => {
+  const refreshModels = import_react9.useCallback(async () => {
     try {
       const res = await fetch("/api/models");
       if (!res.ok)
@@ -33647,14 +34164,14 @@ function App() {
       setModels([]);
     }
   }, []);
-  const refreshStats = import_react8.useCallback(async () => {
+  const refreshStats = import_react9.useCallback(async () => {
     try {
       const res = await fetch("/api/agent-stats");
       if (res.ok)
         setAgentStats(await res.json());
     } catch {}
   }, []);
-  const refreshTemplates = import_react8.useCallback(async () => {
+  const refreshTemplates = import_react9.useCallback(async () => {
     try {
       const [skillTemplatesRes, extsRes, availableExtsRes, skillsRes] = await Promise.all([
         fetch("/api/skill-templates"),
@@ -33687,7 +34204,7 @@ function App() {
       pushLog(`Failed to load templates: ${e.message}`, "error");
     }
   }, [pushLog]);
-  const handleEvent = import_react8.useCallback((ev) => {
+  const handleEvent = import_react9.useCallback((ev) => {
     switch (ev.type) {
       case "init":
         setAgents(Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [k, { ...v }])));
@@ -33730,7 +34247,7 @@ function App() {
         break;
     }
   }, [pushLog]);
-  import_react8.useEffect(() => {
+  import_react9.useEffect(() => {
     let stopped = false;
     let es = null;
     let retry;
@@ -33754,7 +34271,7 @@ function App() {
         clearTimeout(retry);
     };
   }, [handleEvent]);
-  import_react8.useEffect(() => {
+  import_react9.useEffect(() => {
     refreshTypes();
     refreshRootProfiles();
     refreshModels();
@@ -33790,25 +34307,25 @@ function App() {
       setInspectText(`Inspect failed: ${e.message}`);
     }
   };
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     className: "flex min-h-screen flex-col bg-background text-foreground",
     children: [
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("header", {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("header", {
         className: "sticky top-0 z-10 border-b border-border bg-background/85 px-4 py-3 backdrop-blur",
-        children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
           className: "flex flex-wrap items-center justify-between gap-3",
           children: [
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
               className: "flex min-w-0 flex-1 flex-wrap items-center gap-3",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h1", {
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h1", {
                   className: "whitespace-nowrap text-xl font-semibold tracking-tight",
                   children: "\uD83E\uDDE0 Pi Orchestrator"
                 }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("nav", {
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("nav", {
                   className: "flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-md border border-border bg-card/50 p-1",
                   "aria-label": "Dashboard sections",
-                  children: tabs.map((tab2) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("button", {
+                  children: tabs.map((tab2) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
                     type: "button",
                     className: `whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition ${activeTab === tab2.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
                     onClick: () => setActiveTab(tab2.id),
@@ -33817,20 +34334,20 @@ function App() {
                 }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
               className: "flex shrink-0 items-center gap-3",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
                   className: "flex items-center gap-2 text-sm text-muted-foreground",
                   children: [
-                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+                    /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
                       className: `h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-muted-foreground"}`
                     }, undefined, false, undefined, this),
                     " ",
                     connected ? "Connected" : "Disconnected"
                   ]
                 }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Button, {
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Button, {
                   variant: "destructive",
                   onClick: emergencyStop,
                   children: "\uD83D\uDED1 Emergency Stop"
@@ -33840,50 +34357,56 @@ function App() {
           ]
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("main", {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("main", {
         className: "flex-1 overflow-hidden p-4",
         children: [
-          activeTab === "agents" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(AgentsPanel, {
+          activeTab === "agents" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(AgentsPanel, {
             agents,
             stats: agentStats,
             onInspect: inspect,
             pushLog
           }, undefined, false, undefined, this),
-          activeTab === "types" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "roadmap" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
+            mode: "wide",
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(RoadmapPanel, {
+              pushLog
+            }, undefined, false, undefined, this)
+          }, undefined, false, undefined, this),
+          activeTab === "types" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(AgentTypesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(AgentTypesPanel, {
               types: types2,
               onNew: () => setEditingType(null),
               onEdit: (type) => setEditingType(type),
               large: true
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "rootProfiles" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "rootProfiles" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RootOrchestratorProfilesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(RootOrchestratorProfilesPanel, {
               profiles: rootProfiles,
               onChanged: refreshRootProfiles,
               pushLog
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "skills" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(SkillLibraryPanel, {
+          activeTab === "skills" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(SkillLibraryPanel, {
             skills,
             diagnostics: skillDiagnostics,
             skillTemplates,
             onEditTemplate: (template) => setEditingTemplate({ kind: "skill", template }),
             onChanged: refreshTemplates
           }, undefined, false, undefined, this),
-          activeTab === "orchestratorLibraries" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "orchestratorLibraries" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(OrchestratorLibrariesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(OrchestratorLibrariesPanel, {
               pushLog,
               onDisplaySettingsChanged: refreshTypes,
               onNativeSettingsSaved: refreshTemplates
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TemplatesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TemplatesPanel, {
               kind: "skill",
               templates: skillTemplates,
               onNew: () => setEditingTemplate({ kind: "skill" }),
@@ -33892,9 +34415,9 @@ function App() {
               pushLog
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "extensionTemplates" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "extensionTemplates" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "centered",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TemplatesPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TemplatesPanel, {
               kind: "extension",
               templates: extensionTemplates,
               onNew: () => setEditingTemplate({ kind: "extension" }),
@@ -33903,21 +34426,21 @@ function App() {
               pushLog
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "hierarchy" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "hierarchy" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(HierarchyPanel, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(HierarchyPanel, {
               agents
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
-          activeTab === "log" && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(PageFrame, {
+          activeTab === "log" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
             mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(EventLog, {
+            children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EventLog, {
               logs
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TypeEditorDialog, {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TypeEditorDialog, {
         open: editingType !== undefined,
         typeDef: editingType ?? undefined,
         models,
@@ -33930,7 +34453,7 @@ function App() {
           pushLog("Saved agent type", "success");
         }
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TemplateEditorDialog, {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TemplateEditorDialog, {
         open: !!editingTemplate,
         kind: editingTemplate?.kind || "skill",
         template: editingTemplate?.template,
@@ -33943,12 +34466,12 @@ function App() {
           pushLog("Saved template", "success");
         }
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Dialog, {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Dialog, {
         open: !!inspectAgentName,
         title: `Inspect ${inspectAgentName || "Agent"}`,
         onOpenChange: () => setInspectAgentName(null),
         className: "max-w-5xl",
-        children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("pre", {
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("pre", {
           className: "max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 text-sm leading-6",
           children: inspectText
         }, undefined, false, undefined, this)
@@ -33958,23 +34481,23 @@ function App() {
 }
 function PageFrame({ mode, children }) {
   const className = mode === "centered" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-7xl";
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     className,
     children
   }, undefined, false, undefined, this);
 }
 function EventLog({ logs }) {
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Card, {
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Card, {
     className: "min-h-[70vh]",
     children: [
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardHeader, {
-        children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardTitle, {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardHeader, {
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardTitle, {
           children: "Event Log"
         }, undefined, false, undefined, this)
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(CardContent, {
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardContent, {
         className: "max-h-[70vh] space-y-1 overflow-auto font-mono text-xs text-muted-foreground",
-        children: logs.length ? logs.map((line) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        children: logs.length ? logs.map((line) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
           className: `border-l-2 pl-2 ${line.level === "error" ? "border-destructive" : line.level === "success" ? "border-emerald-400" : line.level === "warn" ? "border-amber-400" : "border-primary"}`,
           children: line.text
         }, line.id, false, undefined, this)) : "Waiting for events…"
@@ -34030,6 +34553,6 @@ function formatInspectData(data) {
   return lines.join(`
 `);
 }
-import_client.createRoot(document.getElementById("root")).render(/* @__PURE__ */ jsx_dev_runtime13.jsxDEV(import_react8.StrictMode, {
-  children: /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(App, {}, undefined, false, undefined, this)
+import_client.createRoot(document.getElementById("root")).render(/* @__PURE__ */ jsx_dev_runtime14.jsxDEV(import_react9.StrictMode, {
+  children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(App, {}, undefined, false, undefined, this)
 }, undefined, false, undefined, this));

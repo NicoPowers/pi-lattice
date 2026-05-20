@@ -9,15 +9,17 @@ import type { TemplateInfo } from "./features/agent-types/AgentTypesPanel.js";
 import { SkillLibraryPanel } from "./features/skill-library/SkillLibraryPanel.js";
 import { TemplatesPanel, TemplateEditorDialog } from "./features/templates/TemplatesPanel.js";
 import { RootOrchestratorProfilesPanel } from "./features/root-orchestrator-profiles/RootOrchestratorProfilesPanel.js";
+import { RoadmapPanel } from "./features/roadmap/RoadmapPanel.js";
 import { Button } from "./components/ui/button.js";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card.js";
 import { Dialog } from "./components/ui/dialog.js";
 
-type Tab = "agents" | "types" | "rootProfiles" | "skills" | "orchestratorLibraries" | "skillTemplates" | "extensionTemplates" | "hierarchy" | "log";
+type Tab = "agents" | "roadmap" | "types" | "rootProfiles" | "skills" | "orchestratorLibraries" | "skillTemplates" | "extensionTemplates" | "hierarchy" | "log";
 type SkillDiagnostic = { type: string; message: string; path?: string };
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "agents", label: "Live Agents" },
+  { id: "roadmap", label: "Roadmap" },
   { id: "types", label: "Agent Types" },
   { id: "rootProfiles", label: "Root Profiles" },
   { id: "skills", label: "Skill Library" },
@@ -253,6 +255,7 @@ function App() {
 
       <main className="flex-1 overflow-hidden p-4">
         {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
+        {activeTab === "roadmap" && <PageFrame mode="wide"><RoadmapPanel pushLog={pushLog} /></PageFrame>}
         {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
         {activeTab === "rootProfiles" && <PageFrame mode="wide"><RootOrchestratorProfilesPanel profiles={rootProfiles} onChanged={refreshRootProfiles} pushLog={pushLog} /></PageFrame>}
         {activeTab === "skills" && <SkillLibraryPanel skills={skills} diagnostics={skillDiagnostics} skillTemplates={skillTemplates} onEditTemplate={(template) => setEditingTemplate({ kind: "skill", template })} onChanged={refreshTemplates} />}

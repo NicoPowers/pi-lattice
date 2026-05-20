@@ -60,6 +60,14 @@ describe("dashboard bundle smoke test", () => {
           if (url.includes("/api/root-profiles")) return Response.json([{ name: "default", description: "Default root profile", instructions: "Coordinate spawned agents.", source: "package", filePath: "/pkg/orchestrator-profiles/default.md", readOnly: true }]);
           if (url.includes("/api/models")) return Response.json([]);
           if (url.includes("/api/agent-stats")) return Response.json({});
+          if (url.includes("/api/roadmap")) return Response.json({
+            source: { type: "seeds", path: "/tmp/repo/.seeds/issues.jsonl", exists: true },
+            generatedAt: "2026-05-20T00:00:00.000Z",
+            issues: [],
+            counts: { total: 9, inProgress: 1, ready: 2, nextUp: 2, blocked: 3, backlog: 4, closed: 1 },
+            groups: { inProgress: [], ready: [], nextUp: [], blocked: [], backlog: [], closed: [] },
+            dependencyMap: { blockers: {}, unresolvedBlockers: {}, dependents: {} },
+          });
           if (url.includes("/api/skill-templates")) return Response.json([]);
           if (url.includes("/api/extension-templates")) return Response.json([]);
           if (url.includes("/api/extensions")) return Response.json([]);
@@ -82,6 +90,17 @@ describe("dashboard bundle smoke test", () => {
 
       expect(window.document.getElementById("root")?.textContent).toContain("Pi Orchestrator");
       expect(window.document.getElementById("root")?.textContent).toContain("No agents running.");
+      const roadmapNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Roadmap"));
+      roadmapNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const roadmapText = window.document.getElementById("root")?.textContent || "";
+      expect(roadmapText).toContain("Project Roadmap");
+      expect(roadmapText).toContain("Next Up");
+      expect(roadmapText).toContain("Blocked");
+      expect(roadmapText).toContain("Epic Roadmap");
+      expect(roadmapText).toContain("Ungrouped");
+      expect(roadmapText).toContain("9 total");
       const hierarchyNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Hierarchy"));
       hierarchyNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();

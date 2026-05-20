@@ -1,0 +1,96 @@
+import { describe, expect, it } from "bun:test";
+import { buildRoadmapOverviewFromIssues, readRoadmapOverview } from "../extensions/multi-agent/roadmap.js";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+describe("roadmap overview", () => {
+  it("normalizes issue fields and computes summary groups from roadmap issues", () => {
+    const overview = buildRoadmapOverviewFromIssues([
+      issue({ id: "epic", title: "Epic", type: "epic", status: "open", priority: 1, blocks: ["feature"] }),
+      issue({ id: "feature", title: "Feature", status: "open", priority: 2, blockedBy: ["epic"] }),
+      issue({ id: "ready", title: "Ready task", status: "open", priority: 0 }),
+      issue({ id: "active", title: "Active task", status: "in_progress", priority: 1 }),
+      issue({ id: "done", title: "Done task", status: "closed", priority: 3, closedAt: "2026-05-20T00:00:00.000Z", closeReason: "Finished" }),
+    ]);
+
+    expect(overview.issues.find((item) => item.id === "feature")).toMatchObject({
+      id: "feature",
+      title: "Feature",
+      type: "task",
+      status: "open",
+      priority: 2,
+      labels: [],
+      blocks: [],
+      blockedBy: ["epic"],
+    });
+    expect(overview.counts).toMatchObject({ total: 5, inProgress: 1, ready: 2, blocked: 1, backlog: 3, closed: 1 });
+    expect(overview.groups.ready).toEqual(["ready", "epic"]);
+    expect(overview.groups.nextUp).toEqual(["ready", "epic"]);
+    expect(overview.groups.blocked).toEqual(["feature"]);
+    expect(overview.groups.inProgress).toEqual(["active"]);
+    expect(overview.groups.closed).toEqual(["done"]);
+  });
+
+  it("treats closed blockers as resolved but open and unknown blockers as unresolved", () => {
+    const overview = buildRoadmapOverviewFromIssues([
+      issue({ id: "closed-blocker", title: "Closed blocker", status: "closed", blocks: ["released"] }),
+      issue({ id: "open-blocker", title: "Open blocker", status: "open", blocks: ["blocked"] }),
+      issue({ id: "released", title: "Released", status: "open", blockedBy: ["closed-blocker"] }),
+      issue({ id: "blocked", title: "Blocked", status: "open", blockedBy: ["open-blocker", "missing-blocker"] }),
+    ]);
+
+    expect(overview.groups.ready).toContain("released");
+    expect(overview.groups.blocked).not.toContain("released");
+    expect(overview.dependencyMap.unresolvedBlockers.released).toEqual([]);
+    expect(overview.dependencyMap.unresolvedBlockers.blocked.map((item) => item.id)).toEqual(["open-blocker", "missing-blocker"]);
+    expect(overview.dependencyMap.unresolvedBlockers.blocked[1]).toMatchObject({ id: "missing-blocker", status: "unknown" });
+  });
+
+  it("derives dependency maps from both blockedBy and blocks relationships", () => {
+    const overview = buildRoadmapOverviewFromIssues([
+      issue({ id: "blocker-a", title: "Blocker A", status: "open", blocks: ["dependent-a"] }),
+      issue({ id: "blocker-b", title: "Blocker B", status: "open" }),
+      issue({ id: "dependent-a", title: "Dependent A", status: "open", blockedBy: ["blocker-b"] }),
+    ]);
+
+    expect(overview.dependencyMap.blockers["dependent-a"].map((item) => item.id)).toEqual(["blocker-a", "blocker-b"]);
+    expect(overview.dependencyMap.dependents["blocker-a"].map((item) => item.id)).toEqual(["dependent-a"]);
+    expect(overview.dependencyMap.dependents["blocker-b"].map((item) => item.id)).toEqual(["dependent-a"]);
+  });
+
+  it("reads .seeds/issues.jsonl in read-only mode from the repository", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "pi-roadmap-"));
+    try {
+      fs.mkdirSync(path.join(repo, ".seeds"), { recursive: true });
+      fs.writeFileSync(path.join(repo, ".seeds", "issues.jsonl"), [
+        JSON.stringify(issue({ id: "one", title: "One", status: "open" })),
+        "",
+        JSON.stringify(issue({ id: "two", title: "Two", status: "closed" })),
+      ].join("\n"));
+
+      const overview = readRoadmapOverview(repo);
+
+      expect(overview.source).toMatchObject({ type: "seeds", exists: true });
+      expect(overview.source.path).toEndWith(path.join(".seeds", "issues.jsonl"));
+      expect(overview.counts).toMatchObject({ total: 2, ready: 1, closed: 1 });
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+function issue(overrides: Record<string, unknown>) {
+  return {
+    id: "issue",
+    title: "Issue",
+    status: "open",
+    type: "task",
+    priority: 2,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+    description: "",
+    labels: [],
+    ...overrides,
+  };
+}

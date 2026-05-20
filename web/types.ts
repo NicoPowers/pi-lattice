@@ -123,6 +123,43 @@ export interface RootProfileDetailInfo {
   hash: string;
 }
 
+export interface RoadmapIssue {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  priority: number;
+  labels: string[];
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+  closedAt?: string;
+  closeReason?: string;
+  blocks: string[];
+  blockedBy: string[];
+}
+
+export interface RoadmapDependency {
+  id: string;
+  title?: string;
+  status: string;
+  type?: string;
+  priority?: number;
+}
+
+export interface RoadmapOverview {
+  source: { type: "seeds"; path: string; exists: boolean };
+  generatedAt: string;
+  issues: RoadmapIssue[];
+  counts: { total: number; inProgress: number; ready: number; nextUp: number; blocked: number; backlog: number; closed: number };
+  groups: { inProgress: string[]; ready: string[]; nextUp: string[]; blocked: string[]; backlog: string[]; closed: string[] };
+  dependencyMap: {
+    blockers: Record<string, RoadmapDependency[]>;
+    unresolvedBlockers: Record<string, RoadmapDependency[]>;
+    dependents: Record<string, RoadmapDependency[]>;
+  };
+}
+
 export interface ResourcePathValidation {
   rawPath: string;
   resolvedPath?: string;

@@ -68,6 +68,42 @@ describe("SSE formatting", () => {
   });
 });
 
+describe("roadmap API", () => {
+  it("returns a read-only Roadmap overview backed by Seeds", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-roadmap-api-"));
+    fs.mkdirSync(path.join(tmpDir, ".seeds"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".seeds", "issues.jsonl"), [
+      JSON.stringify({ id: "ready", title: "Ready", status: "open", type: "task", priority: 1, createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T00:00:00.000Z", labels: [], description: "" }),
+      JSON.stringify({ id: "blocker", title: "Blocker", status: "open", type: "task", priority: 1, createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T00:00:00.000Z", labels: [], description: "", blocks: ["blocked"] }),
+      JSON.stringify({ id: "blocked", title: "Blocked", status: "open", type: "task", priority: 2, createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T00:00:00.000Z", labels: [], description: "", blockedBy: ["blocker"] }),
+    ].join("\n"));
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async () => ({ agent: undefined as any, error: "disabled in tests" }),
+      sendToAgent: async () => {},
+      removeWorktree: async () => {},
+      discoverDefinitions: () => [],
+      getDefinition: () => undefined,
+      discoverExtensions: () => [],
+    });
+
+    try {
+      const res = await fetch(`${handle.url}/api/roadmap`);
+      expect(res.status).toBe(200);
+      const overview = await res.json();
+      expect(overview.source).toMatchObject({ type: "seeds", exists: true });
+      expect(overview.counts).toMatchObject({ total: 3, ready: 2, blocked: 1 });
+      expect(overview.groups.blocked).toEqual(["blocked"]);
+      expect(overview.dependencyMap.unresolvedBlockers.blocked[0]).toMatchObject({ id: "blocker", title: "Blocker", status: "open" });
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+
 describe("template API", () => {
   it("creates, lists, loads, and deletes skill templates", async () => {
     const { startServer } = await import("../extensions/multi-agent/server.js");

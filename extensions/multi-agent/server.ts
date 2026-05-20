@@ -207,6 +207,13 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    // GET /api/roadmap
+    if (url.pathname === "/api/roadmap" && req.method === "GET") {
+      const { readRoadmapOverview } = await import("./roadmap.js");
+      send(res, jsonResponse(readRoadmapOverview(deps.repoCwd)));
+      return;
+    }
+
     // Orchestrator Library API
     if (url.pathname === "/api/orchestrator-libraries" && req.method === "GET") {
       const { discoverConfiguredOrchestratorLibraries } = await import("./orchestrator-library.js");
