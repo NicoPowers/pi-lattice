@@ -66,6 +66,10 @@ interface BuildOptions {
   generatedAt?: string;
 }
 
+// Roadmap v1 is intentionally read-only and provider-shaped: the dashboard consumes
+// Roadmap* DTOs, while this module is the only place that knows Seeds is the current
+// backing source. A future SQLite/task provider should replace this reader without
+// renaming the /api/roadmap contract or the web/features/roadmap UI.
 export function readRoadmapOverview(repoCwd: string): RoadmapOverview {
   const issuesPath = path.join(repoCwd, ".seeds", "issues.jsonl");
   if (!fs.existsSync(issuesPath)) {

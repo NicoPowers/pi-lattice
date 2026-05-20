@@ -33699,6 +33699,7 @@ function statusWeight(status) {
 
 // web/features/roadmap/RoadmapPanel.tsx
 var jsx_dev_runtime13 = __toESM(require_jsx_dev_runtime(), 1);
+var defaultFilters = { inProgress: true, ready: true, blocked: true, backlog: true, closed: false };
 var summaryCards = [
   { key: "inProgress", label: "In Progress", tone: "default" },
   { key: "nextUp", label: "Next Up", tone: "success" },
@@ -33706,10 +33707,19 @@ var summaryCards = [
   { key: "backlog", label: "Backlog / Open", tone: "warning" },
   { key: "closed", label: "Closed", tone: "outline" }
 ];
+var filterOptions = [
+  { key: "inProgress", label: "In Progress" },
+  { key: "ready", label: "Ready" },
+  { key: "blocked", label: "Blocked" },
+  { key: "backlog", label: "Backlog / Open" },
+  { key: "closed", label: "Closed" }
+];
 function RoadmapPanel({ pushLog }) {
   const [overview, setOverview] = import_react8.useState(null);
   const [loading, setLoading] = import_react8.useState(true);
   const [error, setError] = import_react8.useState("");
+  const [filters, setFilters] = import_react8.useState(defaultFilters);
+  const [selectedIssueId, setSelectedIssueId] = import_react8.useState(null);
   const refresh = async () => {
     setLoading(true);
     setError("");
@@ -33729,6 +33739,11 @@ function RoadmapPanel({ pushLog }) {
   import_react8.useEffect(() => {
     refresh();
   }, []);
+  const selectedIssue = import_react8.useMemo(() => {
+    if (!overview || !selectedIssueId)
+      return;
+    return flattenHierarchy(buildRoadmapHierarchy(overview)).find((issue) => issue.id === selectedIssueId);
+  }, [overview, selectedIssueId]);
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Card, {
     className: "min-h-[70vh]",
     children: [
@@ -33770,15 +33785,25 @@ function RoadmapPanel({ pushLog }) {
             children: error
           }, undefined, false, undefined, this),
           !loading && !error && overview && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapSummary, {
-            overview
+            overview,
+            filters,
+            onFiltersChange: setFilters,
+            onSelectIssue: setSelectedIssueId
           }, undefined, false, undefined, this)
         ]
-      }, undefined, true, undefined, this)
+      }, undefined, true, undefined, this),
+      overview && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueDetailDialog, {
+        overview,
+        issue: selectedIssue,
+        onClose: () => setSelectedIssueId(null),
+        onSelectIssue: setSelectedIssueId
+      }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
-function RoadmapSummary({ overview }) {
+function RoadmapSummary({ overview, filters, onFiltersChange, onSelectIssue }) {
   const hierarchy = buildRoadmapHierarchy(overview);
+  const filteredHierarchy = filterHierarchy(hierarchy, filters, overview);
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
     className: "space-y-4",
     children: [
@@ -33829,6 +33854,10 @@ function RoadmapSummary({ overview }) {
           ]
         }, item.key, true, undefined, this))
       }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(FilterBar, {
+        filters,
+        onChange: onFiltersChange
+      }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
         className: "grid gap-3 md:grid-cols-2",
         children: [
@@ -33836,25 +33865,49 @@ function RoadmapSummary({ overview }) {
             title: "Next Up",
             issueIds: overview.groups.nextUp,
             overview,
-            emptyText: "No ready work found."
+            emptyText: "No ready work found.",
+            onSelectIssue
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(QueuePreview, {
             title: "Blocked",
             issueIds: overview.groups.blocked,
             overview,
-            emptyText: "No blocked work found."
+            emptyText: "No blocked work found.",
+            onSelectIssue
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapHierarchyView, {
-        hierarchy
+        hierarchy: filteredHierarchy,
+        onSelectIssue
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
-function QueuePreview({ title, issueIds, overview, emptyText }) {
+function FilterBar({ filters, onChange }) {
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "flex flex-wrap items-center gap-2 rounded-md border border-border p-3",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+        className: "text-sm font-medium",
+        children: "Filters"
+      }, undefined, false, undefined, this),
+      filterOptions.map((option) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Button, {
+        variant: filters[option.key] ? "default" : "secondary",
+        className: "px-2 py-1 text-xs",
+        onClick: () => onChange({ ...filters, [option.key]: !filters[option.key] }),
+        children: [
+          option.label,
+          ": ",
+          filters[option.key] ? "On" : "Off"
+        ]
+      }, option.key, true, undefined, this))
+    ]
+  }, undefined, true, undefined, this);
+}
+function QueuePreview({ title, issueIds, overview, emptyText, onSelectIssue }) {
   const hierarchy = buildRoadmapHierarchy(overview);
-  const issueViewsById = new Map([...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped].map((issue) => [issue.id, issue]));
+  const issueViewsById = new Map(flattenHierarchy(hierarchy).map((issue) => [issue.id, issue]));
   const visibleIssues = issueIds.map((id) => issueViewsById.get(id)).filter((issue) => !!issue).slice(0, 5);
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
     className: "rounded-md border border-border p-4",
@@ -33877,7 +33930,8 @@ function QueuePreview({ title, issueIds, overview, emptyText }) {
         children: [
           visibleIssues.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
             issue,
-            compact: true
+            compact: true,
+            onSelectIssue
           }, issue.id, false, undefined, this)),
           issueIds.length > visibleIssues.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
             className: "text-xs text-muted-foreground",
@@ -33895,7 +33949,7 @@ function QueuePreview({ title, issueIds, overview, emptyText }) {
     ]
   }, undefined, true, undefined, this);
 }
-function RoadmapHierarchyView({ hierarchy }) {
+function RoadmapHierarchyView({ hierarchy, onSelectIssue }) {
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
     className: "space-y-3 rounded-md border border-border p-4",
     children: [
@@ -33930,13 +33984,15 @@ function RoadmapHierarchyView({ hierarchy }) {
           children: [
             /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
               issue: group.epic,
-              epic: true
+              epic: true,
+              onSelectIssue
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
               className: "mt-3 space-y-2 border-l border-border pl-3",
               children: [
                 group.activeChildren.length ? group.activeChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
-                  issue
+                  issue,
+                  onSelectIssue
                 }, issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
                   className: "text-xs text-muted-foreground",
                   children: "No active child issues linked to this epic."
@@ -33956,7 +34012,8 @@ function RoadmapHierarchyView({ hierarchy }) {
                       className: "mt-2 space-y-2 opacity-70",
                       children: group.closedChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
                         issue,
-                        compact: true
+                        compact: true,
+                        onSelectIssue
                       }, issue.id, false, undefined, this))
                     }, undefined, false, undefined, this)
                   ]
@@ -33970,12 +34027,13 @@ function RoadmapHierarchyView({ hierarchy }) {
         children: "No epics found in the roadmap source."
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(UngroupedIssues, {
-        issues: hierarchy.ungrouped
+        issues: hierarchy.ungrouped,
+        onSelectIssue
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
-function UngroupedIssues({ issues }) {
+function UngroupedIssues({ issues, onSelectIssue }) {
   const active = sortIssueViews(issues.filter((issue) => issue.status !== "closed"));
   const closed = sortIssueViews(issues.filter((issue) => issue.status === "closed"));
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
@@ -33997,7 +34055,8 @@ function UngroupedIssues({ issues }) {
       active.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
         className: "grid gap-2 md:grid-cols-2",
         children: active.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
-          issue
+          issue,
+          onSelectIssue
         }, issue.id, false, undefined, this))
       }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
         className: "text-sm text-muted-foreground",
@@ -34018,7 +34077,8 @@ function UngroupedIssues({ issues }) {
             className: "mt-2 grid gap-2 opacity-70 md:grid-cols-2",
             children: closed.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
               issue,
-              compact: true
+              compact: true,
+              onSelectIssue
             }, issue.id, false, undefined, this))
           }, undefined, false, undefined, this)
         ]
@@ -34026,10 +34086,12 @@ function UngroupedIssues({ issues }) {
     ]
   }, undefined, true, undefined, this);
 }
-function IssueCard({ issue, compact, epic }) {
+function IssueCard({ issue, compact, epic, onSelectIssue }) {
   const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-    className: `rounded border ${epic ? "border-primary/40 bg-primary/5" : "border-border/70 bg-card/40"} ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`,
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("button", {
+    type: "button",
+    className: `block w-full rounded border text-left transition hover:border-primary/60 ${epic ? "border-primary/40 bg-primary/5" : "border-border/70 bg-card/40"} ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`,
+    onClick: () => onSelectIssue(issue.id),
     children: [
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
         className: "flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
@@ -34083,17 +34145,222 @@ function IssueCard({ issue, compact, epic }) {
     ]
   }, undefined, true, undefined, this);
 }
+function IssueDetailDialog({ overview, issue, onClose, onSelectIssue }) {
+  const blockers = issue ? overview.dependencyMap.blockers[issue.id] || [] : [];
+  const dependents = issue ? overview.dependencyMap.dependents[issue.id] || [] : [];
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Dialog, {
+    open: !!issue,
+    title: "Issue Details",
+    onOpenChange: onClose,
+    className: "max-w-4xl",
+    children: issue && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+      className: "space-y-4",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+                  children: issue.id
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: statusBadgeVariant(issue.status),
+                  children: formatStatus(issue.status)
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: "outline",
+                  children: [
+                    "P",
+                    issue.priority
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: "outline",
+                  children: issue.type
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h3", {
+              className: "mt-2 text-xl font-semibold",
+              children: issue.title
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          className: "grid gap-3 md:grid-cols-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+              label: "Created",
+              value: formatDate(issue.createdAt)
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+              label: "Updated",
+              value: formatDate(issue.updatedAt)
+            }, undefined, false, undefined, this),
+            issue.closedAt && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+              label: "Closed",
+              value: formatDate(issue.closedAt)
+            }, undefined, false, undefined, this),
+            issue.closeReason && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+              label: "Close reason",
+              value: issue.closeReason
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        !!issue.labels.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+              className: "mb-2 text-sm font-semibold",
+              children: "Labels"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "flex flex-wrap gap-1",
+              children: issue.labels.map((label) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: label
+              }, label, false, undefined, this))
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+              className: "mb-2 text-sm font-semibold",
+              children: "Description"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "max-h-64 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/50 p-3 text-sm text-muted-foreground",
+              children: issue.description || "No description."
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
+          title: "Blockers",
+          dependencies: blockers,
+          onSelectIssue,
+          onClose
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
+          title: "Dependents",
+          dependencies: dependents,
+          onSelectIssue,
+          onClose
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
+}
+function DependencyList({ title, dependencies, onSelectIssue, onClose }) {
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+        className: "mb-2 text-sm font-semibold",
+        children: title
+      }, undefined, false, undefined, this),
+      dependencies.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "space-y-2",
+        children: dependencies.map((dependency) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("button", {
+          type: "button",
+          className: "block w-full rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60",
+          onClick: () => {
+            onSelectIssue(dependency.id);
+            if (dependency.status === "unknown")
+              onClose();
+          },
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "flex flex-wrap items-center gap-2",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
+                  children: dependency.title || dependency.id
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: statusBadgeVariant(dependency.status),
+                  children: formatStatus(dependency.status)
+                }, undefined, false, undefined, this),
+                dependency.priority !== undefined && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                  variant: "outline",
+                  children: [
+                    "P",
+                    dependency.priority
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+              className: "mt-1 text-xs text-muted-foreground",
+              children: dependency.id
+            }, undefined, false, undefined, this)
+          ]
+        }, dependency.id, true, undefined, this))
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "text-sm text-muted-foreground",
+        children: "None."
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function Meta({ label, value }) {
+  if (!value)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "rounded border border-border bg-card/40 p-2",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "text-xs uppercase tracking-wide text-muted-foreground",
+        children: label
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "mt-1 text-sm",
+        children: value
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function filterHierarchy(hierarchy, filters, overview) {
+  return {
+    epics: hierarchy.epics.map((group) => ({
+      epic: group.epic,
+      activeChildren: group.activeChildren.filter((issue) => isVisible(issue, filters, overview)),
+      closedChildren: filters.closed ? group.closedChildren.filter((issue) => isVisible(issue, filters, overview)) : []
+    })),
+    ungrouped: hierarchy.ungrouped.filter((issue) => isVisible(issue, filters, overview))
+  };
+}
+function isVisible(issue, filters, overview) {
+  if (issue.type === "epic")
+    return true;
+  if (issue.status === "closed")
+    return filters.closed;
+  if (issue.status === "in_progress")
+    return filters.inProgress;
+  const blocked = (overview.dependencyMap.unresolvedBlockers[issue.id] || []).length > 0;
+  if (blocked)
+    return filters.blocked;
+  if (overview.groups.ready.includes(issue.id))
+    return filters.ready;
+  return filters.backlog;
+}
+function flattenHierarchy(hierarchy) {
+  return [...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped];
+}
 function formatDependency(dependency) {
   return `${dependency.title || dependency.id} (${dependency.status})`;
 }
 function formatStatus(status) {
   return status.replace(/_/g, " ");
 }
+function formatDate(value) {
+  return value ? new Date(value).toLocaleString() : undefined;
+}
 function statusBadgeVariant(status) {
   if (status === "in_progress")
     return "default";
   if (status === "closed")
     return "outline";
+  if (status === "unknown")
+    return "destructive";
   return "warning";
 }
 

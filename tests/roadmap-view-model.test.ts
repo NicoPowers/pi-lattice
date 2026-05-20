@@ -34,6 +34,19 @@ describe("roadmap hierarchy view model", () => {
     expect(hierarchy.ungrouped.map((item) => item.id)).toEqual(["dashboard-only"]);
   });
 
+  it("keeps empty epics visible when they have no children", () => {
+    const overview = roadmapOverview([
+      issue({ id: "empty-epic", title: "Epic: Empty", type: "epic", labels: ["empty"] }),
+    ]);
+
+    const hierarchy = buildRoadmapHierarchy(overview);
+
+    expect(hierarchy.epics).toHaveLength(1);
+    expect(hierarchy.epics[0].activeChildren).toEqual([]);
+    expect(hierarchy.epics[0].closedChildren).toEqual([]);
+    expect(hierarchy.ungrouped).toEqual([]);
+  });
+
   it("surfaces blocker and dependent metadata for issue badges", () => {
     const overview = roadmapOverview([
       issue({ id: "blocker", title: "Open blocker", status: "open", blocks: ["blocked"] }),

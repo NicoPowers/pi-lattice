@@ -59,6 +59,27 @@ describe("roadmap overview", () => {
     expect(overview.dependencyMap.dependents["blocker-b"].map((item) => item.id)).toEqual(["dependent-a"]);
   });
 
+  it("keeps all-closed projects inspectable without reporting ready or blocked active work", () => {
+    const overview = buildRoadmapOverviewFromIssues([
+      issue({ id: "done-a", title: "Done A", status: "closed", blocks: ["done-b"] }),
+      issue({ id: "done-b", title: "Done B", status: "closed", blockedBy: ["done-a"] }),
+    ]);
+
+    expect(overview.counts).toMatchObject({ total: 2, ready: 0, blocked: 0, backlog: 0, closed: 2 });
+    expect(overview.groups.closed).toEqual(["done-a", "done-b"]);
+    expect(overview.dependencyMap.unresolvedBlockers["done-b"]).toEqual([]);
+  });
+
+  it("keeps missing dependency targets visible as unknown dependencies", () => {
+    const overview = buildRoadmapOverviewFromIssues([
+      issue({ id: "blocked", title: "Blocked", status: "open", blockedBy: ["deleted-issue"] }),
+    ]);
+
+    expect(overview.counts).toMatchObject({ ready: 0, blocked: 1 });
+    expect(overview.dependencyMap.blockers.blocked).toEqual([{ id: "deleted-issue", status: "unknown" }]);
+    expect(overview.dependencyMap.unresolvedBlockers.blocked).toEqual([{ id: "deleted-issue", status: "unknown" }]);
+  });
+
   it("reads .seeds/issues.jsonl in read-only mode from the repository", () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), "pi-roadmap-"));
     try {

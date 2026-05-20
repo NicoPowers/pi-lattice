@@ -63,10 +63,19 @@ describe("dashboard bundle smoke test", () => {
           if (url.includes("/api/roadmap")) return Response.json({
             source: { type: "seeds", path: "/tmp/repo/.seeds/issues.jsonl", exists: true },
             generatedAt: "2026-05-20T00:00:00.000Z",
-            issues: [],
+            issues: [
+              { id: "roadmap-epic", title: "Epic: Read-only Roadmap dashboard backed by Seeds", type: "epic", status: "in_progress", priority: 1, labels: ["dashboard", "roadmap", "epic"], description: "Roadmap epic description", createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T01:00:00.000Z", blocks: [], blockedBy: [] },
+              { id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", type: "task", status: "open", priority: 2, labels: ["dashboard", "roadmap", "frontend", "tracer"], description: "Detail panel should show long issue context.", createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T02:00:00.000Z", blocks: ["tracer-5"], blockedBy: [] },
+              { id: "tracer-5", title: "Roadmap tracer 5: polish source boundary", type: "task", status: "open", priority: 2, labels: ["dashboard", "roadmap"], description: "Polish follow-up.", createdAt: "2026-05-20T00:00:00.000Z", updatedAt: "2026-05-20T03:00:00.000Z", blocks: [], blockedBy: ["tracer-4"] },
+              { id: "closed-roadmap", title: "Closed roadmap task", type: "task", status: "closed", priority: 3, labels: ["dashboard", "roadmap"], description: "Closed context.", createdAt: "2026-05-19T00:00:00.000Z", updatedAt: "2026-05-19T01:00:00.000Z", closedAt: "2026-05-19T02:00:00.000Z", closeReason: "Done", blocks: [], blockedBy: [] },
+            ],
             counts: { total: 9, inProgress: 1, ready: 2, nextUp: 2, blocked: 3, backlog: 4, closed: 1 },
-            groups: { inProgress: [], ready: [], nextUp: [], blocked: [], backlog: [], closed: [] },
-            dependencyMap: { blockers: {}, unresolvedBlockers: {}, dependents: {} },
+            groups: { inProgress: ["roadmap-epic"], ready: ["tracer-4"], nextUp: ["tracer-4"], blocked: ["tracer-5"], backlog: ["tracer-4", "tracer-5"], closed: ["closed-roadmap"] },
+            dependencyMap: {
+              blockers: { "tracer-5": [{ id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", status: "open", type: "task", priority: 2 }] },
+              unresolvedBlockers: { "roadmap-epic": [], "tracer-4": [], "tracer-5": [{ id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", status: "open", type: "task", priority: 2 }], "closed-roadmap": [] },
+              dependents: { "tracer-4": [{ id: "tracer-5", title: "Roadmap tracer 5: polish source boundary", status: "open", type: "task", priority: 2 }] },
+            },
           });
           if (url.includes("/api/skill-templates")) return Response.json([]);
           if (url.includes("/api/extension-templates")) return Response.json([]);
@@ -101,6 +110,21 @@ describe("dashboard bundle smoke test", () => {
       expect(roadmapText).toContain("Epic Roadmap");
       expect(roadmapText).toContain("Ungrouped");
       expect(roadmapText).toContain("9 total");
+      expect(roadmapText).toContain("Roadmap tracer 4");
+      const tracerButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Roadmap tracer 4"));
+      tracerButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const detailText = window.document.getElementById("root")?.textContent || "";
+      expect(detailText).toContain("Issue Details");
+      expect(detailText).toContain("Detail panel should show long issue context.");
+      expect(detailText).toContain("Dependents");
+      expect(detailText).toContain("tracer-5");
+      const closedFilter = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Closed") && button.textContent?.includes("Off"));
+      closedFilter?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(window.document.getElementById("root")?.textContent || "").toContain("Closed roadmap task");
       const hierarchyNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Hierarchy"));
       hierarchyNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();
