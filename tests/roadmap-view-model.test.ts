@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildRoadmapHierarchy } from "../web/features/roadmap/roadmap-view-model.js";
+import { buildRoadmapHierarchy, bucketEpicTasks, splitEpicGroups } from "../web/features/roadmap/roadmap-view-model.js";
 import type { RoadmapOverview } from "../web/types.js";
 
 describe("roadmap hierarchy view model", () => {
@@ -47,6 +47,19 @@ describe("roadmap hierarchy view model", () => {
     expect(hierarchy.ungrouped).toEqual([]);
   });
 
+  it("does not infer open child issues into closed epics by shared labels", () => {
+    const overview = roadmapOverview([
+      issue({ id: "closed-epic", title: "Closed Epic", type: "epic", status: "closed", labels: ["orchestrator-library"] }),
+      issue({ id: "future-work", title: "Future Orchestrator Library work", labels: ["orchestrator-library"] }),
+      issue({ id: "explicit-child", title: "Explicit child", blockedBy: ["closed-epic"] }),
+    ]);
+
+    const hierarchy = buildRoadmapHierarchy(overview);
+
+    expect(hierarchy.epics[0].activeChildren.map((item) => item.id)).toEqual(["explicit-child"]);
+    expect(hierarchy.ungrouped.map((item) => item.id)).toEqual(["future-work"]);
+  });
+
   it("surfaces blocker and dependent metadata for issue badges", () => {
     const overview = roadmapOverview([
       issue({ id: "blocker", title: "Open blocker", status: "open", blocks: ["blocked"] }),
@@ -62,9 +75,43 @@ describe("roadmap hierarchy view model", () => {
     expect(blocked?.resolvedBlockerCount).toBe(1);
     expect(blocker?.dependentCount).toBe(1);
   });
+
+  it("buckets epic tasks by actionability for the epic detail panel", () => {
+    const overview = roadmapOverview([
+      issue({ id: "epic", title: "Epic", type: "epic", labels: ["focus"] }),
+      issue({ id: "doing", title: "Doing", status: "in_progress", priority: 1, labels: ["focus"] }),
+      issue({ id: "ready", title: "Ready", priority: 0, labels: ["focus"] }),
+      issue({ id: "blocker", title: "Blocker", priority: 0, blocks: ["blocked"] }),
+      issue({ id: "blocked", title: "Blocked", priority: 2, labels: ["focus"], blockedBy: ["blocker"] }),
+      issue({ id: "later", title: "Later", priority: 3, labels: ["focus"] }),
+      issue({ id: "done", title: "Done", status: "closed", priority: 4, labels: ["focus"] }),
+    ], { ready: ["ready"], nextUp: ["ready"] });
+
+    const hierarchy = buildRoadmapHierarchy(overview);
+    const buckets = bucketEpicTasks(hierarchy.epics[0], overview);
+
+    expect(buckets.inProgress.map((item) => item.id)).toEqual(["doing"]);
+    expect(buckets.ready.map((item) => item.id)).toEqual(["ready"]);
+    expect(buckets.blocked.map((item) => item.id)).toEqual(["blocked"]);
+    expect(buckets.backlog.map((item) => item.id)).toEqual(["later"]);
+    expect(buckets.closed.map((item) => item.id)).toEqual(["done"]);
+  });
+
+  it("splits active and closed epics for the simplified roadmap view", () => {
+    const overview = roadmapOverview([
+      issue({ id: "open-epic", title: "Open Epic", type: "epic", status: "open", priority: 2 }),
+      issue({ id: "doing-epic", title: "Doing Epic", type: "epic", status: "in_progress", priority: 1 }),
+      issue({ id: "closed-epic", title: "Closed Epic", type: "epic", status: "closed", priority: 0 }),
+    ]);
+
+    const split = splitEpicGroups(buildRoadmapHierarchy(overview));
+
+    expect(split.active.map((group) => group.epic.id)).toEqual(["doing-epic", "open-epic"]);
+    expect(split.closed.map((group) => group.epic.id)).toEqual(["closed-epic"]);
+  });
 });
 
-function roadmapOverview(issues: RoadmapOverview["issues"]): RoadmapOverview {
+function roadmapOverview(issues: RoadmapOverview["issues"], groupOverrides: Partial<RoadmapOverview["groups"]> = {}): RoadmapOverview {
   const blockers: RoadmapOverview["dependencyMap"]["blockers"] = {};
   const unresolvedBlockers: RoadmapOverview["dependencyMap"]["unresolvedBlockers"] = {};
   const dependents: RoadmapOverview["dependencyMap"]["dependents"] = {};
@@ -90,7 +137,7 @@ function roadmapOverview(issues: RoadmapOverview["issues"]): RoadmapOverview {
     generatedAt: "2026-05-20T00:00:00.000Z",
     issues,
     counts: { total: issues.length, inProgress: 0, ready: 0, nextUp: 0, blocked: 0, backlog: 0, closed: 0 },
-    groups: { inProgress: [], ready: [], nextUp: [], blocked: [], backlog: [], closed: [] },
+    groups: { inProgress: [], ready: [], nextUp: [], blocked: [], backlog: [], closed: [], ...groupOverrides },
     dependencyMap: { blockers, unresolvedBlockers, dependents },
   };
 }

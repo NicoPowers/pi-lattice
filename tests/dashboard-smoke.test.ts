@@ -74,7 +74,7 @@ describe("dashboard bundle smoke test", () => {
             dependencyMap: {
               blockers: { "tracer-5": [{ id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", status: "open", type: "task", priority: 2 }] },
               unresolvedBlockers: { "roadmap-epic": [], "tracer-4": [], "tracer-5": [{ id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", status: "open", type: "task", priority: 2 }], "closed-roadmap": [] },
-              dependents: { "tracer-4": [{ id: "tracer-5", title: "Roadmap tracer 5: polish source boundary", status: "open", type: "task", priority: 2 }] },
+              dependents: { "roadmap-epic": [{ id: "tracer-4", title: "Roadmap tracer 4: add read-only issue detail panel and filters", status: "open", type: "task", priority: 2 }], "tracer-4": [{ id: "tracer-5", title: "Roadmap tracer 5: polish source boundary", status: "open", type: "task", priority: 2 }] },
             },
           });
           if (url.includes("/api/skill-templates")) return Response.json([]);
@@ -107,7 +107,7 @@ describe("dashboard bundle smoke test", () => {
       expect(roadmapText).toContain("Project Roadmap");
       expect(roadmapText).toContain("Focus epic");
       expect(roadmapText).toContain("Epic Roadmap");
-      expect(roadmapText).toContain("Ready & blocked queues");
+      expect(roadmapText).not.toContain("Ready & blocked queues");
       expect(roadmapText).toContain("9 total");
       expect(roadmapText).toContain("Roadmap tracer 4");
       expect(roadmapText).not.toContain("In Progress11Next Up22Blocked33Backlog / Open44Closed11");
@@ -116,29 +116,38 @@ describe("dashboard bundle smoke test", () => {
       await window.happyDOM.waitUntilComplete();
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(window.document.getElementById("root")?.textContent || "").toContain("Epic Details");
+      expect(window.document.getElementById("root")?.textContent || "").toContain("Tasks in this epic");
       const epicDialog = window.document.querySelector('[role="dialog"]');
-      epicDialog?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-      await window.happyDOM.waitUntilComplete();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      const tracerButton = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Roadmap tracer 4"));
+      const tracerButton = Array.from(epicDialog?.getElementsByTagName("button") || []).find((button) => button.textContent?.includes("Roadmap tracer 4"));
       tracerButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();
       await new Promise((resolve) => setTimeout(resolve, 50));
       const detailText = window.document.getElementById("root")?.textContent || "";
       expect(detailText).toContain("Issue Details");
+      expect(detailText).toContain("←");
+      expect(detailText).not.toContain("Back to epic");
       expect(detailText).toContain("Detail panel should show long issue context.");
       expect(detailText).toContain("Dependents");
       expect(detailText).toContain("tracer-5");
+      const dependentButton = Array.from(window.document.querySelector('[role="dialog"]')?.getElementsByTagName("button") || []).find((button) => button.textContent?.includes("Roadmap tracer 5"));
+      dependentButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const dependentText = window.document.getElementById("root")?.textContent || "";
+      expect(dependentText).toContain("Issue Details");
+      expect(dependentText).toContain("←");
+      expect(dependentText).toContain("Polish follow-up.");
+      const backButton = Array.from(window.document.querySelector('[role="dialog"]')?.getElementsByTagName("button") || []).find((button) => button.textContent?.trim() === "←");
+      backButton?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await window.happyDOM.waitUntilComplete();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const backText = window.document.getElementById("root")?.textContent || "";
+      expect(backText).toContain("Epic Details");
+      expect(backText).toContain("Tasks in this epic");
       const dialog = window.document.querySelector('[role="dialog"]');
       dialog?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();
       await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(window.document.getElementById("root")?.textContent || "").not.toContain("Issue Details");
-      const closedFilter = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Closed") && button.textContent?.includes("Off"));
-      closedFilter?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-      await window.happyDOM.waitUntilComplete();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(window.document.getElementById("root")?.textContent || "").toContain("Closed roadmap task");
       const hierarchyNav = Array.from(window.document.getElementsByTagName("button")).find((button) => button.textContent?.includes("Hierarchy"));
       hierarchyNav?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await window.happyDOM.waitUntilComplete();

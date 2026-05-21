@@ -17,6 +17,19 @@ export interface RoadmapHierarchy {
   ungrouped: RoadmapIssueView[];
 }
 
+export interface RoadmapTaskBuckets {
+  inProgress: RoadmapIssueView[];
+  ready: RoadmapIssueView[];
+  blocked: RoadmapIssueView[];
+  backlog: RoadmapIssueView[];
+  closed: RoadmapIssueView[];
+}
+
+export interface SplitEpicGroups {
+  active: RoadmapEpicGroup[];
+  closed: RoadmapEpicGroup[];
+}
+
 export function buildRoadmapHierarchy(overview: RoadmapOverview): RoadmapHierarchy {
   const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
   const byId = new Map(issueViews.map((issue) => [issue.id, issue]));
@@ -79,6 +92,7 @@ function sortEpicGroups(groups: RoadmapEpicGroup[]): RoadmapEpicGroup[] {
 function bestInferredEpicGroup(issue: RoadmapIssueView, groups: RoadmapEpicGroup[]): RoadmapEpicGroup | undefined {
   let best: { group: RoadmapEpicGroup; score: number } | undefined;
   for (const group of groups) {
+    if (group.epic.status === "closed" && issue.status !== "closed") continue;
     const score = epicAffinityScore(issue, group.epic);
     if (score <= 0) continue;
     if (!best || score > best.score || (score === best.score && compareIssues(group.epic, best.group.epic) < 0)) best = { group, score };
@@ -110,6 +124,31 @@ function titleTokens(title: string): string[] {
 
 export function sortIssueViews(issues: RoadmapIssueView[]): RoadmapIssueView[] {
   return [...issues].sort(compareIssues);
+}
+
+export function splitEpicGroups(hierarchy: RoadmapHierarchy): SplitEpicGroups {
+  return {
+    active: hierarchy.epics.filter((group) => group.epic.status !== "closed"),
+    closed: hierarchy.epics.filter((group) => group.epic.status === "closed"),
+  };
+}
+
+export function bucketEpicTasks(group: RoadmapEpicGroup, overview: RoadmapOverview): RoadmapTaskBuckets {
+  const buckets: RoadmapTaskBuckets = { inProgress: [], ready: [], blocked: [], backlog: [], closed: [] };
+  for (const issue of [...group.activeChildren, ...group.closedChildren]) {
+    if (issue.status === "closed") buckets.closed.push(issue);
+    else if (issue.status === "in_progress") buckets.inProgress.push(issue);
+    else if (issue.unresolvedBlockers.length) buckets.blocked.push(issue);
+    else if (overview.groups.ready.includes(issue.id) || overview.groups.nextUp.includes(issue.id)) buckets.ready.push(issue);
+    else buckets.backlog.push(issue);
+  }
+  return {
+    inProgress: sortIssueViews(buckets.inProgress),
+    ready: sortIssueViews(buckets.ready),
+    blocked: sortIssueViews(buckets.blocked),
+    backlog: sortIssueViews(buckets.backlog),
+    closed: sortIssueViews(buckets.closed),
+  };
 }
 
 function compareIssues(a: RoadmapIssueView, b: RoadmapIssueView): number {

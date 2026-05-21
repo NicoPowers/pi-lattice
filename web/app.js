@@ -33863,6 +33863,8 @@ function sortEpicGroups(groups) {
 function bestInferredEpicGroup(issue, groups) {
   let best;
   for (const group of groups) {
+    if (group.epic.status === "closed" && issue.status !== "closed")
+      continue;
     const score = epicAffinityScore(issue, group.epic);
     if (score <= 0)
       continue;
@@ -33893,6 +33895,34 @@ function titleTokens(title) {
 function sortIssueViews(issues) {
   return [...issues].sort(compareIssues);
 }
+function splitEpicGroups(hierarchy) {
+  return {
+    active: hierarchy.epics.filter((group) => group.epic.status !== "closed"),
+    closed: hierarchy.epics.filter((group) => group.epic.status === "closed")
+  };
+}
+function bucketEpicTasks(group, overview) {
+  const buckets = { inProgress: [], ready: [], blocked: [], backlog: [], closed: [] };
+  for (const issue of [...group.activeChildren, ...group.closedChildren]) {
+    if (issue.status === "closed")
+      buckets.closed.push(issue);
+    else if (issue.status === "in_progress")
+      buckets.inProgress.push(issue);
+    else if (issue.unresolvedBlockers.length)
+      buckets.blocked.push(issue);
+    else if (overview.groups.ready.includes(issue.id) || overview.groups.nextUp.includes(issue.id))
+      buckets.ready.push(issue);
+    else
+      buckets.backlog.push(issue);
+  }
+  return {
+    inProgress: sortIssueViews(buckets.inProgress),
+    ready: sortIssueViews(buckets.ready),
+    blocked: sortIssueViews(buckets.blocked),
+    backlog: sortIssueViews(buckets.backlog),
+    closed: sortIssueViews(buckets.closed)
+  };
+}
 function compareIssues(a, b) {
   const status = statusWeight(a.status) - statusWeight(b.status);
   if (status !== 0)
@@ -33917,20 +33947,12 @@ function statusWeight(status) {
 
 // web/features/roadmap/RoadmapPanel.tsx
 var jsx_dev_runtime13 = __toESM(require_jsx_dev_runtime(), 1);
-var defaultFilters = { inProgress: true, ready: true, blocked: true, backlog: true, closed: false };
-var filterOptions = [
-  { key: "inProgress", label: "In Progress" },
-  { key: "ready", label: "Ready" },
-  { key: "blocked", label: "Blocked" },
-  { key: "backlog", label: "Backlog" },
-  { key: "closed", label: "Closed" }
-];
 function RoadmapPanel({ pushLog }) {
   const [overview, setOverview] = import_react9.useState(null);
   const [loading, setLoading] = import_react9.useState(true);
   const [error, setError] = import_react9.useState("");
-  const [filters, setFilters] = import_react9.useState(defaultFilters);
   const [selectedIssueId, setSelectedIssueId] = import_react9.useState(null);
+  const [detailBackIssueId, setDetailBackIssueId] = import_react9.useState(null);
   const refresh = async () => {
     setLoading(true);
     setError("");
@@ -33950,11 +33972,23 @@ function RoadmapPanel({ pushLog }) {
   import_react9.useEffect(() => {
     refresh();
   }, []);
-  const selectedIssue = import_react9.useMemo(() => {
-    if (!overview || !selectedIssueId)
+  const roadmapIssues = import_react9.useMemo(() => overview ? flattenHierarchy(buildRoadmapHierarchy(overview)) : [], [overview]);
+  const selectedIssue = import_react9.useMemo(() => roadmapIssues.find((issue) => issue.id === selectedIssueId), [roadmapIssues, selectedIssueId]);
+  const detailBackIssue = import_react9.useMemo(() => roadmapIssues.find((issue) => issue.id === detailBackIssueId), [roadmapIssues, detailBackIssueId]);
+  const selectIssue = (id, backIssueId) => {
+    setSelectedIssueId(id);
+    setDetailBackIssueId(backIssueId || null);
+  };
+  const closeIssue = () => {
+    setSelectedIssueId(null);
+    setDetailBackIssueId(null);
+  };
+  const backToIssue = () => {
+    if (!detailBackIssueId)
       return;
-    return flattenHierarchy(buildRoadmapHierarchy(overview)).find((issue) => issue.id === selectedIssueId);
-  }, [overview, selectedIssueId]);
+    setSelectedIssueId(detailBackIssueId);
+    setDetailBackIssueId(null);
+  };
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Card, {
     className: "min-h-[70vh]",
     children: [
@@ -33997,30 +34031,27 @@ function RoadmapPanel({ pushLog }) {
           }, undefined, false, undefined, this),
           !loading && !error && overview && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapSummary, {
             overview,
-            filters,
-            onFiltersChange: setFilters,
-            onSelectIssue: setSelectedIssueId
+            onSelectIssue: selectIssue
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
       overview && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueDetailDialog, {
         overview,
         issue: selectedIssue,
-        onClose: () => setSelectedIssueId(null),
-        onSelectIssue: setSelectedIssueId
+        backIssue: detailBackIssue,
+        onBack: backToIssue,
+        onClose: closeIssue,
+        onSelectIssue: selectIssue
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
-function RoadmapSummary({ overview, filters, onFiltersChange, onSelectIssue }) {
+function RoadmapSummary({ overview, onSelectIssue }) {
   const hierarchy = import_react9.useMemo(() => buildRoadmapHierarchy(overview), [overview]);
   const focusEpic = import_react9.useMemo(() => findFocusEpic(hierarchy), [hierarchy]);
-  const filteredHierarchy = import_react9.useMemo(() => filterHierarchy(hierarchy, filters, overview), [hierarchy, filters, overview]);
   const [expandedEpicIds, setExpandedEpicIds] = import_react9.useState(new Set);
   import_react9.useEffect(() => {
-    if (!focusEpic)
-      return;
-    setExpandedEpicIds((prev) => prev.size ? prev : new Set([focusEpic.epic.id]));
+    setExpandedEpicIds(focusEpic ? new Set([focusEpic.epic.id]) : new Set);
   }, [focusEpic?.epic.id]);
   const toggleEpic = (id) => {
     setExpandedEpicIds((prev) => {
@@ -34087,42 +34118,10 @@ function RoadmapSummary({ overview, filters, onFiltersChange, onSelectIssue }) {
       focusEpic && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(FocusEpic, {
         group: focusEpic,
         onSelectIssue,
-        onExpand: () => setExpandedEpicIds((prev) => new Set(prev).add(focusEpic.epic.id))
+        onExpand: () => setExpandedEpicIds(new Set([focusEpic.epic.id]))
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(FilterBar, {
-        filters,
-        onChange: onFiltersChange
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("details", {
-        className: "rounded-md border border-border bg-card/30 p-3 text-sm",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("summary", {
-            className: "cursor-pointer font-medium",
-            children: "Ready & blocked queues"
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-            className: "mt-3 grid gap-3 md:grid-cols-2",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(QueuePreview, {
-                title: "Next Up",
-                issueIds: overview.groups.nextUp,
-                overview,
-                emptyText: "No ready work found.",
-                onSelectIssue
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(QueuePreview, {
-                title: "Blocked",
-                issueIds: overview.groups.blocked,
-                overview,
-                emptyText: "No blocked work found.",
-                onSelectIssue
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(RoadmapHierarchyView, {
-        hierarchy: filteredHierarchy,
+        hierarchy,
         expandedEpicIds,
         onToggleEpic: toggleEpic,
         onSelectIssue
@@ -34185,72 +34184,8 @@ function FocusEpic({ group, onSelectIssue, onExpand }) {
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function FilterBar({ filters, onChange }) {
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-    className: "flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-background/30 p-2",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("span", {
-        className: "text-xs font-medium uppercase tracking-wide text-muted-foreground",
-        children: "Filters"
-      }, undefined, false, undefined, this),
-      filterOptions.map((option) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Button, {
-        variant: filters[option.key] ? "secondary" : "ghost",
-        className: "px-2 py-1 text-xs",
-        onClick: () => onChange({ ...filters, [option.key]: !filters[option.key] }),
-        children: [
-          option.label,
-          ": ",
-          filters[option.key] ? "On" : "Off"
-        ]
-      }, option.key, true, undefined, this))
-    ]
-  }, undefined, true, undefined, this);
-}
-function QueuePreview({ title, issueIds, overview, emptyText, onSelectIssue }) {
-  const hierarchy = buildRoadmapHierarchy(overview);
-  const issueViewsById = new Map(flattenHierarchy(hierarchy).map((issue) => [issue.id, issue]));
-  const visibleIssues = issueIds.map((id) => issueViewsById.get(id)).filter((issue) => !!issue).slice(0, 5);
-  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-    className: "rounded-md border border-border p-3",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-        className: "mb-2 flex items-center justify-between gap-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h3", {
-            className: "text-sm font-semibold",
-            children: title
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
-            variant: "outline",
-            children: issueIds.length
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      visibleIssues.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-        className: "space-y-2",
-        children: [
-          visibleIssues.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
-            issue,
-            compact: true,
-            onSelectIssue
-          }, issue.id, false, undefined, this)),
-          issueIds.length > visibleIssues.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-            className: "text-xs text-muted-foreground",
-            children: [
-              "+ ",
-              issueIds.length - visibleIssues.length,
-              " more"
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
-        className: "text-sm text-muted-foreground",
-        children: emptyText
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
 function RoadmapHierarchyView({ hierarchy, expandedEpicIds, onToggleEpic, onSelectIssue }) {
+  const { active, closed } = splitEpicGroups(hierarchy);
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
     className: "space-y-3 rounded-md border border-border p-4",
     children: [
@@ -34265,22 +34200,34 @@ function RoadmapHierarchyView({ hierarchy, expandedEpicIds, onToggleEpic, onSele
               }, undefined, false, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
                 className: "mt-1 text-xs text-muted-foreground",
-                children: "Minimal epic-first overview. Expand an epic to inspect child issues."
+                children: "Focus epic opens automatically; other active epics stay collapsed until needed."
               }, undefined, false, undefined, this)
             ]
           }, undefined, true, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
-            variant: "outline",
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "flex flex-wrap gap-1",
             children: [
-              hierarchy.epics.length,
-              " epics"
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  active.length,
+                  " active epics"
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  closed.length,
+                  " closed"
+                ]
+              }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      hierarchy.epics.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+      active.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
         className: "space-y-2",
-        children: hierarchy.epics.map((group) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(EpicRow, {
+        children: active.map((group) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(EpicRow, {
           group,
           expanded: expandedEpicIds.has(group.epic.id),
           onToggleEpic,
@@ -34288,8 +34235,32 @@ function RoadmapHierarchyView({ hierarchy, expandedEpicIds, onToggleEpic, onSele
         }, group.epic.id, false, undefined, this))
       }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
         className: "text-sm text-muted-foreground",
-        children: "No epics found in the roadmap source."
+        children: "No active epics found in the roadmap source."
       }, undefined, false, undefined, this),
+      !!closed.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("details", {
+        className: "border-t border-border pt-3",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("summary", {
+            className: "cursor-pointer text-sm font-semibold",
+            children: [
+              "Closed epics ",
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: closed.length
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "mt-2 space-y-2 opacity-75",
+            children: closed.map((group) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(EpicRow, {
+              group,
+              expanded: expandedEpicIds.has(group.epic.id),
+              onToggleEpic,
+              onSelectIssue
+            }, group.epic.id, false, undefined, this))
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(UngroupedIssues, {
         issues: hierarchy.ungrouped,
         onSelectIssue
@@ -34365,7 +34336,7 @@ function EpicRow({ group, expanded, onToggleEpic, onSelectIssue }) {
             onSelectIssue
           }, issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
             className: "text-xs text-muted-foreground",
-            children: "No visible active child issues for the selected filters."
+            children: "No active child issues."
           }, undefined, false, undefined, this),
           !!group.closedChildren.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
             className: "space-y-2 opacity-70",
@@ -34471,19 +34442,35 @@ function IssueCard({ issue, compact, onSelectIssue }) {
     ]
   }, undefined, true, undefined, this);
 }
-function IssueDetailDialog({ overview, issue, onClose, onSelectIssue }) {
+function IssueDetailDialog({ overview, issue, backIssue, onBack, onClose, onSelectIssue }) {
   const blockers = issue ? overview.dependencyMap.blockers[issue.id] || [] : [];
   const dependents = issue ? overview.dependencyMap.dependents[issue.id] || [] : [];
+  const epicGroup = import_react9.useMemo(() => {
+    if (!issue || issue.type !== "epic")
+      return;
+    return buildRoadmapHierarchy(overview).epics.find((group) => group.epic.id === issue.id);
+  }, [overview, issue?.id, issue?.type]);
+  const epicBuckets = epicGroup ? bucketEpicTasks(epicGroup, overview) : undefined;
+  const isEpic = issue?.type === "epic";
+  const returnEpicId = backIssue?.id || (isEpic ? issue?.id : undefined);
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Dialog, {
     open: !!issue,
     title: issue ? detailTitle(issue.type) : "Issue Details",
     onOpenChange: onClose,
-    className: "max-w-4xl",
+    className: isEpic ? "max-w-6xl" : "max-w-4xl",
     children: issue && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
       className: "space-y-4",
       children: [
         /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
           children: [
+            backIssue && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("button", {
+              type: "button",
+              "aria-label": "Back to epic",
+              title: "Back to epic",
+              className: "mb-3 text-2xl leading-none text-muted-foreground transition hover:text-primary",
+              onClick: onBack,
+              children: "←"
+            }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
               className: "flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
               children: [
@@ -34514,70 +34501,201 @@ function IssueDetailDialog({ overview, issue, onClose, onSelectIssue }) {
           ]
         }, undefined, true, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-          className: "grid gap-3 md:grid-cols-2",
+          className: isEpic ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]" : "space-y-4",
           children: [
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
-              label: "Created",
-              value: formatDate(issue.createdAt)
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
-              label: "Updated",
-              value: formatDate(issue.updatedAt)
-            }, undefined, false, undefined, this),
-            issue.closedAt && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
-              label: "Closed",
-              value: formatDate(issue.closedAt)
-            }, undefined, false, undefined, this),
-            issue.closeReason && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
-              label: "Close reason",
-              value: issue.closeReason
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        !!issue.labels.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
-              className: "mb-2 text-sm font-semibold",
-              children: "Labels"
-            }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-              className: "flex flex-wrap gap-1",
-              children: issue.labels.map((label) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
-                variant: "outline",
-                children: label
-              }, label, false, undefined, this))
+              className: "space-y-4",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                  className: "grid gap-3 md:grid-cols-2",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+                      label: "Created",
+                      value: formatDate(issue.createdAt)
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+                      label: "Updated",
+                      value: formatDate(issue.updatedAt)
+                    }, undefined, false, undefined, this),
+                    issue.closedAt && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+                      label: "Closed",
+                      value: formatDate(issue.closedAt)
+                    }, undefined, false, undefined, this),
+                    issue.closeReason && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Meta, {
+                      label: "Close reason",
+                      value: issue.closeReason
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                !!issue.labels.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+                      className: "mb-2 text-sm font-semibold",
+                      children: "Labels"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                      className: "flex flex-wrap gap-1",
+                      children: issue.labels.map((label) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                        variant: "outline",
+                        children: label
+                      }, label, false, undefined, this))
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+                      className: "mb-2 text-sm font-semibold",
+                      children: "Description"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+                      className: "max-h-80 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/50 p-3 text-sm text-muted-foreground",
+                      children: issue.description || "No description."
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
+                  title: "Blockers",
+                  dependencies: blockers,
+                  backIssueId: returnEpicId,
+                  onSelectIssue,
+                  onClose
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
+                  title: "Dependents",
+                  dependencies: dependents,
+                  backIssueId: returnEpicId,
+                  onSelectIssue,
+                  onClose
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            isEpic && epicBuckets && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(EpicTasksPanel, {
+              buckets: epicBuckets,
+              epicId: issue.id,
+              onSelectIssue
             }, undefined, false, undefined, this)
           ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
-              className: "mb-2 text-sm font-semibold",
-              children: "Description"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
-              className: "max-h-64 overflow-auto whitespace-pre-wrap rounded border border-border bg-background/50 p-3 text-sm text-muted-foreground",
-              children: issue.description || "No description."
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
-          title: "Blockers",
-          dependencies: blockers,
-          onSelectIssue,
-          onClose
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(DependencyList, {
-          title: "Dependents",
-          dependencies: dependents,
-          onSelectIssue,
-          onClose
-        }, undefined, false, undefined, this)
+        }, undefined, true, undefined, this)
       ]
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function DependencyList({ title, dependencies, onSelectIssue, onClose }) {
+function EpicTasksPanel({ buckets, epicId, onSelectIssue }) {
+  const total = Object.values(buckets).reduce((sum, issues) => sum + issues.length, 0);
+  const active = total - buckets.closed.length;
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+    className: "rounded-lg border border-border bg-card/30 p-3",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "mb-3 flex flex-wrap items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
+                className: "text-sm font-semibold",
+                children: "Tasks in this epic"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+                className: "mt-1 text-xs text-muted-foreground",
+                children: "Grouped by what is actionable next. Select a task to inspect details."
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+            className: "flex flex-wrap gap-1",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  active,
+                  " active"
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  buckets.closed.length,
+                  " closed"
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      total ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "max-h-[34rem] space-y-3 overflow-auto pr-1",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TaskBucketSection, {
+            title: "In progress",
+            issues: buckets.inProgress,
+            onSelectIssue: (id) => onSelectIssue(id, epicId)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TaskBucketSection, {
+            title: "Ready",
+            issues: buckets.ready,
+            onSelectIssue: (id) => onSelectIssue(id, epicId)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TaskBucketSection, {
+            title: "Blocked",
+            issues: buckets.blocked,
+            onSelectIssue: (id) => onSelectIssue(id, epicId)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TaskBucketSection, {
+            title: "Backlog",
+            issues: buckets.backlog,
+            onSelectIssue: (id) => onSelectIssue(id, epicId)
+          }, undefined, false, undefined, this),
+          !!buckets.closed.length && /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(TaskBucketSection, {
+            title: "Closed",
+            issues: buckets.closed,
+            onSelectIssue: (id) => onSelectIssue(id, epicId),
+            muted: true
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "text-sm text-muted-foreground",
+        children: "No tasks are currently associated with this epic."
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function TaskBucketSection({ title, issues, muted, onSelectIssue }) {
+  return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("section", {
+    className: muted ? "opacity-70" : undefined,
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "mb-2 flex items-center gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h5", {
+            className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+            children: title
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(Badge, {
+            variant: "outline",
+            children: issues.length
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      issues.length ? /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
+        className: "space-y-2",
+        children: issues.map((issue) => /* @__PURE__ */ jsx_dev_runtime13.jsxDEV(IssueCard, {
+          issue,
+          compact: true,
+          onSelectIssue
+        }, issue.id, false, undefined, this))
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("p", {
+        className: "rounded border border-border/60 bg-background/30 p-2 text-xs text-muted-foreground",
+        children: [
+          "No ",
+          title.toLowerCase(),
+          " tasks."
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function DependencyList({ title, dependencies, backIssueId, onSelectIssue, onClose }) {
   return /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("div", {
     children: [
       /* @__PURE__ */ jsx_dev_runtime13.jsxDEV("h4", {
@@ -34590,7 +34708,7 @@ function DependencyList({ title, dependencies, onSelectIssue, onClose }) {
           type: "button",
           className: "block w-full rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60",
           onClick: () => {
-            onSelectIssue(dependency.id);
+            onSelectIssue(dependency.id, backIssueId);
             if (dependency.status === "unknown")
               onClose();
           },
@@ -34644,29 +34762,10 @@ function Meta({ label, value }) {
     ]
   }, undefined, true, undefined, this);
 }
-function filterHierarchy(hierarchy, filters, overview) {
-  return {
-    epics: hierarchy.epics.map((group) => ({ epic: group.epic, activeChildren: group.activeChildren.filter((issue) => isVisible(issue, filters, overview)), closedChildren: filters.closed ? group.closedChildren.filter((issue) => isVisible(issue, filters, overview)) : [] })),
-    ungrouped: hierarchy.ungrouped.filter((issue) => isVisible(issue, filters, overview))
-  };
-}
-function isVisible(issue, filters, overview) {
-  if (issue.type === "epic")
-    return true;
-  if (issue.status === "closed")
-    return filters.closed;
-  if (issue.status === "in_progress")
-    return filters.inProgress;
-  const blocked = (overview.dependencyMap.unresolvedBlockers[issue.id] || []).length > 0;
-  if (blocked)
-    return filters.blocked;
-  if (overview.groups.ready.includes(issue.id))
-    return filters.ready;
-  return filters.backlog;
-}
 function findFocusEpic(hierarchy) {
-  const groups = [...hierarchy.epics];
-  return groups.find((group) => group.epic.status === "in_progress") || groups.sort((a, b) => (b.epic.updatedAt ?? "").localeCompare(a.epic.updatedAt ?? ""))[0];
+  const activeGroups = hierarchy.epics.filter((group) => group.epic.status !== "closed");
+  const candidates = activeGroups.length ? activeGroups : hierarchy.epics;
+  return candidates.find((group) => group.epic.status === "in_progress") || [...candidates].sort((a, b) => (b.epic.updatedAt ?? "").localeCompare(a.epic.updatedAt ?? ""))[0];
 }
 function flattenHierarchy(hierarchy) {
   return [...hierarchy.epics.flatMap((group) => [group.epic, ...group.activeChildren, ...group.closedChildren]), ...hierarchy.ungrouped];
