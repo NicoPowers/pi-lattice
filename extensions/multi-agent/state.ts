@@ -68,6 +68,7 @@ export interface Agent {
   parent?: string;
   children: string[];
   runtimeTools?: RuntimeToolSnapshot;
+  dashboardVisible?: boolean;
   _currentSend?: Promise<void>;
   _nextTurn?: { resolve: () => void; reject: (e: Error) => void };
   _rpcRequests?: Map<string, { resolve: (data: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>;

@@ -18228,7 +18228,7 @@ function statusVariant(status) {
     return "default";
   return "outline";
 }
-function AgentsPanel({ agents, stats, onInspect, pushLog }) {
+function AgentsPanel({ agents, stats, onInspect, onAgentKilled, pushLog }) {
   const entries = Object.entries(agents);
   return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
     className: "min-h-[70vh]",
@@ -18249,6 +18249,7 @@ function AgentsPanel({ agents, stats, onInspect, pushLog }) {
             agent,
             stats: stats[name],
             onInspect,
+            onAgentKilled,
             pushLog
           }, name, false, undefined, this))
         }, undefined, false, undefined, this)
@@ -18256,7 +18257,7 @@ function AgentsPanel({ agents, stats, onInspect, pushLog }) {
     ]
   }, undefined, true, undefined, this);
 }
-function AgentCard({ name, agent, stats, onInspect, pushLog }) {
+function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
   const [message, setMessage] = import_react.useState("");
   const send = async () => {
     if (!message.trim())
@@ -18277,6 +18278,8 @@ function AgentCard({ name, agent, stats, onInspect, pushLog }) {
       const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, { method: "POST" });
       if (!res.ok)
         throw new Error(String(res.status));
+      onAgentKilled?.(name);
+      pushLog(`Killed ${name}`, "warn");
     } catch (e) {
       pushLog(`Kill ${name} failed: ${e.message}`, "error");
     }
@@ -18513,17 +18516,17 @@ var import_react3 = __toESM(require_react(), 1);
 // web/components/ui/dialog.tsx
 var import_react2 = __toESM(require_react(), 1);
 var jsx_dev_runtime6 = __toESM(require_jsx_dev_runtime(), 1);
-function Dialog({ open, title, onOpenChange, className, children, ...props }) {
+function Dialog({ open, title, onOpenChange, closeOnBackdrop = true, closeOnEscape = true, className, children, ...props }) {
   import_react2.useEffect(() => {
     if (!open)
       return;
     const onKeyDown = (event) => {
-      if (event.key === "Escape")
+      if (event.key === "Escape" && closeOnEscape)
         onOpenChange?.(false);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onOpenChange]);
+  }, [open, onOpenChange, closeOnEscape]);
   if (!open)
     return null;
   return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
@@ -18531,7 +18534,7 @@ function Dialog({ open, title, onOpenChange, className, children, ...props }) {
     role: "dialog",
     "aria-modal": "true",
     onClick: (event) => {
-      if (event.target === event.currentTarget)
+      if (closeOnBackdrop && event.target === event.currentTarget)
         onOpenChange?.(false);
     },
     children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
@@ -19532,7 +19535,7 @@ function ValidationSummary({ errors, serverError }) {
   }, undefined, true, undefined, this);
 }
 var spawnableAgentClasses = ["lead", "scout", "implementer", "reviewer"];
-function AgentTypesPanel({ types, onNew, onEdit, large }) {
+function AgentTypesPanel({ types, onNew, onEdit, onTest, large }) {
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Card, {
     className: large ? "min-h-[70vh]" : "",
     children: [
@@ -19587,12 +19590,23 @@ function AgentTypesPanel({ types, onNew, onEdit, large }) {
                     }, undefined, false, undefined, this)
                   ]
                 }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
-                  variant: "secondary",
-                  className: "shrink-0 px-2 py-1 text-xs",
-                  onClick: () => onEdit(type),
-                  children: "Edit"
-                }, undefined, false, undefined, this)
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                  className: "flex shrink-0 gap-1",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: () => onTest?.(type),
+                      children: "Test"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: () => onEdit(type),
+                      children: "Edit"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
               ]
             }, undefined, true, undefined, this)
           }, type.name, false, undefined, this))
@@ -19631,6 +19645,195 @@ function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
+}
+function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
+  const [session, setSession] = import_react4.useState();
+  const [messages, setMessages] = import_react4.useState([]);
+  const [message, setMessage] = import_react4.useState("Smoke test ping: reply exactly OK.");
+  const [busy, setBusy] = import_react4.useState(false);
+  const [serverError, setServerError] = import_react4.useState("");
+  const stopSession = async (current = session) => {
+    if (!current)
+      return;
+    try {
+      await fetch(`/api/agent-type-test-sessions/${encodeURIComponent(current.id)}`, { method: "DELETE" });
+    } catch {}
+  };
+  import_react4.useEffect(() => {
+    if (!open || !typeDef)
+      return;
+    let cancelled = false;
+    setSession(undefined);
+    setMessages([]);
+    setMessage("Smoke test ping: reply exactly OK.");
+    setServerError("");
+    setBusy(true);
+    fetch(`/api/agent-types/${encodeURIComponent(typeDef.name)}/test-session`, { method: "POST" }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(data?.error || "Failed to start test session");
+      if (cancelled) {
+        if (data?.session?.id)
+          await fetch(`/api/agent-type-test-sessions/${encodeURIComponent(data.session.id)}`, { method: "DELETE" }).catch(() => {});
+        return;
+      }
+      setSession(data.session);
+      setMessages([{ role: "system", text: `Started disposable test session ${data.session.id}.` }]);
+      pushLog?.(`Started test session for ${typeDef.name}`, "success");
+    }).catch((err) => {
+      if (!cancelled)
+        setServerError(err?.message || String(err));
+    }).finally(() => {
+      if (!cancelled)
+        setBusy(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, typeDef?.name]);
+  const close = async () => {
+    await stopSession();
+    setSession(undefined);
+    onClose();
+  };
+  const send = async () => {
+    if (!session || !message.trim())
+      return;
+    const text = message.trim();
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    setMessage("");
+    setBusy(true);
+    setServerError("");
+    try {
+      const res = await fetch(`/api/agent-type-test-sessions/${encodeURIComponent(session.id)}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(data?.error || "Test message failed");
+      setSession(data.session || session);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.response || "(empty response)" }]);
+    } catch (err) {
+      setServerError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const diagnostics = session?.runtimeTools;
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Dialog, {
+    open,
+    title: typeDef ? `Test ${typeDef.name}` : "Test Agent Type",
+    onOpenChange: close,
+    closeOnBackdrop: false,
+    closeOnEscape: false,
+    className: "max-w-4xl",
+    children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+      className: "space-y-3",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "rounded-md border border-border bg-background p-3 text-xs text-muted-foreground",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              children: [
+                "Status: ",
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+                  className: "text-foreground",
+                  children: session?.status || (busy ? "starting" : "not started")
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            session?.worktree && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              children: [
+                "Worktree: ",
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("code", {
+                  children: session.worktree
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            diagnostics && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              children: [
+                "Runtime tools: ",
+                diagnostics.active.length,
+                " active / ",
+                diagnostics.all.length,
+                " total",
+                diagnostics.conflicts?.length ? `, ${diagnostics.conflicts.length} conflicts` : ""
+              ]
+            }, undefined, true, undefined, this),
+            !!diagnostics?.active.length && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              children: [
+                "Active: ",
+                diagnostics.active.map((tool) => tool.name).join(", ")
+              ]
+            }, undefined, true, undefined, this),
+            !!diagnostics?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              className: "text-destructive",
+              children: [
+                "Conflicts: ",
+                diagnostics.conflicts.map((conflict) => `${conflict.name} (${conflict.sources.join(", ")})`).join("; ")
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "max-h-80 space-y-2 overflow-auto rounded-md border border-border bg-background p-3",
+          children: messages.length ? messages.map((entry, index) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+            className: "text-sm",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+                className: "font-semibold capitalize text-muted-foreground",
+                children: [
+                  entry.role,
+                  ": "
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
+                className: "whitespace-pre-wrap",
+                children: entry.text
+              }, undefined, false, undefined, this)
+            ]
+          }, index, true, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+            className: "text-sm text-muted-foreground",
+            children: "Starting disposable session…"
+          }, undefined, false, undefined, this)
+        }, undefined, false, undefined, this),
+        session?.stderrTail && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("pre", {
+          className: "max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background p-2 text-xs text-destructive",
+          children: session.stderrTail
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(ValidationSummary, {
+          errors: [],
+          serverError
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "flex gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+              rows: 3,
+              value: message,
+              onChange: (e) => setMessage(e.target.value),
+              disabled: !session || busy
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+              onClick: send,
+              disabled: !session || busy || !message.trim(),
+              children: busy && session ? "⏳ Sending…" : "Send"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "flex justify-end",
+          children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+            variant: "secondary",
+            onClick: close,
+            children: "Close & Cleanup"
+          }, undefined, false, undefined, this)
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
 }
 function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemplates, onClose, onSaved }) {
   const [name, setName] = import_react4.useState("");
@@ -34522,6 +34725,7 @@ function App() {
   const [extensions, setExtensions] = import_react10.useState([]);
   const [editingTemplate, setEditingTemplate] = import_react10.useState(null);
   const [editingType, setEditingType] = import_react10.useState(undefined);
+  const [testingType, setTestingType] = import_react10.useState(undefined);
   const [inspectAgentName, setInspectAgentName] = import_react10.useState(null);
   const [inspectText, setInspectText] = import_react10.useState("Loading…");
   const pushLog = import_react10.useCallback((text7, level = "info") => {
@@ -34759,6 +34963,11 @@ function App() {
             agents,
             stats: agentStats,
             onInspect: inspect,
+            onAgentKilled: (name2) => setAgents((prev) => {
+              const next = { ...prev };
+              delete next[name2];
+              return next;
+            }),
             pushLog
           }, undefined, false, undefined, this),
           activeTab === "roadmap" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {
@@ -34773,6 +34982,7 @@ function App() {
               types: types2,
               onNew: () => setEditingType(null),
               onEdit: (type) => setEditingType(type),
+              onTest: (type) => setTestingType(type),
               large: true
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
@@ -34847,6 +35057,12 @@ function App() {
           refreshTypes();
           pushLog("Saved agent type", "success");
         }
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(AgentTypeTestDialog, {
+        open: !!testingType,
+        typeDef: testingType,
+        onClose: () => setTestingType(undefined),
+        pushLog
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TemplateEditorDialog, {
         open: !!editingTemplate,

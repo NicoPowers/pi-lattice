@@ -25,7 +25,7 @@ function statusVariant(status: AgentInfo["status"]): "default" | "success" | "de
   return "outline";
 }
 
-export function AgentsPanel({ agents, stats, onInspect, pushLog }: { agents: Record<string, AgentState>; stats: Record<string, StatsEntry>; onInspect: (name: string) => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
+export function AgentsPanel({ agents, stats, onInspect, onAgentKilled, pushLog }: { agents: Record<string, AgentState>; stats: Record<string, StatsEntry>; onInspect: (name: string) => void; onAgentKilled?: (name: string) => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
   const entries = Object.entries(agents);
   return (
     <Card className="min-h-[70vh]">
@@ -33,14 +33,14 @@ export function AgentsPanel({ agents, stats, onInspect, pushLog }: { agents: Rec
       <CardContent>
         {!entries.length ? <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No agents running.</div> :
           <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-            {entries.map(([name, agent]) => <AgentCard key={name} name={name} agent={agent} stats={stats[name]} onInspect={onInspect} pushLog={pushLog} />)}
+            {entries.map(([name, agent]) => <AgentCard key={name} name={name} agent={agent} stats={stats[name]} onInspect={onInspect} onAgentKilled={onAgentKilled} pushLog={pushLog} />)}
           </div>}
       </CardContent>
     </Card>
   );
 }
 
-function AgentCard({ name, agent, stats, onInspect, pushLog }: { name: string; agent: AgentState; stats?: StatsEntry; onInspect: (name: string) => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
+function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }: { name: string; agent: AgentState; stats?: StatsEntry; onInspect: (name: string) => void; onAgentKilled?: (name: string) => void; pushLog: (text: string, level?: LogLine["level"]) => void }) {
   const [message, setMessage] = useState("");
   const send = async () => {
     if (!message.trim()) return;
@@ -58,6 +58,8 @@ function AgentCard({ name, agent, stats, onInspect, pushLog }: { name: string; a
     try {
       const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, { method: "POST" });
       if (!res.ok) throw new Error(String(res.status));
+      onAgentKilled?.(name);
+      pushLog(`Killed ${name}`, "warn");
     } catch (e: any) {
       pushLog(`Kill ${name} failed: ${e.message}`, "error");
     }

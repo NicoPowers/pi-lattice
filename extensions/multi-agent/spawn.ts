@@ -5,7 +5,7 @@ import * as os from "node:os";
 import { type Agent, type AgentDefinition, agents, log } from "./state.js";
 import { isSpawnableAgentDefinition, nonSpawnableAgentReason } from "./definitions.js";
 import { createWorktree, removeWorktree } from "./worktree.js";
-import { sendToAgent } from "./send.js";
+import { markAgentInputError, sendToAgent } from "./send.js";
 import { broadcast } from "./server.js";
 
 export function hasBwrap(): boolean {
@@ -113,9 +113,11 @@ export async function spawnAgent(
     parent?: string;
     worktreePath?: string;
     extensions?: Array<{ name: string; path: string }>;
+    dashboardVisible?: boolean;
   }
 ): Promise<{ agent: Agent; error?: string }> {
   const { model, repoCwd, definition, parent, worktreePath: reuseWorktree, extensions } = options;
+  const dashboardVisible = options.dashboardVisible !== false;
 
   if (definition && !isSpawnableAgentDefinition(definition)) {
     return { agent: null as any, error: nonSpawnableAgentReason(definition) || `Agent type '${definition.name}' is not spawnable.` };
@@ -269,6 +271,7 @@ export async function spawnAgent(
     worktreePath,
     parent,
     children: [],
+    dashboardVisible,
     _rpcRequests: new Map(),
   };
 
@@ -292,12 +295,12 @@ export async function spawnAgent(
         if (event.type === "agent_start") {
           agent.status = "streaming";
           agent.accumulatedText = "";
-          broadcast({ type: "agent-start", data: { name: agent.id } });
+          if (agent.dashboardVisible !== false) broadcast({ type: "agent-start", data: { name: agent.id } });
         } else if (event.type === "message_update") {
           const delta = event.assistantMessageEvent;
           if (delta?.type === "text_delta" && typeof delta.delta === "string") {
             agent.accumulatedText += delta.delta;
-            broadcast({ type: "agent-delta", data: { name: agent.id, delta: delta.delta } });
+            if (agent.dashboardVisible !== false) broadcast({ type: "agent-delta", data: { name: agent.id, delta: delta.delta } });
           }
         } else if (event.type === "agent_end") {
           agent.status = "idle";
@@ -312,7 +315,7 @@ export async function spawnAgent(
             if (text && !agent.accumulatedText) agent.accumulatedText = text;
           }
           agent.history.push({ role: "assistant", text: agent.accumulatedText });
-          broadcast({ type: "agent-end", data: { name: agent.id, text: agent.accumulatedText } });
+          if (agent.dashboardVisible !== false) broadcast({ type: "agent-end", data: { name: agent.id, text: agent.accumulatedText } });
           if (agent._nextTurn) {
             agent._nextTurn.resolve();
             agent._nextTurn = undefined;
@@ -384,6 +387,10 @@ export async function spawnAgent(
     flush();
   });
 
+  proc.stdin!.on("error", (err: any) => {
+    markAgentInputError(agent, err);
+  });
+
   const stderrLogPath = path.join(worktreePath, ".pi", "stderr.log");
   proc.stderr!.on("data", (data: Buffer) => {
     const text = data.toString();
@@ -400,9 +407,17 @@ export async function spawnAgent(
   proc.on("close", (code) => {
     log("spawn", `Agent '${id}' process closed`, { code });
     agent.status = "exited";
+    const err = new Error(`Agent '${id}' exited with code ${code}`);
     if (agent._nextTurn) {
-      agent._nextTurn.reject(new Error(`Agent '${id}' exited with code ${code}`));
+      agent._nextTurn.reject(err);
       agent._nextTurn = undefined;
+    }
+    if (agent._rpcRequests) {
+      for (const pending of agent._rpcRequests.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(err);
+      }
+      agent._rpcRequests.clear();
     }
   });
 
@@ -412,6 +427,13 @@ export async function spawnAgent(
     if (agent._nextTurn) {
       agent._nextTurn.reject(new Error(`Agent '${id}' process error: ${err.message}`));
       agent._nextTurn = undefined;
+    }
+    if (agent._rpcRequests) {
+      for (const pending of agent._rpcRequests.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error(`Agent '${id}' process error: ${err.message}`));
+      }
+      agent._rpcRequests.clear();
     }
   });
 

@@ -255,6 +255,85 @@ describe("orchestrator display settings API", () => {
   });
 });
 
+describe("agent type test session API", () => {
+  it("spawns a disposable agent type test session, sends a message, and cleans up", async () => {
+    const { startServer } = await import("../extensions/multi-agent/server.js");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-agent-type-test-api-"));
+    const worktreeDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-agent-type-test-worktree-"));
+    let removedWorktree: string | undefined;
+    let sentMessage = "";
+    let killed = false;
+    let spawnedOptions: any;
+    const definitions = [
+      { name: "team-coder", description: "Team coder", agentClass: "implementer", systemPrompt: "Code.", source: "project", filePath: "" },
+      { name: "root-orchestrator", description: "Root only", agentClass: "orchestrator", systemPrompt: "Root.", source: "project", filePath: "" },
+    ];
+    const handle = await startServer({
+      repoCwd: tmpDir,
+      spawnAgent: async (id, options) => {
+        spawnedOptions = options;
+        return { agent: {
+          id,
+          proc: { get killed() { return killed; }, kill() { killed = true; } },
+          stdin: new PassThrough(),
+          status: "idle",
+          accumulatedText: "",
+          history: [],
+          events: [],
+          buffer: "",
+          worktreePath: worktreeDir,
+          children: [],
+          _rpcRequests: new Map(),
+        } as any };
+      },
+      sendToAgent: async (agent, message) => {
+        sentMessage = message;
+        agent.accumulatedText = "pong";
+      },
+      removeWorktree: async (worktreePath) => { removedWorktree = worktreePath; },
+      discoverDefinitions: () => definitions as any,
+      getDefinition: (name) => definitions.find((definition) => definition.name === name) as any,
+      discoverExtensions: () => [],
+    });
+
+    try {
+      let res = await fetch(`${handle.url}/api/agent-types/root-orchestrator/test-session`, { method: "POST" });
+      expect(res.status).toBe(403);
+
+      res = await fetch(`${handle.url}/api/agent-types/team-coder/test-session`, { method: "POST" });
+      expect(res.status).toBe(200);
+      const started = await res.json();
+      expect(started.session.agentType).toBe("team-coder");
+      expect(started.session.status).toBe("idle");
+      expect(started.session.worktree).toBe(worktreeDir);
+      expect(spawnedOptions.definition.name).toBe("team-coder");
+      expect(spawnedOptions.dashboardVisible).toBe(false);
+
+      const liveAgents = await (await fetch(`${handle.url}/api/agents`)).json();
+      expect(liveAgents).toEqual([]);
+
+      res = await fetch(`${handle.url}/api/agent-type-test-sessions/${started.session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: "ping" }),
+      });
+      expect(res.status).toBe(200);
+      const sent = await res.json();
+      expect(sent.response).toBe("pong");
+      expect(sentMessage).toBe("ping");
+
+      res = await fetch(`${handle.url}/api/agent-type-test-sessions/${started.session.id}`, { method: "DELETE" });
+      expect(res.status).toBe(200);
+      expect(killed).toBe(true);
+      expect(removedWorktree).toBe(worktreeDir);
+    } finally {
+      handle.stop();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      fs.rmSync(worktreeDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("extension template smoke-test API", () => {
   it("spawns a temporary agent, reads runtime tools, and cleans up", async () => {
     const { startServer } = await import("../extensions/multi-agent/server.js");
@@ -264,9 +343,11 @@ describe("extension template smoke-test API", () => {
     let removedWorktree: string | undefined;
     let spawnedExtensions: any[] = [];
     let spawnedModel: string | undefined;
+    let spawnedOptions: any;
     const handle = await startServer({
       repoCwd: tmpDir,
       spawnAgent: async (_id, options) => {
+        spawnedOptions = options;
         spawnedExtensions = options.extensions;
         spawnedModel = options.model;
         const snapshotPath = runtimeToolsPath(worktreeDir);
@@ -316,6 +397,7 @@ describe("extension template smoke-test API", () => {
       const result = await smokeRes.json();
       expect(spawnedExtensions.map((extension) => extension.name)).toEqual(["foo", "bar"]);
       expect(spawnedModel).toBe("anthropic/claude-sonnet-4-5");
+      expect(spawnedOptions.dashboardVisible).toBe(false);
       expect(result.smokeAgent.model).toBe("anthropic/claude-sonnet-4-5");
       expect(result.success).toBe(false);
       expect(result.runtimeTools.active.map((tool: any) => tool.name)).toEqual(["delegate", "foo_tool"]);

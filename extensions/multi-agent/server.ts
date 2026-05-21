@@ -23,6 +23,13 @@ interface ServerHandle {
   stop: () => void;
 }
 
+interface AgentTypeTestSession {
+  id: string;
+  agentType: string;
+  agent: Agent;
+  createdAt: number;
+}
+
 // ── SSE state ──
 
 const sseClients = new Set<http.ServerResponse>();
@@ -99,6 +106,31 @@ function sendStatic(res: http.ServerResponse, filePath: string): boolean {
   return true;
 }
 
+function readStderrTail(worktreePath: string): string | undefined {
+  const filePath = path.join(worktreePath, ".pi", "stderr.log");
+  try {
+    if (!fs.existsSync(filePath)) return undefined;
+    const text = fs.readFileSync(filePath, "utf-8").trim();
+    return text ? text.slice(-4_000) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeAgentTypeTestSession(session: AgentTypeTestSession) {
+  const runtimeTools = readRuntimeToolSnapshot(session.agent.worktreePath);
+  logRuntimeToolConflicts(session.id, runtimeTools);
+  return {
+    id: session.id,
+    agentType: session.agentType,
+    status: session.agent.status,
+    worktree: session.agent.worktreePath,
+    createdAt: session.createdAt,
+    runtimeTools,
+    stderrTail: readStderrTail(session.agent.worktreePath),
+  };
+}
+
 // ── Port probing ──
 
 function tryPort(port: number): Promise<number> {
@@ -136,6 +168,12 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 
 export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
   const port = await findPort();
+  const agentTypeTestSessions = new Map<string, AgentTypeTestSession>();
+  const cleanupAgentTypeTestSession = async (session: AgentTypeTestSession) => {
+    try { if (!session.agent.proc.killed) session.agent.proc.kill("SIGTERM"); } catch { /* ignore */ }
+    await deps.removeWorktree(session.agent.worktreePath).catch(() => {});
+    agentTypeTestSessions.delete(session.id);
+  };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://localhost:${port}`);
@@ -541,6 +579,95 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
       return;
     }
 
+    const agentTypeTestSessionMatch = url.pathname.match(/^\/api\/agent-types\/([^/]+)\/test-session$/);
+    if (agentTypeTestSessionMatch && req.method === "POST") {
+      const typeName = decodeURIComponent(agentTypeTestSessionMatch[1]);
+      const { isSpawnableAgentDefinition, nonSpawnableAgentReason } = await import("./definitions.js");
+      const { resolveCapabilities } = await import("./capability-resolution.js");
+      const definition = deps.getDefinition(typeName, deps.repoCwd);
+      if (!definition) {
+        const available = deps.discoverDefinitions(deps.repoCwd).filter(isSpawnableAgentDefinition).map((d) => d.name).join(", ") || "none";
+        send(res, errorResponse(`Agent type '${typeName}' not found. Available: ${available}`, 404));
+        return;
+      }
+      if (!isSpawnableAgentDefinition(definition)) {
+        send(res, errorResponse(nonSpawnableAgentReason(definition) || `Agent type '${definition.name}' is not spawnable`, 403));
+        return;
+      }
+      const capabilities = resolveCapabilities({
+        cwd: deps.repoCwd,
+        definition,
+        availableExtensions: deps.discoverExtensions(deps.repoCwd),
+      });
+      if (capabilities.errors.length) {
+        send(res, jsonResponse({ success: false, diagnostics: capabilities.errors.map((message) => ({ level: "error", message })) }, 400));
+        return;
+      }
+      if (capabilities.skillConflicts.length) {
+        send(res, jsonResponse({ success: false, skillConflicts: capabilities.skillConflicts, diagnostics: capabilities.skillConflicts.map((conflict) => ({ level: "error", message: `Runtime skill name '${conflict.name}' is provided by multiple paths: ${conflict.paths.join(", ")}` })) }, 400));
+        return;
+      }
+      const sessionId = `agent-type-test-${typeName.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}`;
+      const resolvedDefinition = { ...definition, skills: capabilities.skills };
+      const result = await deps.spawnAgent(sessionId, {
+        model: deps.currentModel?.(),
+        repoCwd: deps.repoCwd,
+        definition: resolvedDefinition,
+        extensions: capabilities.extensions,
+        dashboardVisible: false,
+      });
+      if (result.error || !result.agent) {
+        send(res, jsonResponse({ success: false, diagnostics: [{ level: "error", message: result.error || "Agent type test session failed to spawn." }] }, 500));
+        return;
+      }
+      const session: AgentTypeTestSession = { id: sessionId, agentType: definition.name, agent: result.agent, createdAt: Date.now() };
+      agentTypeTestSessions.set(sessionId, session);
+      send(res, jsonResponse({ success: true, session: serializeAgentTypeTestSession(session), diagnostics: [{ level: "info", message: `Started disposable test session '${sessionId}' for agent type '${definition.name}'.` }] }));
+      return;
+    }
+
+    const agentTypeTestSessionMessageMatch = url.pathname.match(/^\/api\/agent-type-test-sessions\/([^/]+)\/messages$/);
+    if (agentTypeTestSessionMessageMatch && req.method === "POST") {
+      const sessionId = decodeURIComponent(agentTypeTestSessionMessageMatch[1]);
+      const session = agentTypeTestSessions.get(sessionId);
+      if (!session) {
+        send(res, errorResponse(`Agent type test session '${sessionId}' not found`, 404));
+        return;
+      }
+      let body: any;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        send(res, errorResponse("Invalid JSON", 400));
+        return;
+      }
+      const message = typeof body.message === "string" ? body.message.trim() : "";
+      if (!message) {
+        send(res, errorResponse("message is required", 400));
+        return;
+      }
+      try {
+        await deps.sendToAgent(session.agent, message, (body.timeoutSeconds || 120) * 1000);
+        send(res, jsonResponse({ success: true, response: session.agent.accumulatedText || "", session: serializeAgentTypeTestSession(session) }));
+      } catch (err: any) {
+        send(res, jsonResponse({ success: false, error: err?.message || String(err), session: serializeAgentTypeTestSession(session) }, 500));
+      }
+      return;
+    }
+
+    const agentTypeTestSessionMatchById = url.pathname.match(/^\/api\/agent-type-test-sessions\/([^/]+)$/);
+    if (agentTypeTestSessionMatchById && req.method === "DELETE") {
+      const sessionId = decodeURIComponent(agentTypeTestSessionMatchById[1]);
+      const session = agentTypeTestSessions.get(sessionId);
+      if (!session) {
+        send(res, errorResponse(`Agent type test session '${sessionId}' not found`, 404));
+        return;
+      }
+      await cleanupAgentTypeTestSession(session);
+      send(res, jsonResponse({ success: true }));
+      return;
+    }
+
     // Skill template CRUD
     if (url.pathname === "/api/skill-templates" && req.method === "GET") {
       const { discoverSkillTemplates } = await import("./skill-templates.js");
@@ -884,6 +1011,9 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
         url,
         stop: () => {
           server.close();
+          for (const session of agentTypeTestSessions.values()) {
+            void cleanupAgentTypeTestSession(session);
+          }
           for (const res of sseClients) {
             try { res.end(); } catch { /* ignore */ }
           }

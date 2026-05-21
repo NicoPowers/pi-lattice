@@ -4,7 +4,7 @@ import type { AgentTypeInfo, ExtensionInfo, ModelInfo, RootProfileInfo, ServerEv
 import type { AgentState, LogLine, StatsEntry } from "./shared/dashboard-types.js";
 import { AgentsPanel, HierarchyPanel } from "./features/live-agents/LiveAgentsPanel.js";
 import { OrchestratorLibrariesPanel } from "./features/orchestrator-libraries/OrchestratorLibrariesPanel.js";
-import { AgentTypesPanel, TypeEditorDialog } from "./features/agent-types/AgentTypesPanel.js";
+import { AgentTypesPanel, AgentTypeTestDialog, TypeEditorDialog } from "./features/agent-types/AgentTypesPanel.js";
 import type { TemplateInfo } from "./features/agent-types/AgentTypesPanel.js";
 import { SkillLibraryPanel } from "./features/skill-library/SkillLibraryPanel.js";
 import { TemplatesPanel, TemplateEditorDialog } from "./features/templates/TemplatesPanel.js";
@@ -51,6 +51,7 @@ function App() {
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<{ kind: "skill" | "extension"; template?: TemplateInfo } | null>(null);
   const [editingType, setEditingType] = useState<AgentTypeInfo | null | undefined>(undefined);
+  const [testingType, setTestingType] = useState<AgentTypeInfo | undefined>(undefined);
   const [inspectAgentName, setInspectAgentName] = useState<string | null>(null);
   const [inspectText, setInspectText] = useState("Loading…");
 
@@ -254,9 +255,9 @@ function App() {
       </header>
 
       <main className="flex-1 overflow-hidden p-4">
-        {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} pushLog={pushLog} />}
+        {activeTab === "agents" && <AgentsPanel agents={agents} stats={agentStats} onInspect={inspect} onAgentKilled={(name) => setAgents((prev) => { const next = { ...prev }; delete next[name]; return next; })} pushLog={pushLog} />}
         {activeTab === "roadmap" && <PageFrame mode="wide"><RoadmapPanel pushLog={pushLog} /></PageFrame>}
-        {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} large /></PageFrame>}
+        {activeTab === "types" && <PageFrame mode="centered"><AgentTypesPanel types={types} onNew={() => setEditingType(null)} onEdit={(type) => setEditingType(type)} onTest={(type) => setTestingType(type)} large /></PageFrame>}
         {activeTab === "rootProfiles" && <PageFrame mode="wide"><RootOrchestratorProfilesPanel profiles={rootProfiles} onChanged={refreshRootProfiles} pushLog={pushLog} /></PageFrame>}
         {activeTab === "skills" && <SkillLibraryPanel skills={skills} diagnostics={skillDiagnostics} skillTemplates={skillTemplates} onEditTemplate={(template) => setEditingTemplate({ kind: "skill", template })} onChanged={refreshTemplates} />}
         {activeTab === "orchestratorLibraries" && <PageFrame mode="wide"><OrchestratorLibrariesPanel pushLog={pushLog} onDisplaySettingsChanged={refreshTypes} onNativeSettingsSaved={refreshTemplates} /></PageFrame>}
@@ -267,6 +268,7 @@ function App() {
       </main>
 
       <TypeEditorDialog open={editingType !== undefined} typeDef={editingType ?? undefined} models={models} skillTemplates={skillTemplates} extensionTemplates={extensionTemplates} onClose={() => setEditingType(undefined)} onSaved={() => { setEditingType(undefined); refreshTypes(); pushLog("Saved agent type", "success"); }} />
+      <AgentTypeTestDialog open={!!testingType} typeDef={testingType} onClose={() => setTestingType(undefined)} pushLog={pushLog} />
       <TemplateEditorDialog open={!!editingTemplate} kind={editingTemplate?.kind || "skill"} template={editingTemplate?.template} availableSkills={skills} availableExtensions={extensions} onClose={() => setEditingTemplate(null)} onSaved={() => { setEditingTemplate(null); refreshTemplates(); pushLog("Saved template", "success"); }} />
       <Dialog open={!!inspectAgentName} title={`Inspect ${inspectAgentName || "Agent"}`} onOpenChange={() => setInspectAgentName(null)} className="max-w-5xl">
         <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 text-sm leading-6">{inspectText}</pre>

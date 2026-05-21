@@ -32,6 +32,16 @@ export interface AgentInfo {
   text?: string;
 }
 
+export interface AgentTypeTestSession {
+  id: string;
+  agentType: string;
+  status: "idle" | "streaming" | "error" | "exited";
+  worktree: string;
+  createdAt: number;
+  runtimeTools?: RuntimeToolSnapshot;
+  stderrTail?: string;
+}
+
 export interface AgentTypeInfo {
   name: string;
   description: string;

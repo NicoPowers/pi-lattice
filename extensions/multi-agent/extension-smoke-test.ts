@@ -122,6 +122,7 @@ export async function smokeTestExtensionTemplate(name: string, deps: ExtensionTe
         filePath: "",
       },
       extensions: capabilities.extensions,
+      dashboardVisible: false,
     });
     agent = result.agent;
     const smokeAgent = { id: agentId, definition: smokeDefinitionName, model: smokeModel, worktree: agent?.worktreePath };

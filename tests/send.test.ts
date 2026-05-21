@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { sendToAgent } from "../extensions/multi-agent/send.js";
+import { rpcCommand, sendToAgent } from "../extensions/multi-agent/send.js";
 import type { Agent } from "../extensions/multi-agent/state.js";
 
 function makeAgent(overrides: Partial<Agent> = {}) {
@@ -77,5 +77,37 @@ describe("sendToAgent", () => {
 
     await expect(sendToAgent(agent, "hello", 1_000)).rejects.toThrow("Agent is exited");
     expect(writes).toHaveLength(0);
+  });
+
+  it("turns broken stdin writes into API errors instead of uncaught exceptions", async () => {
+    const brokenPipe = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    const { agent } = makeAgent({
+      stdin: {
+        write(_chunk: string, callback?: (err?: Error | null) => void) {
+          callback?.(brokenPipe);
+          return false;
+        },
+      } as any,
+    });
+
+    await expect(sendToAgent(agent, "hello", 1_000)).rejects.toThrow("input stream is closed (EPIPE)");
+    expect(agent.status).toBe("exited");
+    expect(agent._nextTurn).toBeUndefined();
+  });
+
+  it("clears pending RPC requests when stdin is broken", async () => {
+    const brokenPipe = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    const { agent } = makeAgent({
+      stdin: {
+        write(_chunk: string, callback?: (err?: Error | null) => void) {
+          callback?.(brokenPipe);
+          return false;
+        },
+      } as any,
+    });
+
+    await expect(rpcCommand(agent, { type: "get-runtime-tools" }, 1_000)).rejects.toThrow("input stream is closed (EPIPE)");
+    expect(agent.status).toBe("exited");
+    expect(agent._rpcRequests?.size).toBe(0);
   });
 });

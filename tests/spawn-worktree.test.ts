@@ -160,4 +160,15 @@ describe("worktree lifecycle", () => {
     agents.clear();
     fs.rmSync(activePath, { recursive: true, force: true });
   });
+
+  it("does not delete a worktree while serialized creation is still finishing", async () => {
+    const { cleanupOrphanedWorktrees, createWorktree, removeWorktree } = await import("../extensions/multi-agent/worktree.js");
+
+    const worktreePath = await createWorktree("pending", repoDir);
+
+    cleanupOrphanedWorktrees();
+
+    expect(fs.existsSync(worktreePath)).toBe(true);
+    await removeWorktree(worktreePath);
+  });
 });
