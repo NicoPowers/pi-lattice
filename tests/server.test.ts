@@ -336,7 +336,7 @@ describe("orchestrator display settings API", () => {
 				name: "team-coder",
 				description: "Team",
 				agentClass: "implementer",
-				systemPrompt: "",
+				systemPrompt: "Persisted team coder prompt.",
 				source: "project",
 				filePath: "",
 			},
@@ -362,9 +362,11 @@ describe("orchestrator display settings API", () => {
 				"pio-example-coder",
 				"team-coder",
 			]);
-			expect(
-				agentTypes.find((item: any) => item.name === "team-coder")?.agentClass,
-			).toBe("implementer");
+			const teamCoder = agentTypes.find(
+				(item: any) => item.name === "team-coder",
+			);
+			expect(teamCoder?.agentClass).toBe("implementer");
+			expect(teamCoder?.prompt).toBe("Persisted team coder prompt.");
 
 			res = await fetch(
 				`${handle.url}/api/orchestrator-libraries/display-settings`,

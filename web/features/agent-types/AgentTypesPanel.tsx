@@ -478,6 +478,7 @@ export function TypeEditorDialog({
 	const [extensionTemplatesText, setExtensionTemplatesText] = useState("");
 	const [prompt, setPrompt] = useState("");
 	const [serverError, setServerError] = useState("");
+	const [draftingPrompt, setDraftingPrompt] = useState(false);
 	useEffect(() => {
 		if (!open) return;
 		setName(typeDef?.name || "");
@@ -491,8 +492,9 @@ export function TypeEditorDialog({
 		setThinking(typeDef?.thinking || "medium");
 		setSkillTemplatesText((typeDef?.skillTemplates || []).join("\n"));
 		setExtensionTemplatesText((typeDef?.extensionTemplates || []).join("\n"));
-		setPrompt("");
+		setPrompt(typeDef?.prompt || typeDef?.systemPrompt || "");
 		setServerError("");
+		setDraftingPrompt(false);
 	}, [open, typeDef]);
 	const modelPattern = (m: ModelInfo) =>
 		m.pattern || (m.provider ? `${m.provider}/${m.id}` : m.id);
@@ -522,10 +524,46 @@ export function TypeEditorDialog({
 		thinking !== (typeDef?.thinking || "medium") ||
 		skillTemplatesText !== (typeDef?.skillTemplates || []).join("\n") ||
 		extensionTemplatesText !== (typeDef?.extensionTemplates || []).join("\n") ||
-		!!prompt.trim();
+		prompt !== (typeDef?.prompt || typeDef?.systemPrompt || "");
 	const discardMessage = "Discard unsaved agent type changes?";
 	const close = () => {
 		if (!isDirty || confirm(discardMessage)) onClose();
+	};
+	const draftPrompt = async () => {
+		setServerError("");
+		if (
+			prompt.trim() &&
+			!confirm("Replace the current prompt with an auto-generated draft?")
+		)
+			return;
+		setDraftingPrompt(true);
+		try {
+			const res = await fetch("/api/agent-types/draft-prompt", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: name.trim(),
+					description: description.trim(),
+					agentClass,
+					model: model || undefined,
+					thinking: selectedModel?.thinking ? thinking : undefined,
+					skillTemplates: splitItems(skillTemplatesText),
+					extensionTemplates: splitItems(extensionTemplatesText),
+					existingPrompt: prompt.trim() || undefined,
+				}),
+			});
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok || !data?.success) {
+				throw new Error(data?.error || "Failed to draft prompt");
+			}
+			setPrompt(data.prompt || "");
+		} catch (err: any) {
+			setServerError(
+				"Failed to draft prompt: " + (err?.message || String(err)),
+			);
+		} finally {
+			setDraftingPrompt(false);
+		}
 	};
 	const save = async () => {
 		setServerError("");
@@ -561,113 +599,164 @@ export function TypeEditorDialog({
 			onOpenChange={onClose}
 			confirmOnClose={isDirty}
 			confirmCloseMessage={discardMessage}
+			className="max-w-4xl"
 		>
-			<div className="space-y-3">
-				<FieldLabel required>Name</FieldLabel>
-				<Input
-					value={name}
-					onChange={(e) => setName(e.target.value)}
-					readOnly={!!typeDef}
-					aria-invalid={!name.trim()}
-					className={!name.trim() ? "border-destructive/60" : undefined}
-				/>
-				<FieldLabel required>Description</FieldLabel>
-				<Input
-					value={description}
-					onChange={(e) => setDescription(e.target.value)}
-					aria-invalid={!description.trim()}
-					className={!description.trim() ? "border-destructive/60" : undefined}
-				/>
-				<FieldLabel required>Agent class</FieldLabel>
-				<Select
-					value={agentClass}
-					onChange={(e) =>
-						setAgentClass(
-							e.target.value as (typeof spawnableAgentClasses)[number],
-						)
-					}
+			<div className="space-y-4">
+				<div
+					className="grid gap-4 md:grid-cols-2"
+					data-testid="agent-type-editor-layout"
 				>
-					{spawnableAgentClasses.map((value) => (
-						<option key={value} value={value}>
-							{value}
-						</option>
-					))}
-				</Select>
-				<FormMessage>
-					Choose what kind of child agent this type can spawn as. The root
-					orchestrator role is reserved for the interactive /orchestrate session
-					and is not spawnable.
-				</FormMessage>
-				<FieldLabel optional>Model</FieldLabel>
-				<Select value={model} onChange={(e) => setModel(e.target.value)}>
-					<option value="">-- default --</option>
-					{models.map((m) => {
-						const pattern = modelPattern(m);
-						return (
-							<option key={pattern} value={pattern}>
-								{pattern}
-							</option>
-						);
-					})}
-				</Select>
-				{selectedModel?.thinking && (
-					<>
-						<FieldLabel optional>Thinking Level</FieldLabel>
+					<div className="space-y-3">
+						<FieldLabel required>Name</FieldLabel>
+						<Input
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							readOnly={!!typeDef}
+							aria-invalid={!name.trim()}
+							className={!name.trim() ? "border-destructive/60" : undefined}
+						/>
+						<FieldLabel required>Description</FieldLabel>
+						<Input
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+							aria-invalid={!description.trim()}
+							className={
+								!description.trim() ? "border-destructive/60" : undefined
+							}
+						/>
+						<FieldLabel required>Agent class</FieldLabel>
 						<Select
-							value={thinking}
-							onChange={(e) => setThinking(e.target.value)}
+							value={agentClass}
+							onChange={(e) =>
+								setAgentClass(
+									e.target.value as (typeof spawnableAgentClasses)[number],
+								)
+							}
 						>
-							{levels.map((level) => (
-								<option key={level} value={level}>
-									{level}
+							{spawnableAgentClasses.map((value) => (
+								<option key={value} value={value}>
+									{value}
 								</option>
 							))}
 						</Select>
-					</>
-				)}
-				<FieldLabel optional>Skill Templates</FieldLabel>
-				<Textarea
-					rows={3}
-					value={skillTemplatesText}
-					onChange={(e) => setSkillTemplatesText(e.target.value)}
-					placeholder={
-						spawnedSkillTemplates.map((template) => template.name).join(", ") ||
-						"common, frontend"
-					}
-				/>
-				<TemplateChips
-					templates={spawnedSkillTemplates}
-					selectedText={skillTemplatesText}
-					emptyText="No spawned-agent skill templates defined yet."
-					onToggle={(name) =>
-						setSkillTemplatesText((prev) => toggleItemText(prev, name))
-					}
-				/>
-				<FieldLabel optional>Extension Templates</FieldLabel>
-				<Textarea
-					rows={3}
-					value={extensionTemplatesText}
-					onChange={(e) => setExtensionTemplatesText(e.target.value)}
-					placeholder={
-						spawnedExtensionTemplates
-							.map((template) => template.name)
-							.join(", ") || "browser-tools"
-					}
-				/>
-				<TemplateChips
-					templates={spawnedExtensionTemplates}
-					selectedText={extensionTemplatesText}
-					emptyText="No extension templates defined yet."
-					onToggle={(name) =>
-						setExtensionTemplatesText((prev) => toggleItemText(prev, name))
-					}
-				/>
-				<FieldLabel optional>Prompt / Instructions</FieldLabel>
-				<Textarea
-					rows={7}
-					value={prompt}
-					onChange={(e) => setPrompt(e.target.value)}
-				/>
+						<FormMessage>
+							Choose what kind of child agent this type can spawn as. The root
+							orchestrator role is reserved for the interactive /orchestrate
+							session and is not spawnable.
+						</FormMessage>
+						<FieldLabel optional>Model</FieldLabel>
+						<Select value={model} onChange={(e) => setModel(e.target.value)}>
+							<option value="">-- default --</option>
+							{models.map((m) => {
+								const pattern = modelPattern(m);
+								return (
+									<option key={pattern} value={pattern}>
+										{pattern}
+									</option>
+								);
+							})}
+						</Select>
+						{selectedModel?.thinking && (
+							<>
+								<FieldLabel optional>Thinking Level</FieldLabel>
+								<Select
+									value={thinking}
+									onChange={(e) => setThinking(e.target.value)}
+								>
+									{levels.map((level) => (
+										<option key={level} value={level}>
+											{level}
+										</option>
+									))}
+								</Select>
+							</>
+						)}
+						<FieldLabel optional>Skill Templates</FieldLabel>
+						<Textarea
+							rows={3}
+							value={skillTemplatesText}
+							onChange={(e) => setSkillTemplatesText(e.target.value)}
+							placeholder={
+								spawnedSkillTemplates
+									.map((template) => template.name)
+									.join(", ") || "common, frontend"
+							}
+						/>
+						<TemplateChips
+							templates={spawnedSkillTemplates}
+							selectedText={skillTemplatesText}
+							emptyText="No spawned-agent skill templates defined yet."
+							onToggle={(name) =>
+								setSkillTemplatesText((prev) => toggleItemText(prev, name))
+							}
+						/>
+						<FieldLabel optional>Extension Templates</FieldLabel>
+						<Textarea
+							rows={3}
+							value={extensionTemplatesText}
+							onChange={(e) => setExtensionTemplatesText(e.target.value)}
+							placeholder={
+								spawnedExtensionTemplates
+									.map((template) => template.name)
+									.join(", ") || "browser-tools"
+							}
+						/>
+						<TemplateChips
+							templates={spawnedExtensionTemplates}
+							selectedText={extensionTemplatesText}
+							emptyText="No extension templates defined yet."
+							onToggle={(name) =>
+								setExtensionTemplatesText((prev) => toggleItemText(prev, name))
+							}
+						/>
+					</div>
+					<div
+						className="space-y-3"
+						data-testid="agent-type-editor-prompt-column"
+					>
+						<FieldLabel optional>Prompt / Instructions</FieldLabel>
+						<div className="relative" data-testid="agent-type-prompt-box">
+							<Textarea
+								rows={16}
+								value={prompt}
+								onChange={(e) => setPrompt(e.target.value)}
+								disabled={draftingPrompt}
+								className={draftingPrompt ? "opacity-30" : undefined}
+							/>
+							{draftingPrompt && (
+								<div
+									className="pointer-events-none absolute inset-0 rounded-md border border-primary/30 bg-background/85 p-3 backdrop-blur-[1px]"
+									data-testid="agent-type-prompt-skeleton"
+									aria-label="Drafting prompt instructions"
+								>
+									<div className="mb-4 h-4 w-40 animate-pulse rounded bg-muted" />
+									<div className="space-y-3">
+										{[0, 1, 2, 3, 4, 5, 6].map((idx) => (
+											<div
+												key={idx}
+												className={`h-3 animate-pulse rounded bg-muted/70 ${idx % 3 === 2 ? "w-2/3" : "w-full"}`}
+											/>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
+						<div className="flex items-center justify-between gap-3">
+							<FormMessage>
+								Generate a starter prompt from this agent's class, skills,
+								extensions, and handoff protocol.
+							</FormMessage>
+							<Button
+								variant="secondary"
+								className="shrink-0 px-2 py-1 text-xs"
+								onClick={draftPrompt}
+								disabled={draftingPrompt || !name.trim() || !description.trim()}
+							>
+								{draftingPrompt ? "✨ Drafting…" : "✨ Draft prompt"}
+							</Button>
+						</div>
+					</div>
+				</div>
 				<ValidationSummary errors={errors} serverError={serverError} />
 				<div className="flex justify-end gap-2">
 					<Button variant="secondary" onClick={close}>

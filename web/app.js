@@ -20081,6 +20081,7 @@ function TypeEditorDialog({
   const [extensionTemplatesText, setExtensionTemplatesText] = import_react4.useState("");
   const [prompt, setPrompt] = import_react4.useState("");
   const [serverError, setServerError] = import_react4.useState("");
+  const [draftingPrompt, setDraftingPrompt] = import_react4.useState(false);
   import_react4.useEffect(() => {
     if (!open)
       return;
@@ -20093,8 +20094,9 @@ function TypeEditorDialog({
 `));
     setExtensionTemplatesText((typeDef?.extensionTemplates || []).join(`
 `));
-    setPrompt("");
+    setPrompt(typeDef?.prompt || typeDef?.systemPrompt || "");
     setServerError("");
+    setDraftingPrompt(false);
   }, [open, typeDef]);
   const modelPattern = (m) => m.pattern || (m.provider ? `${m.provider}/${m.id}` : m.id);
   const selectedModel = models.find((m) => modelPattern(m) === model || m.id === model);
@@ -20112,11 +20114,42 @@ function TypeEditorDialog({
   ].filter(Boolean);
   const isDirty = name !== (typeDef?.name || "") || description !== (typeDef?.description || "") || agentClass !== (spawnableAgentClasses.includes(typeDef?.agentClass) ? typeDef.agentClass : "implementer") || model !== (typeDef?.model || "") || thinking !== (typeDef?.thinking || "medium") || skillTemplatesText !== (typeDef?.skillTemplates || []).join(`
 `) || extensionTemplatesText !== (typeDef?.extensionTemplates || []).join(`
-`) || !!prompt.trim();
+`) || prompt !== (typeDef?.prompt || typeDef?.systemPrompt || "");
   const discardMessage = "Discard unsaved agent type changes?";
   const close = () => {
     if (!isDirty || confirm(discardMessage))
       onClose();
+  };
+  const draftPrompt = async () => {
+    setServerError("");
+    if (prompt.trim() && !confirm("Replace the current prompt with an auto-generated draft?"))
+      return;
+    setDraftingPrompt(true);
+    try {
+      const res = await fetch("/api/agent-types/draft-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          agentClass,
+          model: model || undefined,
+          thinking: selectedModel?.thinking ? thinking : undefined,
+          skillTemplates: splitItems(skillTemplatesText),
+          extensionTemplates: splitItems(extensionTemplatesText),
+          existingPrompt: prompt.trim() || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to draft prompt");
+      }
+      setPrompt(data.prompt || "");
+    } catch (err) {
+      setServerError("Failed to draft prompt: " + (err?.message || String(err)));
+    } finally {
+      setDraftingPrompt(false);
+    }
   };
   const save = async () => {
     setServerError("");
@@ -20149,123 +20182,180 @@ function TypeEditorDialog({
     onOpenChange: onClose,
     confirmOnClose: isDirty,
     confirmCloseMessage: discardMessage,
+    className: "max-w-4xl",
     children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
-      className: "space-y-3",
+      className: "space-y-4",
       children: [
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          required: true,
-          children: "Name"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
-          value: name,
-          onChange: (e) => setName(e.target.value),
-          readOnly: !!typeDef,
-          "aria-invalid": !name.trim(),
-          className: !name.trim() ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          required: true,
-          children: "Description"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
-          value: description,
-          onChange: (e) => setDescription(e.target.value),
-          "aria-invalid": !description.trim(),
-          className: !description.trim() ? "border-destructive/60" : undefined
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          required: true,
-          children: "Agent class"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
-          value: agentClass,
-          onChange: (e) => setAgentClass(e.target.value),
-          children: spawnableAgentClasses.map((value) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
-            value,
-            children: value
-          }, value, false, undefined, this))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FormMessage2, {
-          children: "Choose what kind of child agent this type can spawn as. The root orchestrator role is reserved for the interactive /orchestrate session and is not spawnable."
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          optional: true,
-          children: "Model"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
-          value: model,
-          onChange: (e) => setModel(e.target.value),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+          className: "grid gap-4 md:grid-cols-2",
+          "data-testid": "agent-type-editor-layout",
           children: [
-            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
-              value: "",
-              children: "-- default --"
-            }, undefined, false, undefined, this),
-            models.map((m) => {
-              const pattern = modelPattern(m);
-              return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
-                value: pattern,
-                children: pattern
-              }, pattern, false, undefined, this);
-            })
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              className: "space-y-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  required: true,
+                  children: "Name"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
+                  value: name,
+                  onChange: (e) => setName(e.target.value),
+                  readOnly: !!typeDef,
+                  "aria-invalid": !name.trim(),
+                  className: !name.trim() ? "border-destructive/60" : undefined
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  required: true,
+                  children: "Description"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Input, {
+                  value: description,
+                  onChange: (e) => setDescription(e.target.value),
+                  "aria-invalid": !description.trim(),
+                  className: !description.trim() ? "border-destructive/60" : undefined
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  required: true,
+                  children: "Agent class"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+                  value: agentClass,
+                  onChange: (e) => setAgentClass(e.target.value),
+                  children: spawnableAgentClasses.map((value) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                    value,
+                    children: value
+                  }, value, false, undefined, this))
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FormMessage2, {
+                  children: "Choose what kind of child agent this type can spawn as. The root orchestrator role is reserved for the interactive /orchestrate session and is not spawnable."
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  optional: true,
+                  children: "Model"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+                  value: model,
+                  onChange: (e) => setModel(e.target.value),
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                      value: "",
+                      children: "-- default --"
+                    }, undefined, false, undefined, this),
+                    models.map((m) => {
+                      const pattern = modelPattern(m);
+                      return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                        value: pattern,
+                        children: pattern
+                      }, pattern, false, undefined, this);
+                    })
+                  ]
+                }, undefined, true, undefined, this),
+                selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(jsx_dev_runtime9.Fragment, {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                      optional: true,
+                      children: "Thinking Level"
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
+                      value: thinking,
+                      onChange: (e) => setThinking(e.target.value),
+                      children: levels.map((level) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                        value: level,
+                        children: level
+                      }, level, false, undefined, this))
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  optional: true,
+                  children: "Skill Templates"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+                  rows: 3,
+                  value: skillTemplatesText,
+                  onChange: (e) => setSkillTemplatesText(e.target.value),
+                  placeholder: spawnedSkillTemplates.map((template) => template.name).join(", ") || "common, frontend"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
+                  templates: spawnedSkillTemplates,
+                  selectedText: skillTemplatesText,
+                  emptyText: "No spawned-agent skill templates defined yet.",
+                  onToggle: (name2) => setSkillTemplatesText((prev) => toggleItemText(prev, name2))
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  optional: true,
+                  children: "Extension Templates"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+                  rows: 3,
+                  value: extensionTemplatesText,
+                  onChange: (e) => setExtensionTemplatesText(e.target.value),
+                  placeholder: spawnedExtensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
+                  templates: spawnedExtensionTemplates,
+                  selectedText: extensionTemplatesText,
+                  emptyText: "No extension templates defined yet.",
+                  onToggle: (name2) => setExtensionTemplatesText((prev) => toggleItemText(prev, name2))
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+              className: "space-y-3",
+              "data-testid": "agent-type-editor-prompt-column",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
+                  optional: true,
+                  children: "Prompt / Instructions"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                  className: "relative",
+                  "data-testid": "agent-type-prompt-box",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
+                      rows: 16,
+                      value: prompt,
+                      onChange: (e) => setPrompt(e.target.value),
+                      disabled: draftingPrompt,
+                      className: draftingPrompt ? "opacity-30" : undefined
+                    }, undefined, false, undefined, this),
+                    draftingPrompt && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                      className: "pointer-events-none absolute inset-0 rounded-md border border-primary/30 bg-background/85 p-3 backdrop-blur-[1px]",
+                      "data-testid": "agent-type-prompt-skeleton",
+                      "aria-label": "Drafting prompt instructions",
+                      children: [
+                        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                          className: "mb-4 h-4 w-40 animate-pulse rounded bg-muted"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                          className: "space-y-3",
+                          children: [0, 1, 2, 3, 4, 5, 6].map((idx) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                            className: `h-3 animate-pulse rounded bg-muted/70 ${idx % 3 === 2 ? "w-2/3" : "w-full"}`
+                          }, idx, false, undefined, this))
+                        }, undefined, false, undefined, this)
+                      ]
+                    }, undefined, true, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
+                  className: "flex items-center justify-between gap-3",
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FormMessage2, {
+                      children: "Generate a starter prompt from this agent's class, skills, extensions, and handoff protocol."
+                    }, undefined, false, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "shrink-0 px-2 py-1 text-xs",
+                      onClick: draftPrompt,
+                      disabled: draftingPrompt || !name.trim() || !description.trim(),
+                      children: draftingPrompt ? "✨ Drafting…" : "✨ Draft prompt"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
           ]
         }, undefined, true, undefined, this),
-        selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(jsx_dev_runtime9.Fragment, {
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-              optional: true,
-              children: "Thinking Level"
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Select, {
-              value: thinking,
-              onChange: (e) => setThinking(e.target.value),
-              children: levels.map((level) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
-                value: level,
-                children: level
-              }, level, false, undefined, this))
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          optional: true,
-          children: "Skill Templates"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
-          rows: 3,
-          value: skillTemplatesText,
-          onChange: (e) => setSkillTemplatesText(e.target.value),
-          placeholder: spawnedSkillTemplates.map((template) => template.name).join(", ") || "common, frontend"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
-          templates: spawnedSkillTemplates,
-          selectedText: skillTemplatesText,
-          emptyText: "No spawned-agent skill templates defined yet.",
-          onToggle: (name2) => setSkillTemplatesText((prev) => toggleItemText(prev, name2))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          optional: true,
-          children: "Extension Templates"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
-          rows: 3,
-          value: extensionTemplatesText,
-          onChange: (e) => setExtensionTemplatesText(e.target.value),
-          placeholder: spawnedExtensionTemplates.map((template) => template.name).join(", ") || "browser-tools"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(TemplateChips, {
-          templates: spawnedExtensionTemplates,
-          selectedText: extensionTemplatesText,
-          emptyText: "No extension templates defined yet.",
-          onToggle: (name2) => setExtensionTemplatesText((prev) => toggleItemText(prev, name2))
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FieldLabel2, {
-          optional: true,
-          children: "Prompt / Instructions"
-        }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Textarea, {
-          rows: 7,
-          value: prompt,
-          onChange: (e) => setPrompt(e.target.value)
-        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(ValidationSummary, {
           errors,
           serverError

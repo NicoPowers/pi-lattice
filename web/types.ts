@@ -64,6 +64,8 @@ export interface AgentTypeInfo {
 	skills?: string[];
 	skillTemplates?: string[];
 	extensionTemplates?: string[];
+	prompt?: string;
+	systemPrompt?: string;
 	source: string;
 	readOnly?: boolean;
 	example?: boolean;

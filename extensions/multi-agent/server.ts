@@ -7,6 +7,7 @@ import {
 	logRuntimeToolConflicts,
 	readRuntimeToolSnapshot,
 } from "./runtime-tools.js";
+import type { DraftAgentPromptOptions } from "./prompt-draft.js";
 
 // ── Types ──
 
@@ -34,6 +35,7 @@ export interface ServerDeps {
 		metadataSource?: string;
 	}>;
 	currentModel?: () => string | undefined;
+	draftAgentPrompt?: (options: DraftAgentPromptOptions) => Promise<string>;
 }
 
 interface ServerHandle {
@@ -799,6 +801,8 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 						skills: d.skills,
 						skillTemplates: d.skillTemplates,
 						extensionTemplates: d.extensionTemplates,
+						prompt: d.systemPrompt,
+						systemPrompt: d.systemPrompt,
 						source: d.source,
 					})),
 				),
@@ -811,6 +815,57 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			const { getAvailableModelInfos } = await import("./models.js");
 			const models = getAvailableModelInfos();
 			send(res, jsonResponse(models));
+			return;
+		}
+
+		if (
+			url.pathname === "/api/agent-types/draft-prompt" &&
+			req.method === "POST"
+		) {
+			let body: any;
+			try {
+				body = JSON.parse(await readBody(req));
+			} catch {
+				send(res, errorResponse("Invalid JSON", 400));
+				return;
+			}
+			try {
+				const { draftAgentPrompt } = await import("./prompt-draft.js");
+				const draft = await (deps.draftAgentPrompt || draftAgentPrompt)({
+					repoCwd: deps.repoCwd,
+					name: typeof body.name === "string" ? body.name : undefined,
+					description:
+						typeof body.description === "string" ? body.description : undefined,
+					agentClass: body.agentClass || body.class,
+					model:
+						typeof body.model === "string" ? body.model : deps.currentModel?.(),
+					thinking:
+						typeof body.thinking === "string" ? body.thinking : undefined,
+					skillTemplates: Array.isArray(body.skillTemplates)
+						? body.skillTemplates.filter(
+								(value: any) => typeof value === "string",
+							)
+						: [],
+					extensionTemplates: Array.isArray(body.extensionTemplates)
+						? body.extensionTemplates.filter(
+								(value: any) => typeof value === "string",
+							)
+						: [],
+					existingPrompt:
+						typeof body.existingPrompt === "string"
+							? body.existingPrompt
+							: undefined,
+				});
+				send(res, jsonResponse({ success: true, prompt: draft }));
+			} catch (err: any) {
+				send(
+					res,
+					jsonResponse(
+						{ success: false, error: err?.message || String(err) },
+						500,
+					),
+				);
+			}
 			return;
 		}
 
