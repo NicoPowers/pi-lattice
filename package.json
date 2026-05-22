@@ -3,14 +3,29 @@
   "version": "0.2.0",
   "description": "Multi-agent orchestration extension for Pi. Spawn specialized sub-agents with isolated context windows, custom prompts, and targeted skills. Includes a real-time web dashboard.",
   "keywords": ["pi-package"],
+  "bundledDependencies": [
+    "@os-eco/mulch-cli",
+    "@os-eco/seeds-cli",
+    "context-mode",
+    "pi-lens",
+    "pi-web-access"
+  ],
+  "trustedDependencies": [
+    "@google/genai",
+    "better-sqlite3",
+    "context-mode",
+    "koffi",
+    "pi-lens",
+    "protobufjs"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "bun test",
+    "test": "bun test --timeout 15000",
     "lint": "bunx tsc --noEmit --skipLibCheck",
     "build": "bun build --target=browser --outdir=web web/app.tsx && bunx tailwindcss -i web/tailwind.css -o web/app.css --minify",
-    "check": "bun run lint && bun run build && bun test"
+    "check": "bun run lint && bun run build && bun run test"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.75.1",
@@ -25,10 +40,27 @@
     "typescript": "^5.7.0"
   },
   "pi": {
-    "extensions": ["./extensions/multi-agent/index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./extensions/multi-agent/index.ts",
+      "./node_modules/@os-eco/mulch-cli/extensions/pi/index.ts",
+      "./node_modules/@os-eco/seeds-cli/extensions/pi/index.ts",
+      "./node_modules/context-mode/build/adapters/pi/extension.js",
+      "./node_modules/pi-lens/index.ts",
+      "./node_modules/pi-web-access/index.ts"
+    ],
+    "skills": [
+      "./skills",
+      "./node_modules/context-mode/skills",
+      "./node_modules/pi-lens/skills",
+      "./node_modules/pi-web-access/skills"
+    ]
   },
   "dependencies": {
+    "@os-eco/mulch-cli": "0.10.1",
+    "@os-eco/seeds-cli": "0.4.7",
+    "context-mode": "1.0.146",
+    "pi-lens": "3.8.45",
+    "pi-web-access": "0.10.7",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-markdown": "^10.1.0",

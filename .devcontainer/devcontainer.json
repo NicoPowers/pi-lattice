@@ -1,5 +1,5 @@
 {
-  "name": "pi-agent-orchestrator",
+  "name": "pi-agent-orchestrator-dev",
   "build": {
     "dockerfile": "../Dockerfile",
     "context": ".."
@@ -11,13 +11,16 @@
     "source=pi-agent-orchestrator-bun-cache,target=/home/node/.bun/install/cache,type=volume"
   ],
   "forwardPorts": [18765],
-  "postCreateCommand": "bun install",
+  "postCreateCommand": "bash .devcontainer/dev-setup.sh",
   "customizations": {
     "vscode": {
       "extensions": [
         "oven.bun-vscode",
         "ms-azuretools.vscode-docker"
-      ]
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
     }
   }
 }

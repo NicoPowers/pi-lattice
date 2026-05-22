@@ -194,28 +194,50 @@ This project is currently intended for development and experimentation.
 
 For reproducible local development, prefer the checked-in Docker/devcontainer baseline. It keeps Pi config/cache/auth in a named Docker volume and treats container paths as runtime truth for spawned agents and Orchestrator Libraries. See [Containerized orchestration runtime](docs/container-runtime.md).
 
-```bash
-# From git
-pi install git:github.com/NicoPowers/pi-agent-orchestrator
+### Devcontainer: work on this package live
 
-# From local path
-pi install /path/to/pi-agent-orchestrator
+Open this repository in a devcontainer-compatible editor and choose **Reopen in Container**. The devcontainer runs `.devcontainer/dev-setup.sh`, which:
+
+1. runs `bun install` in this checkout,
+2. builds the dashboard assets with `bun run build`, and
+3. registers this checkout as the Pi package with `pi install /workspaces/pi-agent-orchestrator`.
+
+That final command is a local-path package install. Pi loads the orchestrator extension, skills, and bundled package resources from the mounted checkout, not from a copied npm cache. As you edit files in the repo, you are editing the installed package. Use `/reload` or restart Pi after extension/package manifest changes; run `bun run build` after dashboard changes.
+
+After the devcontainer finishes setup:
+
+```bash
+pi
 ```
 
-Typical development loop:
+Then inside Pi:
 
-```bash
-bun install
-bun run check
-
-# From a separate git repo where you want to test orchestration:
-pi
-/reload
+```text
 /orchestrate
 /dashboard
 ```
 
-Inside the devcontainer, run the same commands from the container shell. The dashboard is forwarded on port `18765`.
+The dashboard is forwarded on port `18765`.
+
+### Package install: use the published/bundled package
+
+For normal use outside this repository, install the package source directly:
+
+```bash
+# From git
+pi install git:github.com/NicoPowers/pi-agent-orchestrator
+
+# From a local checkout
+pi install /path/to/pi-agent-orchestrator
+```
+
+The package manifest exposes the orchestrator plus the Pi helper packages this repo currently uses: `@os-eco/mulch-cli`, `@os-eco/seeds-cli`, `context-mode`, `pi-lens`, and `pi-web-access`. Those packages are listed in `dependencies` and `bundledDependencies`, and their Pi extensions/skills are surfaced through this package's `pi` manifest so users do not need to install them one by one.
+
+### Validation
+
+```bash
+bun run check
+```
 
 `bun run check` runs TypeScript checking, builds the dashboard bundle, and runs the test suite.
 

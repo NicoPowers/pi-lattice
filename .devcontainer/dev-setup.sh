@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WORKSPACE="/workspaces/pi-agent-orchestrator"
+cd "$WORKSPACE"
+
+echo "==> Installing JavaScript and bundled Pi package dependencies"
+bun install
+
+echo "==> Building dashboard assets served by the orchestrator extension"
+bun run build
+
+echo "==> Registering this checkout as the local pi-agent-orchestrator package"
+pi install "$WORKSPACE"
+
+cat <<'MSG'
+
+Devcontainer setup complete.
+
+Start Pi from this container with:
+  pi
+
+Then enable the orchestrator with:
+  /orchestrate
+  /dashboard
+
+This is a local-path Pi package install. Edits in this checkout are the installed package;
+use /reload or restart Pi after extension changes, and run `bun run build` after dashboard changes.
+MSG

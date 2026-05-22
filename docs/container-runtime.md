@@ -6,12 +6,21 @@ This project is moving toward a trusted-local container runtime: Pi runs inside 
 
 1. Open this repository in a devcontainer-compatible editor.
 2. Reopen in container.
-3. The devcontainer runs `bun install` after creation.
-4. Validate the package:
+3. The devcontainer runs `.devcontainer/dev-setup.sh` after creation.
+4. Start Pi from the container terminal:
 
 ```bash
-bun run check
+pi
 ```
+
+Then enable orchestration inside Pi:
+
+```text
+/orchestrate
+/dashboard
+```
+
+The setup script runs `bun install`, builds the dashboard assets, and registers `/workspaces/pi-agent-orchestrator` as a local-path Pi package. That means Pi loads the orchestrator extension, skills, and bundled helper package resources from the mounted checkout. Edits to this repository are edits to the installed package; use `/reload` or restart Pi after extension/package manifest changes, and run `bun run build` after dashboard changes.
 
 The devcontainer forwards the dashboard port `18765`.
 
@@ -21,12 +30,9 @@ From inside the container:
 
 ```bash
 pi
-/reload
-/orchestrate
-/dashboard
 ```
 
-The first Pi login/configuration writes under `/home/node/.pi`. The devcontainer maps that path to a named Docker volume (`pi-agent-orchestrator-home`) so Pi config, cache, and auth survive container rebuilds.
+The first Pi login/configuration writes under `/home/node/.pi`. The devcontainer maps that path to a named Docker volume (`pi-agent-orchestrator-home`) so Pi config, cache, package installs, and auth survive container rebuilds.
 
 ## External Orchestrator Libraries
 

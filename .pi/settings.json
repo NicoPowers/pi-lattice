@@ -1,8 +1,4 @@
 {
-  "packages": [
-    "@os-eco/mulch-cli",
-    "@os-eco/seeds-cli"
-  ],
   "piAgentOrchestrator": {
     "showPackageExamples": true,
     "libraries": [
