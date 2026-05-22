@@ -328,7 +328,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			return;
 		}
 		if (
-			url.pathname === "/api/orchestrator-libraries/settings" &&
+			url.pathname === "/api/orchestrator-libraries/enabled" &&
 			req.method === "PUT"
 		) {
 			let body: any;
@@ -338,19 +338,19 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				send(res, errorResponse("Invalid JSON", 400));
 				return;
 			}
-			const { updateOrchestratorLibrarySettings } = await import(
+			const { updateOrchestratorLibraryEnabled } = await import(
 				"./orchestrator-library.js"
 			);
-			const result = updateOrchestratorLibrarySettings(
-				{ scope: body.scope, libraries: body.libraries },
+			const result = updateOrchestratorLibraryEnabled(
+				{ root: body.root, enabled: body.enabled },
 				deps.repoCwd,
 			);
-			if (result.success) send(res, jsonResponse(result.settings));
+			if (result.success) send(res, jsonResponse(result.discovery));
 			else
 				send(
 					res,
 					errorResponse(
-						result.error || "Failed to update Orchestrator Library settings",
+						result.error || "Failed to update Orchestrator Library state",
 						result.status || 400,
 					),
 				);

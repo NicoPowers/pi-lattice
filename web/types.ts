@@ -255,6 +255,9 @@ export interface OrchestratorLibraryInfo {
 	};
 	diagnostics: OrchestratorLibraryDiagnosticInfo[];
 	valid: boolean;
+	source?: "repo" | "external-mounted";
+	enabled?: boolean;
+	disabledKey?: string;
 }
 
 export interface OrchestratorLibraryResourceInfo {

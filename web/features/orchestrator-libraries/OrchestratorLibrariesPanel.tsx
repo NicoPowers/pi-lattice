@@ -68,6 +68,14 @@ function FormMessage({
 	return <p className={`text-xs ${className}`}>{children}</p>;
 }
 
+function libraryFolderName(name: string): string {
+	return name
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/^[._-]+|[._-]+$/g, "");
+}
+
 export function OrchestratorLibrariesPanel({
 	pushLog,
 	onDisplaySettingsChanged,
@@ -79,15 +87,10 @@ export function OrchestratorLibrariesPanel({
 }) {
 	const [data, setData] = useState<OrchestratorLibrariesInfo | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [savingScope, setSavingScope] = useState<"global" | "project" | null>(
-		null,
-	);
+	const [togglingRoot, setTogglingRoot] = useState<string | null>(null);
 	const [savingDisplay, setSavingDisplay] = useState(false);
 	const [showNativeSettings, setShowNativeSettings] = useState(false);
 	const [creatingLibrary, setCreatingLibrary] = useState(false);
-	const [bootstrapTargetPath, setBootstrapTargetPath] = useState(
-		"./.pi/orchestrator-library",
-	);
 	const [bootstrapName, setBootstrapName] = useState("");
 	const [bootstrapDescription, setBootstrapDescription] = useState("");
 	const [bootstrapSaving, setBootstrapSaving] = useState(false);
@@ -113,45 +116,30 @@ export function OrchestratorLibrariesPanel({
 		load();
 	}, [load]);
 
-	const moveLibrary = async (root: string, direction: -1 | 1) => {
-		if (!data) return;
-		const library = data.libraries.find((candidate) => candidate.root === root);
-		if (!library) return;
-		const scope = root.includes("/.pi/") ? "project" : "global";
-		const scoped = data.libraries.filter(
-			(candidate) =>
-				(candidate.root.includes("/.pi/") ? "project" : "global") === scope,
-		);
-		const index = scoped.findIndex((candidate) => candidate.root === root);
-		const nextIndex = index + direction;
-		if (index < 0 || nextIndex < 0 || nextIndex >= scoped.length) return;
-		const reordered = [...scoped];
-		[reordered[index], reordered[nextIndex]] = [
-			reordered[nextIndex],
-			reordered[index],
-		];
-		setSavingScope(scope);
+	const setLibraryEnabled = async (root: string, enabled: boolean) => {
+		setTogglingRoot(root);
+		setError("");
 		try {
-			const res = await fetch("/api/orchestrator-libraries/settings", {
+			const res = await fetch("/api/orchestrator-libraries/enabled", {
 				method: "PUT",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					scope,
-					libraries: reordered.map((item) => item.root),
-				}),
+				body: JSON.stringify({ root, enabled }),
 			});
-			if (!res.ok) throw new Error(await res.text());
-			pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
+			if (!res.ok) throw new Error(await responseErrorText(res));
+			pushLog(
+				`${enabled ? "Enabled" : "Disabled"} Orchestrator Library ${shortPath(root)}`,
+				"success",
+			);
 			await load();
 			onNativeSettingsSaved();
 		} catch (e: any) {
-			setError(e.message || "Failed to reorder Orchestrator Libraries");
+			setError(e.message || "Failed to update Orchestrator Library state");
 			pushLog(
-				`Failed to reorder Orchestrator Libraries: ${e.message}`,
+				`Failed to update Orchestrator Library state: ${e.message}`,
 				"error",
 			);
 		} finally {
-			setSavingScope(null);
+			setTogglingRoot(null);
 		}
 	};
 
@@ -183,17 +171,15 @@ export function OrchestratorLibrariesPanel({
 	const bootstrapLibrary = async (event: FormEvent) => {
 		event.preventDefault();
 		setBootstrapError("");
-		if (!bootstrapTargetPath.trim()) {
-			setBootstrapError("Target path is required.");
-			return;
-		}
+		const folderName =
+			libraryFolderName(bootstrapName) || "orchestrator-library";
 		setBootstrapSaving(true);
 		try {
 			const res = await fetch("/api/orchestrator-libraries/bootstrap", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
-					targetPath: bootstrapTargetPath.trim(),
+					targetPath: `./.pi/pi-agent-orchestrator/libraries/${folderName}`,
 					name: bootstrapName.trim() || undefined,
 					description: bootstrapDescription.trim() || undefined,
 				}),
@@ -234,10 +220,7 @@ export function OrchestratorLibrariesPanel({
 		}
 		return result;
 	}, [data]);
-	const bootstrapDirty =
-		bootstrapTargetPath !== "./.pi/orchestrator-library" ||
-		!!bootstrapName ||
-		!!bootstrapDescription;
+	const bootstrapDirty = !!bootstrapName || !!bootstrapDescription;
 	const bootstrapDiscardMessage = "Discard unsaved library scaffold changes?";
 	const closeBootstrapDialog = () => {
 		if (bootstrapSaving) return;
@@ -269,9 +252,11 @@ export function OrchestratorLibrariesPanel({
 					</p>
 					<p>
 						Use libraries for orchestrator-managed agents, templates, skills,
-						and extensions. Configure libraries under{" "}
-						<code>piAgentOrchestrator.libraries</code> in global or project
-						settings; earlier libraries influence defaults and diagnostics.
+						and extensions. Repo-local libraries are discovered from{" "}
+						<code>.pi/pi-agent-orchestrator/libraries/*</code>; external
+						libraries must be mounted under{" "}
+						<code>.pi/pi-agent-orchestrator/external-libraries/*</code> before
+						Pi starts.
 					</p>
 					{loading && !data && (
 						<div className="space-y-3 pt-1">
@@ -345,36 +330,28 @@ export function OrchestratorLibrariesPanel({
 			>
 				<form className="space-y-3" onSubmit={bootstrapLibrary}>
 					<p className="text-sm text-muted-foreground">
-						Choose an explicit folder for the starter library. A path inside
-						this repo uses project settings; outside this repo uses global
-						settings.
+						New libraries are created in the repo-local auto-discovery folder:
+						<code>
+							.pi/pi-agent-orchestrator/libraries/&lt;library-name&gt;
+						</code>
+						. External libraries must be bind-mounted before Pi starts.
 					</p>
 					{bootstrapError && (
 						<div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
 							{bootstrapError}
 						</div>
 					)}
-					<div className="grid gap-3 md:grid-cols-2">
-						<div className="space-y-1">
-							<FieldLabel required>Target path</FieldLabel>
-							<Input
-								value={bootstrapTargetPath}
-								onChange={(e) => setBootstrapTargetPath(e.target.value)}
-								placeholder="./.pi/orchestrator-library"
-							/>
-						</div>
-						<div className="space-y-1">
-							<FieldLabel optional>Library name</FieldLabel>
-							<Input
-								value={bootstrapName}
-								onChange={(e) => setBootstrapName(e.target.value)}
-								placeholder="team-ai"
-							/>
-							<FormMessage>
-								Used as the namespaced resource prefix; leave blank to derive it
-								from the folder name.
-							</FormMessage>
-						</div>
+					<div className="space-y-1">
+						<FieldLabel optional>Library name</FieldLabel>
+						<Input
+							value={bootstrapName}
+							onChange={(e) => setBootstrapName(e.target.value)}
+							placeholder="team-ai"
+						/>
+						<FormMessage>
+							Used as the namespaced resource prefix and repo-local folder name;
+							leave blank for orchestrator-library.
+						</FormMessage>
 					</div>
 					<div className="space-y-1">
 						<FieldLabel optional>Description</FieldLabel>
@@ -454,19 +431,11 @@ export function OrchestratorLibrariesPanel({
 					{data.libraries.map((library) => {
 						const name = library.manifest?.name || shortPath(library.root);
 						const libraryCounts = counts[name] || {};
-						const scope = library.root.includes("/.pi/") ? "project" : "global";
-						const scoped = data.libraries.filter(
-							(candidate) =>
-								(candidate.root.includes("/.pi/") ? "project" : "global") ===
-								scope,
-						);
-						const scopeIndex = scoped.findIndex(
-							(candidate) => candidate.root === library.root,
-						);
+						const enabled = library.enabled !== false;
 						return (
 							<Card
 								key={library.root}
-								className={!library.valid ? "border-destructive/50" : ""}
+								className={`${!library.valid ? "border-destructive/50" : ""} ${!enabled ? "opacity-70" : ""}`}
 							>
 								<CardHeader className="border-b border-border">
 									<div className="flex items-start justify-between gap-3">
@@ -477,32 +446,29 @@ export function OrchestratorLibrariesPanel({
 											</div>
 										</div>
 										<div className="flex shrink-0 items-center gap-2">
-											<Badge variant="outline">{scope}</Badge>
-											<Button
-												variant="secondary"
-												className="px-2 py-1 text-xs"
-												disabled={scopeIndex <= 0 || savingScope === scope}
-												onClick={() => moveLibrary(library.root, -1)}
-											>
-												↑
-											</Button>
-											<Button
-												variant="secondary"
-												className="px-2 py-1 text-xs"
-												disabled={
-													scopeIndex < 0 ||
-													scopeIndex >= scoped.length - 1 ||
-													savingScope === scope
-												}
-												onClick={() => moveLibrary(library.root, 1)}
-											>
-												↓
-											</Button>
+											<Badge variant="outline">
+												{library.source === "external-mounted"
+													? "external-mounted"
+													: "repo"}
+											</Badge>
+											<Badge variant={enabled ? "success" : "outline"}>
+												{enabled ? "enabled" : "disabled"}
+											</Badge>
 											<Badge
 												variant={library.valid ? "success" : "destructive"}
 											>
 												{library.valid ? "valid" : "invalid"}
 											</Badge>
+											<Button
+												variant="secondary"
+												className="px-2 py-1 text-xs"
+												disabled={togglingRoot === library.root}
+												onClick={() =>
+													setLibraryEnabled(library.root, !enabled)
+												}
+											>
+												{enabled ? "Disable" : "Enable"}
+											</Button>
 										</div>
 									</div>
 								</CardHeader>

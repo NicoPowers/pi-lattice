@@ -48,14 +48,20 @@ describe("template backend", () => {
 		});
 	});
 
-	it("saves and discovers templates in the first configured Orchestrator Library", async () => {
+	it("saves and discovers templates in the first auto-discovered Orchestrator Library", async () => {
 		const { saveSkillTemplate, discoverSkillTemplates } = await import(
 			"../extensions/multi-agent/skill-templates.js"
 		);
 		const { ORCHESTRATOR_LIBRARY_SCHEMA } = await import(
 			"../extensions/multi-agent/orchestrator-library.js"
 		);
-		const libraryRoot = path.join(tmpDir, "team-library");
+		const libraryRoot = path.join(
+			tmpDir,
+			".pi",
+			"pi-agent-orchestrator",
+			"libraries",
+			"team-library",
+		);
 		fs.mkdirSync(path.join(libraryRoot, "skill-templates"), {
 			recursive: true,
 		});
@@ -65,13 +71,6 @@ describe("template backend", () => {
 				schema: ORCHESTRATOR_LIBRARY_SCHEMA,
 				name: "team",
 				resources: { skillTemplates: "skill-templates" },
-			}),
-		);
-		fs.mkdirSync(path.join(tmpDir, ".pi"), { recursive: true });
-		fs.writeFileSync(
-			path.join(tmpDir, ".pi", "settings.json"),
-			JSON.stringify({
-				piAgentOrchestrator: { libraries: ["./team-library"] },
 			}),
 		);
 
@@ -104,7 +103,13 @@ describe("template backend", () => {
 		const { ORCHESTRATOR_LIBRARY_SCHEMA } = await import(
 			"../extensions/multi-agent/orchestrator-library.js"
 		);
-		const libraryRoot = path.join(tmpDir, "team-library");
+		const libraryRoot = path.join(
+			tmpDir,
+			".pi",
+			"pi-agent-orchestrator",
+			"libraries",
+			"team-library",
+		);
 		fs.mkdirSync(path.join(libraryRoot, "skill-templates"), {
 			recursive: true,
 		});
@@ -114,13 +119,6 @@ describe("template backend", () => {
 				schema: ORCHESTRATOR_LIBRARY_SCHEMA,
 				name: "team",
 				resources: { skillTemplates: "skill-templates" },
-			}),
-		);
-		fs.mkdirSync(path.join(tmpDir, ".pi"), { recursive: true });
-		fs.writeFileSync(
-			path.join(tmpDir, ".pi", "settings.json"),
-			JSON.stringify({
-				piAgentOrchestrator: { libraries: ["./team-library"] },
 			}),
 		);
 
@@ -152,7 +150,13 @@ describe("template backend", () => {
 			"../extensions/multi-agent/orchestrator-library.js"
 		);
 		for (const name of ["first", "second"]) {
-			const libraryRoot = path.join(tmpDir, `${name}-library`);
+			const libraryRoot = path.join(
+				tmpDir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
+				`${name}-library`,
+			);
 			fs.mkdirSync(path.join(libraryRoot, "extension-templates"), {
 				recursive: true,
 			});
@@ -165,16 +169,6 @@ describe("template backend", () => {
 				}),
 			);
 		}
-		fs.mkdirSync(path.join(tmpDir, ".pi"), { recursive: true });
-		fs.writeFileSync(
-			path.join(tmpDir, ".pi", "settings.json"),
-			JSON.stringify({
-				piAgentOrchestrator: {
-					libraries: ["./first-library", "./second-library"],
-				},
-			}),
-		);
-
 		const result = saveExtensionTemplate(
 			{
 				name: "browser-tools",
@@ -189,6 +183,9 @@ describe("template backend", () => {
 		expect(result.path).toBe(
 			path.join(
 				tmpDir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
 				"second-library",
 				"extension-templates",
 				"browser-tools.md",
@@ -203,6 +200,9 @@ describe("template backend", () => {
 			fs.existsSync(
 				path.join(
 					tmpDir,
+					".pi",
+					"pi-agent-orchestrator",
+					"libraries",
 					"first-library",
 					"extension-templates",
 					"browser-tools.md",

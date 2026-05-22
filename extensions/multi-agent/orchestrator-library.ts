@@ -58,6 +58,8 @@ export interface OrchestratorLibraryDiagnostic {
 	path?: string;
 }
 
+export type OrchestratorLibrarySource = "repo" | "external-mounted";
+
 export interface OrchestratorLibraryInfo {
 	root: string;
 	manifestPath: string;
@@ -68,6 +70,9 @@ export interface OrchestratorLibraryInfo {
 	>;
 	diagnostics: OrchestratorLibraryDiagnostic[];
 	valid: boolean;
+	source?: OrchestratorLibrarySource;
+	enabled?: boolean;
+	disabledKey?: string;
 }
 
 export interface OrchestratorLibrarySet {
@@ -236,6 +241,74 @@ function resolveConfiguredLibraryPath(
 	const expanded = expandTilde(library.path);
 	if (path.isAbsolute(expanded)) return path.resolve(expanded);
 	return path.resolve(repoCwd, expanded);
+}
+
+function appDataDir(repoCwd: string): string {
+	return path.join(repoCwd, ".pi", "pi-agent-orchestrator");
+}
+
+function autoLibraryBuckets(repoCwd: string): Array<{
+	source: OrchestratorLibrarySource;
+	root: string;
+}> {
+	return [
+		{ source: "repo", root: path.join(appDataDir(repoCwd), "libraries") },
+		{
+			source: "external-mounted",
+			root: path.join(appDataDir(repoCwd), "external-libraries"),
+		},
+	];
+}
+
+function libraryDisabledKey(root: string, repoCwd: string): string {
+	const relative = path.relative(path.resolve(repoCwd), path.resolve(root));
+	if (!relative.startsWith("..") && !path.isAbsolute(relative))
+		return relative.replace(/\\/g, "/");
+	return path.resolve(root).replace(/\\/g, "/");
+}
+
+function readDisabledLibraryKeys(
+	repoCwd: string,
+	paths: OrchestratorLibrarySettingsPaths = {},
+): Set<string> {
+	const read = readSettingsFile(settingsPathFor("project", repoCwd, paths));
+	const value = getOrchestratorSettings(read.settings).disabledLibraries;
+	return new Set(
+		Array.isArray(value)
+			? value.filter((item): item is string => typeof item === "string")
+			: [],
+	);
+}
+
+function discoverAutoLibraryRoots(repoCwd: string): Array<{
+	root: string;
+	source: OrchestratorLibrarySource;
+	disabledKey: string;
+}> {
+	const roots: Array<{
+		root: string;
+		source: OrchestratorLibrarySource;
+		disabledKey: string;
+	}> = [];
+	for (const bucket of autoLibraryBuckets(repoCwd)) {
+		if (!fs.existsSync(bucket.root)) continue;
+		const entries = fs
+			.readdirSync(bucket.root, { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => path.join(bucket.root, entry.name))
+			.filter((root) =>
+				fs.existsSync(path.join(root, ORCHESTRATOR_LIBRARY_MANIFEST)),
+			)
+			.sort((a, b) => a.localeCompare(b));
+		for (const root of entries) {
+			roots.push({
+				root,
+				source: bucket.source,
+				disabledKey: libraryDisabledKey(root, repoCwd),
+			});
+		}
+	}
+	return roots;
 }
 
 function normalizeConfiguredLibraries(
@@ -858,6 +931,63 @@ export function updateOrchestratorDisplaySettings(
 	};
 }
 
+export function updateOrchestratorLibraryEnabled(
+	input: { root: string; enabled: boolean },
+	repoCwd: string,
+	paths: OrchestratorLibrarySettingsPaths = {},
+): {
+	success: boolean;
+	status?: number;
+	error?: string;
+	discovery?: OrchestratorLibrariesDiscovery;
+} {
+	if (typeof input.root !== "string" || !input.root.trim())
+		return { success: false, status: 400, error: "root is required" };
+	if (typeof input.enabled !== "boolean")
+		return { success: false, status: 400, error: "enabled must be a boolean" };
+
+	const discovered = discoverAutoLibraryRoots(repoCwd);
+	const requestedRoot = path.resolve(repoCwd, input.root.trim());
+	const target = discovered.find(
+		(library) =>
+			path.resolve(library.root) === requestedRoot ||
+			library.disabledKey === input.root.trim(),
+	);
+	if (!target)
+		return {
+			success: false,
+			status: 404,
+			error: "Orchestrator Library is not in an auto-discovered location",
+		};
+
+	const settingsPath = settingsPathFor("project", repoCwd, paths);
+	const read = readSettingsFile(settingsPath);
+	if (read.parseError || read.readError)
+		return {
+			success: false,
+			status: 400,
+			error: `Cannot update ${settingsPath}: ${read.parseError || read.readError}`,
+		};
+
+	const disabled = readDisabledLibraryKeys(repoCwd, paths);
+	if (input.enabled) disabled.delete(target.disabledKey);
+	else disabled.add(target.disabledKey);
+
+	const next = { ...read.settings };
+	const existingOrchestratorSettings = getOrchestratorSettings(read.settings);
+	next.piAgentOrchestrator = {
+		...existingOrchestratorSettings,
+		disabledLibraries: [...disabled].sort(),
+	};
+
+	fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+	fs.writeFileSync(settingsPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+	return {
+		success: true,
+		discovery: discoverConfiguredOrchestratorLibraries(repoCwd, paths),
+	};
+}
+
 export function updateOrchestratorLibrarySettings(
 	input: {
 		scope: OrchestratorLibrarySettingsScope;
@@ -1073,16 +1203,52 @@ export function discoverConfiguredOrchestratorLibraries(
 	repoCwd: string,
 	paths: OrchestratorLibrarySettingsPaths = {},
 ): OrchestratorLibrariesDiscovery {
-	const settings = readOrchestratorLibrarySettings(repoCwd, paths);
-	const rootPaths = settings.libraries.map((library) =>
-		resolveConfiguredLibraryPath(library, repoCwd),
+	const autoDiscovered = discoverAutoLibraryRoots(repoCwd);
+	const seenRoots = new Set(
+		autoDiscovered.map((library) => path.resolve(library.root)),
 	);
-	const set = readOrchestratorLibraries(rootPaths);
+	const legacyConfigured = readOrchestratorLibrarySettings(repoCwd, paths)
+		.libraries.map((library) => resolveConfiguredLibraryPath(library, repoCwd))
+		.filter((root) => {
+			const key = path.resolve(root);
+			if (seenRoots.has(key)) return false;
+			seenRoots.add(key);
+			return true;
+		})
+		.map((root) => ({
+			root,
+			source: "repo" as OrchestratorLibrarySource,
+			disabledKey: libraryDisabledKey(root, repoCwd),
+		}));
+	const discovered = [...autoDiscovered, ...legacyConfigured];
+	const disabledKeys = readDisabledLibraryKeys(repoCwd, paths);
+	const enabled = discovered.filter(
+		(library) => !disabledKeys.has(library.disabledKey),
+	);
+	const enabledSet = readOrchestratorLibraries(
+		enabled.map((library) => library.root),
+	);
+	const enabledByRoot = new Map(
+		enabledSet.libraries.map((library) => [
+			path.resolve(library.root),
+			library,
+		]),
+	);
+	const libraries = discovered.map((entry) => {
+		const enabledLibrary = enabledByRoot.get(path.resolve(entry.root));
+		const library = enabledLibrary || readOrchestratorLibrary(entry.root);
+		return {
+			...library,
+			source: entry.source,
+			enabled: !disabledKeys.has(entry.disabledKey),
+			disabledKey: entry.disabledKey,
+		};
+	});
 	const resources: DiscoveredOrchestratorResource[] = [];
-	const diagnostics = [...set.diagnostics];
+	const diagnostics = [...enabledSet.diagnostics];
 
-	for (const library of set.libraries) {
-		if (!library.valid || !library.manifest) continue;
+	for (const library of libraries) {
+		if (!library.enabled || !library.valid || !library.manifest) continue;
 		const discovery = discoverOrchestratorLibraryResources(library.root);
 		resources.push(...discovery.resources);
 		diagnostics.push(
@@ -1093,11 +1259,11 @@ export function discoverConfiguredOrchestratorLibraries(
 	}
 
 	return {
-		libraries: set.libraries,
+		libraries,
 		resources,
 		diagnostics,
 		valid:
-			set.valid &&
+			enabledSet.valid &&
 			diagnostics.every((diagnostic) => diagnostic.level !== "error"),
 		settings: readOrchestratorDisplaySettings(repoCwd, paths),
 	};

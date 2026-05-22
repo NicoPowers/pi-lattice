@@ -12,6 +12,7 @@ import {
 	readOrchestratorDisplaySettings,
 	readOrchestratorLibrarySettings,
 	updateOrchestratorDisplaySettings,
+	updateOrchestratorLibraryEnabled,
 	updateOrchestratorLibrarySettings,
 } from "../extensions/multi-agent/orchestrator-library.js";
 
@@ -476,58 +477,144 @@ describe("configured orchestrator library discovery", () => {
 		);
 	}
 
-	it("discovers global then project libraries in configured order", () => {
-		withTempDir("pio-configured-discovery-", (dir) => {
-			const globalOne = path.join(dir, "global-one");
-			const globalTwo = path.join(dir, "global-two");
-			const projectOne = path.join(dir, "project-one");
-			createLibrary(globalOne, "global-one", "agent-a");
-			createLibrary(globalTwo, "global-two", "agent-b");
-			createLibrary(projectOne, "project-one", "agent-c");
-			const globalSettingsPath = path.join(dir, "global-settings.json");
-			fs.writeFileSync(
-				globalSettingsPath,
-				JSON.stringify({
-					piAgentOrchestrator: { libraries: [globalOne, globalTwo] },
-				}),
+	it("discovers repo-local then external mounted libraries from bounded manifest locations", () => {
+		withTempDir("pio-auto-discovery-", (dir) => {
+			const repoOne = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
+				"repo-one",
 			);
-			fs.mkdirSync(path.join(dir, ".pi"), { recursive: true });
-			fs.writeFileSync(
-				path.join(dir, ".pi", "settings.json"),
-				JSON.stringify({
-					piAgentOrchestrator: { libraries: ["./project-one"] },
-				}),
+			const externalOne = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"external-libraries",
+				"external-one",
 			);
+			createLibrary(repoOne, "repo-one", "agent-a");
+			createLibrary(externalOne, "external-one", "agent-b");
 
 			const discovery = discoverConfiguredOrchestratorLibraries(dir, {
-				globalSettingsPath,
+				globalSettingsPath: path.join(dir, "global-settings.json"),
 			});
 			expect(discovery.valid).toBe(true);
 			expect(
-				discovery.libraries.map((library) => library.manifest?.name),
-			).toEqual(["global-one", "global-two", "project-one"]);
+				discovery.libraries.map(
+					(library) => `${library.source}:${library.manifest?.name}`,
+				),
+			).toEqual(["repo:repo-one", "external-mounted:external-one"]);
+			expect(
+				discovery.libraries.every((library) => library.enabled === true),
+			).toBe(true);
 			expect(
 				discovery.resources
 					.filter((resource) => resource.kind === "agents")
 					.map((resource) => resource.name),
-			).toEqual(["agent-a", "agent-b", "agent-c"]);
+			).toEqual(["agent-a", "agent-b"]);
 		});
 	});
 
-	it("reports duplicate namespace diagnostics from configured libraries", () => {
-		withTempDir("pio-configured-duplicates-", (dir) => {
-			const one = path.join(dir, "one");
-			const two = path.join(dir, "two");
-			createLibrary(one, "team", "agent-a");
-			createLibrary(two, "team", "agent-b");
-			const globalSettingsPath = path.join(dir, "global-settings.json");
+	it("keeps disabled auto-discovered libraries visible but excludes their resources", () => {
+		withTempDir("pio-auto-disabled-", (dir) => {
+			const enabledRoot = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
+				"enabled",
+			);
+			const disabledRoot = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"external-libraries",
+				"disabled",
+			);
+			createLibrary(enabledRoot, "enabled", "agent-a");
+			createLibrary(disabledRoot, "disabled", "agent-b");
+			fs.mkdirSync(path.join(dir, ".pi"), { recursive: true });
 			fs.writeFileSync(
-				globalSettingsPath,
-				JSON.stringify({ piAgentOrchestrator: { libraries: [one, two] } }),
+				path.join(dir, ".pi", "settings.json"),
+				JSON.stringify({
+					piAgentOrchestrator: {
+						disabledLibraries: [
+							".pi/pi-agent-orchestrator/external-libraries/disabled",
+						],
+					},
+				}),
 			);
 
 			const discovery = discoverConfiguredOrchestratorLibraries(dir, {
-				globalSettingsPath,
+				globalSettingsPath: path.join(dir, "global-settings.json"),
+			});
+			expect(
+				discovery.libraries.map(
+					(library) => `${library.manifest?.name}:${library.enabled}`,
+				),
+			).toEqual(["enabled:true", "disabled:false"]);
+			expect(discovery.resources.map((resource) => resource.name)).toEqual([
+				"agent-a",
+			]);
+			expect(discovery.valid).toBe(true);
+		});
+	});
+
+	it("persists enable and disable actions in project settings", () => {
+		withTempDir("pio-auto-toggle-", (dir) => {
+			const root = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
+				"toggle-me",
+			);
+			createLibrary(root, "toggle-me", "agent-a");
+
+			const disabled = updateOrchestratorLibraryEnabled(
+				{ root, enabled: false },
+				dir,
+				{ globalSettingsPath: path.join(dir, "global-settings.json") },
+			);
+			expect(disabled.success).toBe(true);
+			expect(disabled.discovery?.libraries[0].enabled).toBe(false);
+			expect(disabled.discovery?.resources).toHaveLength(0);
+
+			const enabled = updateOrchestratorLibraryEnabled(
+				{ root, enabled: true },
+				dir,
+				{ globalSettingsPath: path.join(dir, "global-settings.json") },
+			);
+			expect(enabled.success).toBe(true);
+			expect(enabled.discovery?.libraries[0].enabled).toBe(true);
+			expect(
+				enabled.discovery?.resources.map((resource) => resource.name),
+			).toEqual(["agent-a"]);
+		});
+	});
+
+	it("reports duplicate namespace diagnostics from enabled auto-discovered libraries", () => {
+		withTempDir("pio-auto-duplicates-", (dir) => {
+			const one = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"libraries",
+				"one",
+			);
+			const two = path.join(
+				dir,
+				".pi",
+				"pi-agent-orchestrator",
+				"external-libraries",
+				"two",
+			);
+			createLibrary(one, "team", "agent-a");
+			createLibrary(two, "team", "agent-b");
+
+			const discovery = discoverConfiguredOrchestratorLibraries(dir, {
+				globalSettingsPath: path.join(dir, "global-settings.json"),
 			});
 			expect(discovery.valid).toBe(false);
 			expect(

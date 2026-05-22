@@ -18683,6 +18683,9 @@ function FormMessage({
     children
   }, undefined, false, undefined, this);
 }
+function libraryFolderName(name) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[._-]+|[._-]+$/g, "");
+}
 function OrchestratorLibrariesPanel({
   pushLog,
   onDisplaySettingsChanged,
@@ -18690,11 +18693,10 @@ function OrchestratorLibrariesPanel({
 }) {
   const [data, setData] = import_react3.useState(null);
   const [loading, setLoading] = import_react3.useState(false);
-  const [savingScope, setSavingScope] = import_react3.useState(null);
+  const [togglingRoot, setTogglingRoot] = import_react3.useState(null);
   const [savingDisplay, setSavingDisplay] = import_react3.useState(false);
   const [showNativeSettings, setShowNativeSettings] = import_react3.useState(false);
   const [creatingLibrary, setCreatingLibrary] = import_react3.useState(false);
-  const [bootstrapTargetPath, setBootstrapTargetPath] = import_react3.useState("./.pi/orchestrator-library");
   const [bootstrapName, setBootstrapName] = import_react3.useState("");
   const [bootstrapDescription, setBootstrapDescription] = import_react3.useState("");
   const [bootstrapSaving, setBootstrapSaving] = import_react3.useState(false);
@@ -18718,43 +18720,25 @@ function OrchestratorLibrariesPanel({
   import_react3.useEffect(() => {
     load();
   }, [load]);
-  const moveLibrary = async (root, direction) => {
-    if (!data)
-      return;
-    const library = data.libraries.find((candidate) => candidate.root === root);
-    if (!library)
-      return;
-    const scope = root.includes("/.pi/") ? "project" : "global";
-    const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
-    const index = scoped.findIndex((candidate) => candidate.root === root);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= scoped.length)
-      return;
-    const reordered = [...scoped];
-    [reordered[index], reordered[nextIndex]] = [
-      reordered[nextIndex],
-      reordered[index]
-    ];
-    setSavingScope(scope);
+  const setLibraryEnabled = async (root, enabled) => {
+    setTogglingRoot(root);
+    setError("");
     try {
-      const res = await fetch("/api/orchestrator-libraries/settings", {
+      const res = await fetch("/api/orchestrator-libraries/enabled", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          scope,
-          libraries: reordered.map((item) => item.root)
-        })
+        body: JSON.stringify({ root, enabled })
       });
       if (!res.ok)
-        throw new Error(await res.text());
-      pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
+        throw new Error(await responseErrorText(res));
+      pushLog(`${enabled ? "Enabled" : "Disabled"} Orchestrator Library ${shortPath2(root)}`, "success");
       await load();
       onNativeSettingsSaved();
     } catch (e) {
-      setError(e.message || "Failed to reorder Orchestrator Libraries");
-      pushLog(`Failed to reorder Orchestrator Libraries: ${e.message}`, "error");
+      setError(e.message || "Failed to update Orchestrator Library state");
+      pushLog(`Failed to update Orchestrator Library state: ${e.message}`, "error");
     } finally {
-      setSavingScope(null);
+      setTogglingRoot(null);
     }
   };
   const setShowPackageExamples = async (showPackageExamples) => {
@@ -18782,17 +18766,14 @@ function OrchestratorLibrariesPanel({
   const bootstrapLibrary = async (event) => {
     event.preventDefault();
     setBootstrapError("");
-    if (!bootstrapTargetPath.trim()) {
-      setBootstrapError("Target path is required.");
-      return;
-    }
+    const folderName = libraryFolderName(bootstrapName) || "orchestrator-library";
     setBootstrapSaving(true);
     try {
       const res = await fetch("/api/orchestrator-libraries/bootstrap", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          targetPath: bootstrapTargetPath.trim(),
+          targetPath: `./.pi/pi-agent-orchestrator/libraries/${folderName}`,
           name: bootstrapName.trim() || undefined,
           description: bootstrapDescription.trim() || undefined
         })
@@ -18825,7 +18806,7 @@ function OrchestratorLibrariesPanel({
     }
     return result;
   }, [data]);
-  const bootstrapDirty = bootstrapTargetPath !== "./.pi/orchestrator-library" || !!bootstrapName || !!bootstrapDescription;
+  const bootstrapDirty = !!bootstrapName || !!bootstrapDescription;
   const bootstrapDiscardMessage = "Discard unsaved library scaffold changes?";
   const closeBootstrapDialog = () => {
     if (bootstrapSaving)
@@ -18873,12 +18854,17 @@ function OrchestratorLibrariesPanel({
               }, undefined, false, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
                 children: [
-                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under",
+                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Repo-local libraries are discovered from",
                   " ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
-                    children: "piAgentOrchestrator.libraries"
+                    children: ".pi/pi-agent-orchestrator/libraries/*"
                   }, undefined, false, undefined, this),
-                  " in global or project settings; earlier libraries influence defaults and diagnostics."
+                  "; external libraries must be mounted under",
+                  " ",
+                  /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                    children: ".pi/pi-agent-orchestrator/external-libraries/*"
+                  }, undefined, false, undefined, this),
+                  " before Pi starts."
                 ]
               }, undefined, true, undefined, this),
               loading && !data && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -18987,46 +18973,33 @@ function OrchestratorLibrariesPanel({
           children: [
             /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
               className: "text-sm text-muted-foreground",
-              children: "Choose an explicit folder for the starter library. A path inside this repo uses project settings; outside this repo uses global settings."
-            }, undefined, false, undefined, this),
+              children: [
+                "New libraries are created in the repo-local auto-discovery folder:",
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
+                  children: ".pi/pi-agent-orchestrator/libraries/<library-name>"
+                }, undefined, false, undefined, this),
+                ". External libraries must be bind-mounted before Pi starts."
+              ]
+            }, undefined, true, undefined, this),
             bootstrapError && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
               className: "rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive",
               children: bootstrapError
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-              className: "grid gap-3 md:grid-cols-2",
+              className: "space-y-1",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "space-y-1",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-                      required: true,
-                      children: "Target path"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-                      value: bootstrapTargetPath,
-                      onChange: (e) => setBootstrapTargetPath(e.target.value),
-                      placeholder: "./.pi/orchestrator-library"
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
-                  className: "space-y-1",
-                  children: [
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
-                      optional: true,
-                      children: "Library name"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
-                      value: bootstrapName,
-                      onChange: (e) => setBootstrapName(e.target.value),
-                      placeholder: "team-ai"
-                    }, undefined, false, undefined, this),
-                    /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
-                      children: "Used as the namespaced resource prefix; leave blank to derive it from the folder name."
-                    }, undefined, false, undefined, this)
-                  ]
-                }, undefined, true, undefined, this)
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FieldLabel, {
+                  optional: true,
+                  children: "Library name"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Input, {
+                  value: bootstrapName,
+                  onChange: (e) => setBootstrapName(e.target.value),
+                  placeholder: "team-ai"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(FormMessage, {
+                  children: "Used as the namespaced resource prefix and repo-local folder name; leave blank for orchestrator-library."
+                }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -19136,11 +19109,9 @@ function OrchestratorLibrariesPanel({
         children: data.libraries.map((library) => {
           const name = library.manifest?.name || shortPath2(library.root);
           const libraryCounts = counts[name] || {};
-          const scope = library.root.includes("/.pi/") ? "project" : "global";
-          const scoped = data.libraries.filter((candidate) => (candidate.root.includes("/.pi/") ? "project" : "global") === scope);
-          const scopeIndex = scoped.findIndex((candidate) => candidate.root === library.root);
+          const enabled = library.enabled !== false;
           return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
-            className: !library.valid ? "border-destructive/50" : "",
+            className: `${!library.valid ? "border-destructive/50" : ""} ${!enabled ? "opacity-70" : ""}`,
             children: [
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(CardHeader, {
                 className: "border-b border-border",
@@ -19163,25 +19134,22 @@ function OrchestratorLibrariesPanel({
                       children: [
                         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
                           variant: "outline",
-                          children: scope
+                          children: library.source === "external-mounted" ? "external-mounted" : "repo"
                         }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          disabled: scopeIndex <= 0 || savingScope === scope,
-                          onClick: () => moveLibrary(library.root, -1),
-                          children: "↑"
-                        }, undefined, false, undefined, this),
-                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
-                          variant: "secondary",
-                          className: "px-2 py-1 text-xs",
-                          disabled: scopeIndex < 0 || scopeIndex >= scoped.length - 1 || savingScope === scope,
-                          onClick: () => moveLibrary(library.root, 1),
-                          children: "↓"
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
+                          variant: enabled ? "success" : "outline",
+                          children: enabled ? "enabled" : "disabled"
                         }, undefined, false, undefined, this),
                         /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Badge, {
                           variant: library.valid ? "success" : "destructive",
                           children: library.valid ? "valid" : "invalid"
+                        }, undefined, false, undefined, this),
+                        /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                          variant: "secondary",
+                          className: "px-2 py-1 text-xs",
+                          disabled: togglingRoot === library.root,
+                          onClick: () => setLibraryEnabled(library.root, !enabled),
+                          children: enabled ? "Disable" : "Enable"
                         }, undefined, false, undefined, this)
                       ]
                     }, undefined, true, undefined, this)
