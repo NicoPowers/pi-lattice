@@ -494,7 +494,11 @@ export function TypeEditorDialog({
 		setPrompt("");
 		setServerError("");
 	}, [open, typeDef]);
-	const selectedModel = models.find((m) => m.id === model);
+	const modelPattern = (m: ModelInfo) =>
+		m.pattern || (m.provider ? `${m.provider}/${m.id}` : m.id);
+	const selectedModel = models.find(
+		(m) => modelPattern(m) === model || m.id === model,
+	);
 	const levels = selectedModel?.thinkingLevels || [
 		"off",
 		"minimal",
@@ -597,11 +601,14 @@ export function TypeEditorDialog({
 				<FieldLabel optional>Model</FieldLabel>
 				<Select value={model} onChange={(e) => setModel(e.target.value)}>
 					<option value="">-- default --</option>
-					{models.map((m) => (
-						<option key={m.id} value={m.id}>
-							{m.provider ? `${m.provider}/${m.id}` : m.id}
-						</option>
-					))}
+					{models.map((m) => {
+						const pattern = modelPattern(m);
+						return (
+							<option key={pattern} value={pattern}>
+								{pattern}
+							</option>
+						);
+					})}
 				</Select>
 				{selectedModel?.thinking && (
 					<>

@@ -18228,7 +18228,13 @@ function statusVariant(status) {
     return "default";
   return "outline";
 }
-function AgentsPanel({ agents, stats, onInspect, onAgentKilled, pushLog }) {
+function AgentsPanel({
+  agents,
+  stats,
+  onInspect,
+  onAgentKilled,
+  pushLog
+}) {
   const entries = Object.entries(agents);
   return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
     className: "min-h-[70vh]",
@@ -18257,7 +18263,14 @@ function AgentsPanel({ agents, stats, onInspect, onAgentKilled, pushLog }) {
     ]
   }, undefined, true, undefined, this);
 }
-function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
+function AgentCard({
+  name,
+  agent,
+  stats,
+  onInspect,
+  onAgentKilled,
+  pushLog
+}) {
   const [message, setMessage] = import_react.useState("");
   const send = async () => {
     if (!message.trim())
@@ -18265,7 +18278,11 @@ function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
     const body = message.trim();
     setMessage("");
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/send`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: body }) });
+      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/send`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: body })
+      });
       if (!res.ok)
         throw new Error(String(res.status));
       pushLog(`Queued message for ${name}`);
@@ -18275,7 +18292,9 @@ function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
   };
   const kill = async () => {
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, { method: "POST" });
+      const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, {
+        method: "POST"
+      });
       if (!res.ok)
         throw new Error(String(res.status));
       onAgentKilled?.(name);
@@ -18290,6 +18309,14 @@ function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
       pushLog(`Copied worktree path for ${name}`, "success");
     } catch {
       pushLog(`Worktree path: ${agent.worktree}`);
+    }
+  };
+  const copyArtifactPath = async () => {
+    try {
+      await navigator.clipboard.writeText(agent.artifactPath || "");
+      pushLog(`Copied artifact path for ${name}`, "success");
+    } catch {
+      pushLog(`Artifact path: ${agent.artifactPath}`);
     }
   };
   return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Card, {
@@ -18348,10 +18375,35 @@ function AgentCard({ name, agent, stats, onInspect, onAgentKilled, pushLog }) {
                   }, undefined, false, undefined, this)
                 ]
               }, undefined, true, undefined, this),
+              agent.issueId && /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  "issue: ",
+                  agent.issueId
+                ]
+              }, undefined, true, undefined, this),
+              agent.artifactPath && /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(jsx_dev_runtime5.Fragment, {
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
+                    title: agent.artifactPath,
+                    children: [
+                      "artifacts: ",
+                      shortPath(agent.artifactPath)
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime5.jsxDEV(Button, {
+                    variant: "secondary",
+                    className: "px-2 py-1 text-xs",
+                    onClick: copyArtifactPath,
+                    children: "Copy Artifacts"
+                  }, undefined, false, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("span", {
                 title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
                 children: [
-                  "tools: ",
+                  "tools:",
+                  " ",
                   agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
                 ]
               }, undefined, true, undefined, this),
@@ -18441,7 +18493,9 @@ function Stats({ stats }) {
     ]
   }, undefined, true, undefined, this);
 }
-function HierarchyPanel({ agents }) {
+function HierarchyPanel({
+  agents
+}) {
   const [expanded, setExpanded] = import_react.useState(new Set);
   const childrenByParent = import_react.useMemo(() => {
     const map = new Map;
@@ -18454,7 +18508,10 @@ function HierarchyPanel({ agents }) {
   }, [agents]);
   const roots = Object.values(agents).filter((a) => !a.parent || !agents[a.parent]);
   const renderNode = (agent, depth = 0) => {
-    const children = Array.from(new Set([...agent.children || [], ...childrenByParent.get(agent.name) || []])).filter((name) => agents[name]);
+    const children = Array.from(new Set([
+      ...agent.children || [],
+      ...childrenByParent.get(agent.name) || []
+    ])).filter((name) => agents[name]);
     const hasChildren = children.length > 0;
     const isExpanded = expanded.has(agent.name);
     return /* @__PURE__ */ jsx_dev_runtime5.jsxDEV("div", {
@@ -20039,7 +20096,8 @@ function TypeEditorDialog({
     setPrompt("");
     setServerError("");
   }, [open, typeDef]);
-  const selectedModel = models.find((m) => m.id === model);
+  const modelPattern = (m) => m.pattern || (m.provider ? `${m.provider}/${m.id}` : m.id);
+  const selectedModel = models.find((m) => modelPattern(m) === model || m.id === model);
   const levels = selectedModel?.thinkingLevels || [
     "off",
     "minimal",
@@ -20142,10 +20200,13 @@ function TypeEditorDialog({
               value: "",
               children: "-- default --"
             }, undefined, false, undefined, this),
-            models.map((m) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
-              value: m.id,
-              children: m.provider ? `${m.provider}/${m.id}` : m.id
-            }, m.id, false, undefined, this))
+            models.map((m) => {
+              const pattern = modelPattern(m);
+              return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("option", {
+                value: pattern,
+                children: pattern
+              }, pattern, false, undefined, this);
+            })
           ]
         }, undefined, true, undefined, this),
         selectedModel?.thinking && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(jsx_dev_runtime9.Fragment, {
@@ -35853,6 +35914,13 @@ function formatInspectData(data) {
     `status: ${data.status}`,
     `worktree: ${data.worktree}`
   ];
+  if (data.issueId)
+    lines.push(`issue: ${data.issueId}`);
+  if (data.artifactPath)
+    lines.push(`artifacts: ${data.artifactPath}`);
+  if (data.artifactFiles) {
+    lines.push(`artifact files: ${Object.values(data.artifactFiles).filter(Boolean).join(", ")}`);
+  }
   if (data.runtimeTools) {
     lines.push(`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`);
     lines.push(`active tools: ${data.runtimeTools.active.map((tool) => tool.name).join(", ") || "(none)"}`);

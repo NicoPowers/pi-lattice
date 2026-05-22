@@ -57,6 +57,9 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
 		children: agent.children,
 		turns: Math.floor(agent.history.length / 2),
 		worktree: agent.worktreePath,
+		issueId: agent.issueId,
+		artifactPath: agent.artifactPath,
+		artifactFiles: agent.artifactFiles,
 		runtimeTools: agent.runtimeTools,
 	};
 }
@@ -572,6 +575,12 @@ export default function (pi: ExtensionAPI) {
 			parent: Type.String({
 				description: "Parent agent name, or 'self' for root agents",
 			}),
+			issueId: Type.Optional(
+				Type.String({
+					description:
+						"Optional Seeds issue id used to create/reuse .pi/pi-agent-orchestrator/issues/<issue-id>/ handoff artifacts",
+				}),
+			),
 			extensions: Type.Optional(
 				Type.Array(Type.String(), {
 					description: "Extension names to load in the agent",
@@ -691,6 +700,7 @@ export default function (pi: ExtensionAPI) {
 				parent: params.parent === "self" ? undefined : params.parent,
 				worktreePath,
 				extensions: capabilities.extensions,
+				issueId: params.issueId,
 			});
 
 			if (result.error || !result.agent) {
@@ -739,6 +749,9 @@ export default function (pi: ExtensionAPI) {
 					name: params.name,
 					status: result.agent.status,
 					worktree: result.agent.worktreePath,
+					issueId: result.agent.issueId,
+					artifactPath: result.agent.artifactPath,
+					artifactFiles: result.agent.artifactFiles,
 					definition: definition
 						? {
 								name: definition.name,
@@ -1441,9 +1454,15 @@ export default function (pi: ExtensionAPI) {
 			const command =
 				platform === "win32"
 					? { cmd: "cmd", args: ["/c", "start", "", serverHandle.url] }
-					: { cmd: platform === "darwin" ? "open" : "xdg-open", args: [serverHandle.url] };
+					: {
+							cmd: platform === "darwin" ? "open" : "xdg-open",
+							args: [serverHandle.url],
+						};
 			try {
-				const opener = spawn(command.cmd, command.args, { detached: true, stdio: "ignore" });
+				const opener = spawn(command.cmd, command.args, {
+					detached: true,
+					stdio: "ignore",
+				});
 				opener.on("error", () => {
 					/* ignore open failures */
 				});

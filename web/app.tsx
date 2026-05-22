@@ -621,6 +621,13 @@ function formatInspectData(data: any): string {
 		`status: ${data.status}`,
 		`worktree: ${data.worktree}`,
 	];
+	if (data.issueId) lines.push(`issue: ${data.issueId}`);
+	if (data.artifactPath) lines.push(`artifacts: ${data.artifactPath}`);
+	if (data.artifactFiles) {
+		lines.push(
+			`artifact files: ${Object.values(data.artifactFiles).filter(Boolean).join(", ")}`,
+		);
+	}
 	if (data.runtimeTools) {
 		lines.push(
 			`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`,

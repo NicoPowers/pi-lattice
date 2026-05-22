@@ -52,6 +52,7 @@ describe("spawn planning", () => {
 			delegatePromptPath: "/tmp/pi-worktree-lead/.pi/prompts/lead-delegate.md",
 			delegateExtensionPath:
 				"/tmp/pi-worktree-lead/.pi/extensions/delegate-agent.ts",
+			artifactPromptPath: "/tmp/pi-worktree-lead/.pi/prompts/lead-artifacts.md",
 			extraExtPaths: [],
 		});
 
@@ -68,6 +69,12 @@ describe("spawn planning", () => {
 		expect(args).toContain("--no-extensions");
 		expect(args).toContain(
 			"/tmp/pi-worktree-lead/.pi/extensions/delegate-agent.ts",
+		);
+		expect(args).toContain(
+			"/tmp/pi-worktree-lead/.pi/prompts/lead-artifacts.md",
+		);
+		expect(args.filter((arg) => arg === "--append-system-prompt")).toHaveLength(
+			2,
 		);
 		expect(args.join(" ")).not.toContain("/tmp/workspace");
 	});
@@ -89,6 +96,7 @@ describe("spawn planning", () => {
 			delegatePromptPath: null,
 			delegateExtensionPath:
 				"/tmp/pi-worktree-researcher/.pi/extensions/delegate-agent.ts",
+			artifactPromptPath: null,
 			extraExtPaths: ["/home/user/.pi/agent/extensions/web.ts"],
 		});
 

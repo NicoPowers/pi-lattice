@@ -58,6 +58,27 @@ For example, add an extra devcontainer mount for a host checkout:
 
 External libraries are separately versioned repositories. This project ignores `.pi/pi-agent-orchestrator/external-libraries/` so normal project status is not polluted by mounted library contents.
 
+## Issue handoff artifacts
+
+Operational handoff artifacts for spawned-agent continuity live under the app-owned project tree:
+
+```text
+.pi/pi-agent-orchestrator/issues/<issue-id>/
+  issue-context.json
+  lead-plan.json
+  lead-summary.md
+  scouts/<agent-id>.packet.json
+  scouts/<agent-id>.dossier.json
+  researchers/<agent-id>.packet.json
+  researchers/<agent-id>.dossier.json
+  builders/<agent-id>.packet.json
+  builders/<agent-id>.completion.json
+```
+
+These files are working-session context bundles for leads, scouts, researchers, and builders. They are distinct from Seeds issue state and Mulch durable knowledge: agents may use them to pass operational context, and the root orchestrator can later promote selected outcomes into Seeds or Mulch.
+
+The current runtime standardizes the path skeleton, carries `issueId`/`artifactPath` metadata on spawned agents when an issue id is supplied, and injects lightweight role-specific artifact guidance into spawned agents. Full packet gates and required artifact submission belong to the later Orchestration Protocol Mode work.
+
 ## Notes
 
 - Keep host paths out of library metadata; the dashboard and runtime should display container paths.

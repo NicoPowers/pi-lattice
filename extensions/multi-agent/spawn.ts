@@ -9,6 +9,10 @@ import {
 import { createWorktree } from "./worktree.js";
 import { markAgentInputError, sendToAgent } from "./send.js";
 import { broadcast } from "./server.js";
+import {
+	renderIssueArtifactInstructions,
+	resolveIssueArtifactMetadata,
+} from "./artifacts.js";
 
 function getPiInvocation(args: string[]): { command: string; args: string[] } {
 	const currentScript = process.argv[1];
@@ -29,6 +33,7 @@ export function buildPiArgs(options: {
 	definition?: AgentDefinition;
 	promptPath: string | null;
 	delegatePromptPath: string | null;
+	artifactPromptPath?: string | null;
 	delegateExtensionPath: string | null;
 	extraExtPaths: string[];
 }): string[] {
@@ -37,6 +42,7 @@ export function buildPiArgs(options: {
 		definition,
 		promptPath,
 		delegatePromptPath,
+		artifactPromptPath,
 		delegateExtensionPath,
 		extraExtPaths,
 	} = options;
@@ -53,6 +59,8 @@ export function buildPiArgs(options: {
 	if (promptPath) piArgs.push("--system-prompt", promptPath);
 	if (delegatePromptPath)
 		piArgs.push("--append-system-prompt", delegatePromptPath);
+	if (artifactPromptPath)
+		piArgs.push("--append-system-prompt", artifactPromptPath);
 	if (definition?.skills) {
 		piArgs.push("--no-skills");
 		for (const skillPath of definition.skills) {
@@ -93,6 +101,7 @@ export async function spawnAgent(
 		parent?: string;
 		worktreePath?: string;
 		extensions?: Array<{ name: string; path: string }>;
+		issueId?: string;
 		dashboardVisible?: boolean;
 	},
 ): Promise<{ agent: Agent; error?: string }> {
@@ -105,6 +114,22 @@ export async function spawnAgent(
 		extensions,
 	} = options;
 	const dashboardVisible = options.dashboardVisible !== false;
+	let issueArtifactMetadata: ReturnType<typeof resolveIssueArtifactMetadata> =
+		{};
+	try {
+		const parentAgent = parent ? agents.get(parent) : undefined;
+		issueArtifactMetadata = resolveIssueArtifactMetadata({
+			repoCwd,
+			issueId: options.issueId,
+			parentIssueId: parentAgent?.issueId,
+			parentArtifactPath: parentAgent?.artifactPath,
+		});
+	} catch (err: any) {
+		return {
+			agent: null as any,
+			error: `Failed to prepare issue handoff artifacts: ${err.message}`,
+		};
+	}
 
 	if (definition && !isSpawnableAgentDefinition(definition)) {
 		return {
@@ -134,13 +159,14 @@ export async function spawnAgent(
 	fs.mkdirSync(path.join(commsDir, "requests"), { recursive: true });
 	fs.mkdirSync(path.join(commsDir, "responses"), { recursive: true });
 
+	const promptDir = path.join(worktreePath, ".pi", "prompts");
 	let promptPath: string | null = null;
 	let delegatePromptPath: string | null = null;
+	let artifactPromptPath: string | null = null;
 	if (definition?.systemPrompt?.trim()) {
 		const filledPrompt = definition.systemPrompt
 			.replace(/\{\{name\}\}/g, id)
 			.replace(/\{\{type\}\}/g, definition.name);
-		const promptDir = path.join(worktreePath, ".pi", "prompts");
 		fs.mkdirSync(promptDir, { recursive: true });
 		const promptFile = path.join(promptDir, `${id}.md`);
 		fs.writeFileSync(promptFile, filledPrompt, {
@@ -207,6 +233,27 @@ export async function spawnAgent(
 		delegatePromptPath = delegatePromptFile;
 	}
 
+	if (
+		issueArtifactMetadata.issueId &&
+		issueArtifactMetadata.artifactPath &&
+		issueArtifactMetadata.artifactFiles
+	) {
+		fs.mkdirSync(promptDir, { recursive: true });
+		const artifactPromptFile = path.join(promptDir, `${id}-artifacts.md`);
+		fs.writeFileSync(
+			artifactPromptFile,
+			renderIssueArtifactInstructions({
+				agentId: id,
+				agentClass: definition?.agentClass,
+				issueId: issueArtifactMetadata.issueId,
+				artifactPath: issueArtifactMetadata.artifactPath,
+				artifactFiles: issueArtifactMetadata.artifactFiles,
+			}),
+			{ encoding: "utf-8", mode: 0o600 },
+		);
+		artifactPromptPath = artifactPromptFile;
+	}
+
 	const extDir = path.join(worktreePath, ".pi", "extensions");
 	fs.mkdirSync(extDir, { recursive: true });
 
@@ -245,6 +292,7 @@ export async function spawnAgent(
 		definition,
 		promptPath,
 		delegatePromptPath,
+		artifactPromptPath,
 		delegateExtensionPath,
 		extraExtPaths,
 	});
@@ -279,6 +327,9 @@ export async function spawnAgent(
 		worktreePath,
 		parent,
 		children: [],
+		issueId: issueArtifactMetadata.issueId,
+		artifactPath: issueArtifactMetadata.artifactPath,
+		artifactFiles: issueArtifactMetadata.artifactFiles,
 		dashboardVisible,
 		_rpcRequests: new Map(),
 	};
