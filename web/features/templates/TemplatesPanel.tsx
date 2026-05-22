@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type {
 	ExtensionInfo,
 	ExtensionTemplateSmokeTestResult,
+	OrchestratorLibrariesInfo,
 	SkillInfo,
 } from "../../types.js";
 import type { LogLine } from "../../shared/dashboard-types.js";
@@ -396,7 +397,33 @@ export function TemplateEditorDialog({
 	const [audience, setAudience] = useState<TemplateAudience>("spawned");
 	const [autoApply, setAutoApply] = useState<TemplateAutoApply>("none");
 	const [itemsText, setItemsText] = useState("");
+	const [target, setTarget] = useState("project");
+	const [libraries, setLibraries] = useState<OrchestratorLibrariesInfo | null>(
+		null,
+	);
 	const [serverError, setServerError] = useState("");
+	const libraryTargets = useMemo(
+		() =>
+			(libraries?.libraries || []).filter(
+				(library) => library.valid && library.manifest?.name,
+			),
+		[libraries],
+	);
+	useEffect(() => {
+		if (!open) return;
+		let cancelled = false;
+		fetch("/api/orchestrator-libraries")
+			.then((res) => (res.ok ? res.json() : undefined))
+			.then((data) => {
+				if (!cancelled && data) setLibraries(data as OrchestratorLibrariesInfo);
+			})
+			.catch(() => {
+				if (!cancelled) setLibraries(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [open]);
 	useEffect(() => {
 		if (!open) return;
 		setName(template?.name || "");
@@ -446,6 +473,11 @@ export function TemplateEditorDialog({
 						),
 		);
 		setItemsText((template?.items || []).join("\n"));
+		setTarget(
+			template?.source === "orchestrator-library" && template.scope
+				? `library:${template.scope}`
+				: "project",
+		);
 		setServerError("");
 	}, [open, template, kind]);
 	const field = kind === "skill" ? "skills" : "extensions";
@@ -527,7 +559,11 @@ export function TemplateEditorDialog({
 		description !== (template?.description || "") ||
 		audience !== initialAudience ||
 		autoApply !== initialAutoApply ||
-		itemsText !== (template?.items || []).join("\n");
+		itemsText !== (template?.items || []).join("\n") ||
+		target !==
+			(template?.source === "orchestrator-library" && template.scope
+				? `library:${template.scope}`
+				: "project");
 	const discardMessage = "Discard unsaved template changes?";
 	const close = () => {
 		if (!isDirty || confirm(discardMessage)) onClose();
@@ -541,6 +577,9 @@ export function TemplateEditorDialog({
 			audience: kind === "skill" ? audience : "spawned",
 			autoApply,
 			[field]: splitItems(itemsText),
+			...(target.startsWith("library:")
+				? { targetLibrary: target.slice("library:".length) }
+				: { targetScope: "project" }),
 		};
 		const res = await fetch(`/api/${kind}-templates`, {
 			method: "POST",
@@ -590,6 +629,34 @@ export function TemplateEditorDialog({
 					aria-invalid={!description.trim()}
 					className={!description.trim() ? "border-destructive/60" : undefined}
 				/>
+				<div className="space-y-1">
+					<FieldLabel optional>Save target</FieldLabel>
+					<Select
+						value={target}
+						onChange={(e) => setTarget(e.target.value)}
+						disabled={!!template}
+					>
+						<option value="project">
+							Project .pi/
+							{kind === "skill" ? "skill-templates" : "extension-templates"}
+						</option>
+						{libraryTargets.map((library) => (
+							<option
+								key={library.root}
+								value={`library:${library.manifest!.name}`}
+							>
+								Orchestrator Library: {library.manifest!.name}
+							</option>
+						))}
+					</Select>
+					<FormMessage tone={libraryTargets.length ? "success" : "muted"}>
+						{template
+							? "Existing templates save back to their current source."
+							: libraryTargets.length
+								? "Choose a project or writable Orchestrator Library target explicitly."
+								: "No Orchestrator Library is configured; new templates save to the project."}
+					</FormMessage>
+				</div>
 				<div className="grid gap-3 md:grid-cols-2">
 					<div className="space-y-1">
 						<FieldLabel optional>Available to</FieldLabel>

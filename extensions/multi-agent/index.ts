@@ -380,6 +380,12 @@ export default function (pi: ExtensionAPI) {
 			scope: Type.Optional(
 				Type.String({ description: "project or global. Defaults to project." }),
 			),
+			targetLibrary: Type.Optional(
+				Type.String({
+					description:
+						"Optional Orchestrator Library manifest name or root path. Overrides scope.",
+				}),
+			),
 			name: Type.String({
 				description:
 					"Skill name. Will be normalized to lowercase-hyphen format.",
@@ -398,6 +404,7 @@ export default function (pi: ExtensionAPI) {
 			const result = await createSkill(
 				{
 					scope: params.scope === "global" ? "global" : "project",
+					targetLibrary: params.targetLibrary,
 					name: params.name,
 					description: params.description,
 					body: params.body,
@@ -465,6 +472,58 @@ export default function (pi: ExtensionAPI) {
 					},
 				],
 				details: { detail: result.detail },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "orchestrator_library_bootstrap",
+		label: "Bootstrap Orchestrator Library",
+		description:
+			"Create a starter Orchestrator Library at an explicit filesystem path and register it in Pi Orchestrator settings.",
+		parameters: Type.Object({
+			targetPath: Type.String({
+				description:
+					"Explicit target directory for the Orchestrator Library. Relative paths resolve from the current workspace.",
+			}),
+			name: Type.Optional(
+				Type.String({ description: "Optional manifest namespace/name." }),
+			),
+			description: Type.Optional(
+				Type.String({ description: "Optional manifest description." }),
+			),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const { bootstrapOrchestratorLibrary } = await import(
+				"./orchestrator-library.js"
+			);
+			const result = bootstrapOrchestratorLibrary(
+				{
+					targetPath: params.targetPath,
+					name: params.name,
+					description: params.description,
+				},
+				ctx.cwd,
+			);
+			if (!result.success || !result.library)
+				return {
+					content: [
+						{
+							type: "text",
+							text: result.error || "Failed to bootstrap Orchestrator Library.",
+						},
+					],
+					isError: true,
+					details: result,
+				};
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Created ${result.scope || "project"} Orchestrator Library '${result.library.manifest?.name || "unknown"}' at ${result.library.root}.`,
+					},
+				],
+				details: result,
 			};
 		},
 	});

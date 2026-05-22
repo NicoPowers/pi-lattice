@@ -18749,6 +18749,7 @@ function OrchestratorLibrariesPanel({
         throw new Error(await res.text());
       pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
       await load();
+      onNativeSettingsSaved();
     } catch (e) {
       setError(e.message || "Failed to reorder Orchestrator Libraries");
       pushLog(`Failed to reorder Orchestrator Libraries: ${e.message}`, "error");
@@ -18770,6 +18771,7 @@ function OrchestratorLibrariesPanel({
       pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
       await load();
       onDisplaySettingsChanged();
+      onNativeSettingsSaved();
     } catch (e) {
       setError(e.message || "Failed to update display settings");
       pushLog(`Failed to update display settings: ${e.message}`, "error");
@@ -18803,6 +18805,7 @@ function OrchestratorLibrariesPanel({
       setBootstrapName("");
       setBootstrapDescription("");
       await load();
+      onNativeSettingsSaved();
     } catch (e) {
       setBootstrapError(e.message || "Failed to create Orchestrator Library");
       pushLog(`Failed to create Orchestrator Library: ${e.message}`, "error");
@@ -32768,6 +32771,7 @@ function SkillLibraryPanel({
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(CopySkillDialog, {
         source: copying,
+        libraries: orchestratorLibraries,
         onClose: () => setCopying(null),
         onCopied: (copied) => {
           setCopying(null);
@@ -33045,22 +33049,25 @@ function CreateSkillDialog({
 }
 function CopySkillDialog({
   source,
+  libraries,
   onClose,
   onCopied
 }) {
-  const [scope, setScope] = import_react6.useState("project");
+  const libraryTargets = import_react6.useMemo(() => (libraries?.libraries || []).filter((library) => library.valid && library.manifest?.name), [libraries]);
+  const defaultTarget = libraryTargets[0]?.manifest?.name ? `library:${libraryTargets[0].manifest.name}` : "project";
+  const [scope, setScope] = import_react6.useState(defaultTarget);
   const [name2, setName] = import_react6.useState("");
   const [description, setDescription] = import_react6.useState("");
   const [serverError, setServerError] = import_react6.useState("");
   const open = !!source;
   import_react6.useEffect(() => {
     if (source) {
-      setScope("project");
+      setScope(defaultTarget);
       setName(`${source.name}-copy`);
       setDescription(source.description ? `${source.description} (derived copy)` : "Derived copy");
       setServerError("");
     }
-  }, [source?.id, source?.name]);
+  }, [defaultTarget, source?.id, source?.name]);
   const savedName = normalizeSkillName(name2);
   const errors = [
     !source?.id ? "Select a source skill." : undefined,
@@ -33070,7 +33077,7 @@ function CopySkillDialog({
   ].filter(Boolean);
   const initialName = source ? `${source.name}-copy` : "";
   const initialDescription = source?.description ? `${source.description} (derived copy)` : source ? "Derived copy" : "";
-  const isDirty = scope !== "project" || name2 !== initialName || description !== initialDescription;
+  const isDirty = scope !== defaultTarget || name2 !== initialName || description !== initialDescription;
   const discardMessage = "Discard unsaved skill copy changes?";
   const close = () => {
     if (!isDirty || confirm(discardMessage))
@@ -33083,7 +33090,11 @@ function CopySkillDialog({
     const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: JSON.stringify(scope.startsWith("library:") ? {
+        targetLibrary: scope.slice("library:".length),
+        name: savedName,
+        description: description.trim()
+      } : {
         scope,
         name: savedName,
         description: description.trim()
@@ -33138,12 +33149,19 @@ function CopySkillDialog({
         }, undefined, true, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
           required: true,
-          children: "Target scope"
+          children: "Target"
         }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Select, {
           value: scope,
           onChange: (e) => setScope(e.target.value),
           children: [
+            libraryTargets.map((library) => /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
+              value: `library:${library.manifest.name}`,
+              children: [
+                "Orchestrator Library: ",
+                library.manifest.name
+              ]
+            }, library.root, true, undefined, this)),
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("option", {
               value: "project",
               children: "Project (.pi/skills)"
@@ -33154,6 +33172,10 @@ function CopySkillDialog({
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
+          tone: libraryTargets.length ? "success" : "muted",
+          children: libraryTargets.length ? "Skill copies default to the first configured Orchestrator Library by load order." : "No Orchestrator Library is configured; copies default to project skills."
+        }, undefined, false, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FieldLabel3, {
           required: true,
           children: "New name"
@@ -33639,7 +33661,25 @@ function TemplateEditorDialog({
   const [audience, setAudience] = import_react7.useState("spawned");
   const [autoApply, setAutoApply] = import_react7.useState("none");
   const [itemsText, setItemsText] = import_react7.useState("");
+  const [target, setTarget] = import_react7.useState("project");
+  const [libraries, setLibraries] = import_react7.useState(null);
   const [serverError, setServerError] = import_react7.useState("");
+  const libraryTargets = import_react7.useMemo(() => (libraries?.libraries || []).filter((library) => library.valid && library.manifest?.name), [libraries]);
+  import_react7.useEffect(() => {
+    if (!open)
+      return;
+    let cancelled = false;
+    fetch("/api/orchestrator-libraries").then((res) => res.ok ? res.json() : undefined).then((data) => {
+      if (!cancelled && data)
+        setLibraries(data);
+    }).catch(() => {
+      if (!cancelled)
+        setLibraries(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
   import_react7.useEffect(() => {
     if (!open)
       return;
@@ -33673,6 +33713,7 @@ function TemplateEditorDialog({
     }));
     setItemsText((template?.items || []).join(`
 `));
+    setTarget(template?.source === "orchestrator-library" && template.scope ? `library:${template.scope}` : "project");
     setServerError("");
   }, [open, template, kind]);
   const field = kind === "skill" ? "skills" : "extensions";
@@ -33729,7 +33770,7 @@ function TemplateEditorDialog({
     filePath: ""
   });
   const isDirty = name2 !== (template?.name || "") || description !== (template?.description || "") || audience !== initialAudience || autoApply !== initialAutoApply || itemsText !== (template?.items || []).join(`
-`);
+`) || target !== (template?.source === "orchestrator-library" && template.scope ? `library:${template.scope}` : "project");
   const discardMessage = "Discard unsaved template changes?";
   const close = () => {
     if (!isDirty || confirm(discardMessage))
@@ -33744,7 +33785,8 @@ function TemplateEditorDialog({
       description: description.trim(),
       audience: kind === "skill" ? audience : "spawned",
       autoApply,
-      [field]: splitItems2(itemsText)
+      [field]: splitItems2(itemsText),
+      ...target.startsWith("library:") ? { targetLibrary: target.slice("library:".length) } : { targetScope: "project" }
     };
     const res = await fetch(`/api/${kind}-templates`, {
       method: "POST",
@@ -33800,6 +33842,40 @@ function TemplateEditorDialog({
           "aria-invalid": !description.trim(),
           className: !description.trim() ? "border-destructive/60" : undefined
         }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
+          className: "space-y-1",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FieldLabel4, {
+              optional: true,
+              children: "Save target"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Select, {
+              value: target,
+              onChange: (e) => setTarget(e.target.value),
+              disabled: !!template,
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                  value: "project",
+                  children: [
+                    "Project .pi/",
+                    kind === "skill" ? "skill-templates" : "extension-templates"
+                  ]
+                }, undefined, true, undefined, this),
+                libraryTargets.map((library) => /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("option", {
+                  value: `library:${library.manifest.name}`,
+                  children: [
+                    "Orchestrator Library: ",
+                    library.manifest.name
+                  ]
+                }, library.root, true, undefined, this))
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
+              tone: libraryTargets.length ? "success" : "muted",
+              children: template ? "Existing templates save back to their current source." : libraryTargets.length ? "Choose a project or writable Orchestrator Library target explicitly." : "No Orchestrator Library is configured; new templates save to the project."
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
           className: "grid gap-3 md:grid-cols-2",
           children: [
@@ -35758,6 +35834,15 @@ function App() {
     refreshTemplates,
     refreshTypes
   ]);
+  import_react10.useEffect(() => {
+    if (activeTab === "skills" || activeTab === "skillTemplates" || activeTab === "extensionTemplates") {
+      refreshTemplates();
+    }
+    if (activeTab === "types")
+      refreshTypes();
+    if (activeTab === "rootProfiles")
+      refreshRootProfiles();
+  }, [activeTab, refreshRootProfiles, refreshTemplates, refreshTypes]);
   const emergencyStop = async () => {
     if (!confirm("Emergency Stop: Kill all agents and clean up worktrees?"))
       return;
@@ -35885,8 +35970,15 @@ function App() {
             mode: "wide",
             children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(OrchestratorLibrariesPanel, {
               pushLog,
-              onDisplaySettingsChanged: refreshTypes,
-              onNativeSettingsSaved: refreshTemplates
+              onDisplaySettingsChanged: () => {
+                refreshTypes();
+                refreshRootProfiles();
+              },
+              onNativeSettingsSaved: () => {
+                refreshTemplates();
+                refreshTypes();
+                refreshRootProfiles();
+              }
             }, undefined, false, undefined, this)
           }, undefined, false, undefined, this),
           activeTab === "skillTemplates" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(PageFrame, {

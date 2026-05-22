@@ -28,6 +28,7 @@ export type TemplateInfo = {
 	applyToAll?: boolean;
 	validationErrors?: string[];
 	source: string;
+	scope?: string;
 	filePath: string;
 };
 

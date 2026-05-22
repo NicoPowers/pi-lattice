@@ -504,7 +504,12 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			const { copySkill } = await import("./skill-discovery.js");
 			const result = await copySkill(
 				decodeURIComponent(skillCopyMatch[1]),
-				{ scope: body.scope, name: body.name, description: body.description },
+				{
+					scope: body.scope,
+					targetLibrary: body.targetLibrary,
+					name: body.name,
+					description: body.description,
+				},
 				deps.repoCwd,
 			);
 			if (result.success) send(res, jsonResponse(result.detail));
@@ -1165,6 +1170,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 					audience: body.audience,
 					autoApply: body.autoApply,
 					applyToAll: !!body.applyToAll,
+					targetLibrary: body.targetLibrary,
 				},
 				deps.repoCwd,
 			);
@@ -1235,6 +1241,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 					audience: body.audience,
 					autoApply: body.autoApply,
 					applyToAll: !!body.applyToAll,
+					targetLibrary: body.targetLibrary,
 				},
 				deps.repoCwd,
 			);

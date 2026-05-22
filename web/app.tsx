@@ -367,6 +367,18 @@ function App() {
 		refreshTypes,
 	]);
 
+	useEffect(() => {
+		if (
+			activeTab === "skills" ||
+			activeTab === "skillTemplates" ||
+			activeTab === "extensionTemplates"
+		) {
+			refreshTemplates();
+		}
+		if (activeTab === "types") refreshTypes();
+		if (activeTab === "rootProfiles") refreshRootProfiles();
+	}, [activeTab, refreshRootProfiles, refreshTemplates, refreshTypes]);
+
 	const emergencyStop = async () => {
 		if (!confirm("Emergency Stop: Kill all agents and clean up worktrees?"))
 			return;
@@ -489,8 +501,15 @@ function App() {
 					<PageFrame mode="wide">
 						<OrchestratorLibrariesPanel
 							pushLog={pushLog}
-							onDisplaySettingsChanged={refreshTypes}
-							onNativeSettingsSaved={refreshTemplates}
+							onDisplaySettingsChanged={() => {
+								refreshTypes();
+								refreshRootProfiles();
+							}}
+							onNativeSettingsSaved={() => {
+								refreshTemplates();
+								refreshTypes();
+								refreshRootProfiles();
+							}}
 						/>
 					</PageFrame>
 				)}

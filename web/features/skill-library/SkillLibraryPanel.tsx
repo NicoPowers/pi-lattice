@@ -856,6 +856,7 @@ export function SkillLibraryPanel({
 			/>
 			<CopySkillDialog
 				source={copying}
+				libraries={orchestratorLibraries}
 				onClose={() => setCopying(null)}
 				onCopied={(copied) => {
 					setCopying(null);
@@ -1078,21 +1079,33 @@ function CreateSkillDialog({
 
 function CopySkillDialog({
 	source,
+	libraries,
 	onClose,
 	onCopied,
 }: {
 	source: SkillInfo | null;
+	libraries: OrchestratorLibrariesInfo | null;
 	onClose: () => void;
 	onCopied: (detail: SkillDetailInfo) => void;
 }) {
-	const [scope, setScope] = useState("project");
+	const libraryTargets = useMemo(
+		() =>
+			(libraries?.libraries || []).filter(
+				(library) => library.valid && library.manifest?.name,
+			),
+		[libraries],
+	);
+	const defaultTarget = libraryTargets[0]?.manifest?.name
+		? `library:${libraryTargets[0].manifest.name}`
+		: "project";
+	const [scope, setScope] = useState(defaultTarget);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [serverError, setServerError] = useState("");
 	const open = !!source;
 	useEffect(() => {
 		if (source) {
-			setScope("project");
+			setScope(defaultTarget);
 			setName(`${source.name}-copy`);
 			setDescription(
 				source.description
@@ -1101,7 +1114,7 @@ function CopySkillDialog({
 			);
 			setServerError("");
 		}
-	}, [source?.id, source?.name]);
+	}, [defaultTarget, source?.id, source?.name]);
 	const savedName = normalizeSkillName(name);
 	const errors = [
 		!source?.id ? "Select a source skill." : undefined,
@@ -1118,7 +1131,7 @@ function CopySkillDialog({
 			? "Derived copy"
 			: "";
 	const isDirty =
-		scope !== "project" ||
+		scope !== defaultTarget ||
 		name !== initialName ||
 		description !== initialDescription;
 	const discardMessage = "Discard unsaved skill copy changes?";
@@ -1133,11 +1146,19 @@ function CopySkillDialog({
 			{
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					scope,
-					name: savedName,
-					description: description.trim(),
-				}),
+				body: JSON.stringify(
+					scope.startsWith("library:")
+						? {
+								targetLibrary: scope.slice("library:".length),
+								name: savedName,
+								description: description.trim(),
+							}
+						: {
+								scope,
+								name: savedName,
+								description: description.trim(),
+							},
+				),
 			},
 		);
 		if (!res.ok) return setServerError(await responseErrorText(res));
@@ -1170,13 +1191,26 @@ function CopySkillDialog({
 						</div>
 					</div>
 				)}
-				<FieldLabel required>Target scope</FieldLabel>
+				<FieldLabel required>Target</FieldLabel>
 				<Select value={scope} onChange={(e) => setScope(e.target.value)}>
+					{libraryTargets.map((library) => (
+						<option
+							key={library.root}
+							value={`library:${library.manifest!.name}`}
+						>
+							Orchestrator Library: {library.manifest!.name}
+						</option>
+					))}
 					<option value="project">Project (.pi/skills)</option>
 					<option value="global">
 						Global / all repos (~/.pi/agent/skills)
 					</option>
 				</Select>
+				<FormMessage tone={libraryTargets.length ? "success" : "muted"}>
+					{libraryTargets.length
+						? "Skill copies default to the first configured Orchestrator Library by load order."
+						: "No Orchestrator Library is configured; copies default to project skills."}
+				</FormMessage>
 				<FieldLabel required>New name</FieldLabel>
 				<Input value={name} onChange={(e) => setName(e.target.value)} />
 				<FormMessage

@@ -315,7 +315,7 @@ function targetSkillRoot(
 		: path.join(cwd, ".pi", "skills");
 }
 
-async function resolveCreateSkillTarget(
+async function resolveSkillTarget(
 	input: { scope?: "project" | "global"; targetLibrary?: string },
 	cwd: string,
 ): Promise<{
@@ -425,7 +425,7 @@ export async function createSkill(
 			status: 400,
 		};
 
-	const target = await resolveCreateSkillTarget(input, cwd);
+	const target = await resolveSkillTarget(input, cwd);
 	if (target.error)
 		return {
 			success: false,
@@ -481,7 +481,12 @@ export async function createSkill(
 
 export async function copySkill(
 	id: string,
-	input: { scope?: "project" | "global"; name: string; description: string },
+	input: {
+		scope?: "project" | "global";
+		targetLibrary?: string;
+		name: string;
+		description: string;
+	},
 	cwd: string,
 ): Promise<{
 	success: boolean;
@@ -517,8 +522,14 @@ export async function copySkill(
 		};
 	}
 
-	const root = targetSkillRoot(input.scope, cwd);
-	const dir = path.join(root, name);
+	const target = await resolveSkillTarget(input, cwd);
+	if (target.error)
+		return {
+			success: false,
+			error: target.error,
+			status: target.status || 400,
+		};
+	const dir = path.join(target.root, name);
 	const filePath = path.join(dir, "SKILL.md");
 	if (fs.existsSync(filePath) || fs.existsSync(dir))
 		return { success: false, error: "skill already exists", status: 409 };

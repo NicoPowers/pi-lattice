@@ -143,6 +143,7 @@ export function OrchestratorLibrariesPanel({
 			if (!res.ok) throw new Error(await res.text());
 			pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
 			await load();
+			onNativeSettingsSaved();
 		} catch (e: any) {
 			setError(e.message || "Failed to reorder Orchestrator Libraries");
 			pushLog(
@@ -170,6 +171,7 @@ export function OrchestratorLibrariesPanel({
 			);
 			await load();
 			onDisplaySettingsChanged();
+			onNativeSettingsSaved();
 		} catch (e: any) {
 			setError(e.message || "Failed to update display settings");
 			pushLog(`Failed to update display settings: ${e.message}`, "error");
@@ -209,6 +211,7 @@ export function OrchestratorLibrariesPanel({
 			setBootstrapName("");
 			setBootstrapDescription("");
 			await load();
+			onNativeSettingsSaved();
 		} catch (e: any) {
 			setBootstrapError(e.message || "Failed to create Orchestrator Library");
 			pushLog(`Failed to create Orchestrator Library: ${e.message}`, "error");
