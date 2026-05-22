@@ -1,0 +1,23 @@
+{
+  "name": "pi-agent-orchestrator",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/pi-agent-orchestrator",
+  "remoteUser": "node",
+  "mounts": [
+    "source=pi-agent-orchestrator-home,target=/home/node/.pi,type=volume",
+    "source=pi-agent-orchestrator-bun-cache,target=/home/node/.bun/install/cache,type=volume"
+  ],
+  "forwardPorts": [18765],
+  "postCreateCommand": "bun install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "oven.bun-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

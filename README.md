@@ -192,6 +192,8 @@ resource_settings_update(scope, skills?, extensions?)
 
 This project is currently intended for development and experimentation.
 
+For reproducible local development, prefer the checked-in Docker/devcontainer baseline. It keeps Pi config/cache/auth in a named Docker volume and treats container paths as runtime truth for spawned agents and Orchestrator Libraries. See [Containerized orchestration runtime](docs/container-runtime.md).
+
 ```bash
 # From git
 pi install git:github.com/NicoPowers/pi-agent-orchestrator
@@ -213,17 +215,19 @@ pi
 /dashboard
 ```
 
+Inside the devcontainer, run the same commands from the container shell. The dashboard is forwarded on port `18765`.
+
 `bun run check` runs TypeScript checking, builds the dashboard bundle, and runs the test suite.
 
 ## Requirements
 
-- **Linux or WSL2** — `bwrap`/bubblewrap is required for spawned-agent sandboxing
+- **Docker or a devcontainer-compatible environment** — recommended for the containerized orchestration runtime
 - **Git repository** — root spawned agents get isolated git worktrees
 - **Bun** — used for development, tests, and dashboard builds
 
-## Why bwrap, not Docker?
+## Containerized runtime direction
 
-Spawned agents use `bwrap` because it provides lightweight process/filesystem isolation without a daemon, image build, or Docker-specific workflow. The whole Pi session can still run inside a container if you prefer; the extension itself is container-agnostic.
+The project is moving to a simpler trusted-local model: run Pi inside one Docker/devcontainer environment, then launch spawned agents as normal child Pi RPC processes inside that same container. The container is the outer reproducible boundary; per-agent isolation should come from git worktrees and role-specific tool allowlists, not nested containers or bwrap sandboxes.
 
 ## License
 

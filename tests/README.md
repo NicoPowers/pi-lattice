@@ -34,21 +34,21 @@ Tests `sendToAgent` behavior with a fake agent stream.
 - Immediate rejection for exited agents
 
 ### `spawn-worktree.test.ts`
-Tests spawn planning and git worktree behavior without launching a real Pi+bwrap agent.
+Tests spawn planning and git worktree behavior without launching a real Pi agent.
 - Pure Pi RPC argument construction from agent definitions
 - Tool restriction behavior when extensions can register runtime tools
-- Bubblewrap argument construction, including workspace and settings bind mounts
+- Direct child-process launch metadata with the worktree as `cwd`
 - Real temporary git worktree creation/removal
 - Orphaned worktree cleanup while preserving active worktrees
 
 ## Manual verification (required)
 
-The following still require a full Pi + bwrap environment:
+The following still require a full Pi runtime environment:
 
 | Component | Manual test |
 |---|---|
 | `spawnAgent` process launch | `/spawn lead self coder` inside a git repo and verify the child reaches idle/streaming states |
-| `bwrap` runtime isolation | Verify files written by a spawned Pi agent only appear in its worktree |
+| Worktree boundary | Verify files written by a spawned Pi agent only appear in its worktree |
 | `delegate` routing | Spawn lead + scout, have lead delegate to scout |
 | `agent_send` async end-to-end | `agent_send("lead", "long task")` then chat with orchestrator |
 | Worktree cleanup on process/session exit | Check `/tmp/pi-worktree-*` after `/kill` and session exit |
@@ -57,5 +57,5 @@ The following still require a full Pi + bwrap environment:
 
 ## Future test additions
 
-- Mock `spawn` to exercise `spawnAgent` process event wiring without real bwrap
+- Mock `spawn` to exercise `spawnAgent` process event wiring without launching a real Pi child process
 - HTTP integration tests with a lightweight in-memory server
