@@ -16,6 +16,14 @@ _Avoid_: Worker, child process when referring to the domain concept
 A spawnable markdown definition that describes how to launch a specialized agent.
 _Avoid_: Agent profile, bot template
 
+**Lead Agent**:
+A spawned agent responsible for coordinating the work for a specific issue or task, including gathering context, requesting specialist help, preparing implementation handoffs, and synthesizing the result.
+_Avoid_: Root orchestrator, lifecycle manager
+
+**Issue Handoff Artifact**:
+An operational context bundle created during issue execution so one agent can continue from another agent's findings, plan, or completion state.
+_Avoid_: Durable project knowledge, tracker update
+
 **Root Orchestrator Profile**:
 A root-only markdown profile that configures the interactive `/orchestrate` session.
 _Avoid_: Agent type, spawnable orchestrator
@@ -42,6 +50,7 @@ _Avoid_: Orchestrator Library resources
 - An **Orchestrator Library** can contain **Agent Types**, **Root Orchestrator Profiles**, **Templates**, skills, and extensions.
 - **Native Pi Resource Settings** are visually managed inside **Orchestrator Libraries** but are not themselves **Orchestrator Library** resources.
 - A **Root Orchestrator Profile** is not an **Agent Type** and must not be spawned as a **Live Agent**.
+- A **Lead Agent** creates or curates **Issue Handoff Artifacts** for an issue, while the root orchestrator remains responsible for lifecycle oversight and final durable metadata promotion.
 
 ## Example dialogue
 

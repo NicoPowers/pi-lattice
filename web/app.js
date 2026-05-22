@@ -18516,17 +18516,33 @@ var import_react3 = __toESM(require_react(), 1);
 // web/components/ui/dialog.tsx
 var import_react2 = __toESM(require_react(), 1);
 var jsx_dev_runtime6 = __toESM(require_jsx_dev_runtime(), 1);
-function Dialog({ open, title, onOpenChange, closeOnBackdrop = true, closeOnEscape = true, className, children, ...props }) {
+function Dialog({
+  open,
+  title,
+  onOpenChange,
+  closeOnBackdrop = false,
+  closeOnEscape = false,
+  confirmOnClose = false,
+  confirmCloseMessage = "Discard unsaved changes?",
+  className,
+  children,
+  ...props
+}) {
+  const requestClose = import_react2.useCallback(() => {
+    if (confirmOnClose && !confirm(confirmCloseMessage))
+      return;
+    onOpenChange?.(false);
+  }, [confirmCloseMessage, confirmOnClose, onOpenChange]);
   import_react2.useEffect(() => {
     if (!open)
       return;
     const onKeyDown = (event) => {
       if (event.key === "Escape" && closeOnEscape)
-        onOpenChange?.(false);
+        requestClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onOpenChange, closeOnEscape]);
+  }, [open, closeOnEscape, requestClose]);
   if (!open)
     return null;
   return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
@@ -18535,7 +18551,7 @@ function Dialog({ open, title, onOpenChange, closeOnBackdrop = true, closeOnEsca
     "aria-modal": "true",
     onClick: (event) => {
       if (closeOnBackdrop && event.target === event.currentTarget)
-        onOpenChange?.(false);
+        requestClose();
     },
     children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
       className: cn("max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-4 shadow-xl", className),
@@ -18551,7 +18567,7 @@ function Dialog({ open, title, onOpenChange, closeOnBackdrop = true, closeOnEsca
             /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
               type: "button",
               variant: "ghost",
-              onClick: () => onOpenChange?.(false),
+              onClick: requestClose,
               "aria-label": "Close dialog",
               children: "×"
             }, undefined, false, undefined, this)
@@ -18579,7 +18595,11 @@ async function responseErrorText(res) {
     return text;
   }
 }
-function FieldLabel({ children, required, optional }) {
+function FieldLabel({
+  children,
+  required,
+  optional
+}) {
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("label", {
     className: "block text-xs uppercase tracking-wide text-muted-foreground",
     children: [
@@ -18596,14 +18616,21 @@ function FieldLabel({ children, required, optional }) {
     ]
   }, undefined, true, undefined, this);
 }
-function FormMessage({ children, tone = "muted" }) {
+function FormMessage({
+  children,
+  tone = "muted"
+}) {
   const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
     className: `text-xs ${className}`,
     children
   }, undefined, false, undefined, this);
 }
-function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativeSettingsSaved }) {
+function OrchestratorLibrariesPanel({
+  pushLog,
+  onDisplaySettingsChanged,
+  onNativeSettingsSaved
+}) {
   const [data, setData] = import_react3.useState(null);
   const [loading, setLoading] = import_react3.useState(false);
   const [savingScope, setSavingScope] = import_react3.useState(null);
@@ -18647,10 +18674,20 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
     if (index < 0 || nextIndex < 0 || nextIndex >= scoped.length)
       return;
     const reordered = [...scoped];
-    [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+    [reordered[index], reordered[nextIndex]] = [
+      reordered[nextIndex],
+      reordered[index]
+    ];
     setSavingScope(scope);
     try {
-      const res = await fetch("/api/orchestrator-libraries/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, libraries: reordered.map((item) => item.root) }) });
+      const res = await fetch("/api/orchestrator-libraries/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          scope,
+          libraries: reordered.map((item) => item.root)
+        })
+      });
       if (!res.ok)
         throw new Error(await res.text());
       pushLog(`Reordered ${scope} Orchestrator Libraries`, "success");
@@ -18666,7 +18703,11 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
     setSavingDisplay(true);
     setError("");
     try {
-      const res = await fetch("/api/orchestrator-libraries/display-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ showPackageExamples }) });
+      const res = await fetch("/api/orchestrator-libraries/display-settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ showPackageExamples })
+      });
       if (!res.ok)
         throw new Error(await responseErrorText(res));
       pushLog(`${showPackageExamples ? "Showing" : "Hiding"} package example resources`, "success");
@@ -18691,7 +18732,11 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
       const res = await fetch("/api/orchestrator-libraries/bootstrap", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ targetPath: bootstrapTargetPath.trim(), name: bootstrapName.trim() || undefined, description: bootstrapDescription.trim() || undefined })
+        body: JSON.stringify({
+          targetPath: bootstrapTargetPath.trim(),
+          name: bootstrapName.trim() || undefined,
+          description: bootstrapDescription.trim() || undefined
+        })
       });
       if (!res.ok)
         throw new Error(await responseErrorText(res));
@@ -18720,6 +18765,14 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
     }
     return result;
   }, [data]);
+  const bootstrapDirty = bootstrapTargetPath !== "./.pi/orchestrator-library" || !!bootstrapName || !!bootstrapDescription;
+  const bootstrapDiscardMessage = "Discard unsaved library scaffold changes?";
+  const closeBootstrapDialog = () => {
+    if (bootstrapSaving)
+      return;
+    if (!bootstrapDirty || confirm(bootstrapDiscardMessage))
+      setCreatingLibrary(false);
+  };
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
     className: "space-y-4",
     children: [
@@ -18760,7 +18813,8 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
               }, undefined, false, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("p", {
                 children: [
-                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under ",
+                  "Use libraries for orchestrator-managed agents, templates, skills, and extensions. Configure libraries under",
+                  " ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: "piAgentOrchestrator.libraries"
                   }, undefined, false, undefined, this),
@@ -18809,7 +18863,8 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
                       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                         className: "text-xs",
                         children: [
-                          "Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings: ",
+                          "Read-only package examples are useful for onboarding, but can be hidden once your own libraries are configured. Stored in project settings:",
+                          " ",
                           /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                             children: "piAgentOrchestrator.showPackageExamples"
                           }, undefined, false, undefined, this),
@@ -18827,7 +18882,8 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
                         disabled: savingDisplay,
                         onChange: (e) => setShowPackageExamples(e.target.checked)
                       }, undefined, false, undefined, this),
-                      " Show package examples"
+                      " ",
+                      "Show package examples"
                     ]
                   }, undefined, true, undefined, this)
                 ]
@@ -18858,7 +18914,12 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Dialog, {
         open: creatingLibrary,
         title: "Scaffold Orchestrator Library",
-        onOpenChange: (open) => !bootstrapSaving && setCreatingLibrary(open),
+        onOpenChange: (open) => {
+          if (!open && !bootstrapSaving)
+            setCreatingLibrary(false);
+        },
+        confirmOnClose: bootstrapDirty,
+        confirmCloseMessage: bootstrapDiscardMessage,
         className: "max-w-3xl",
         children: /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("form", {
           className: "space-y-3",
@@ -18934,7 +18995,7 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
                 /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
                   type: "button",
                   variant: "secondary",
-                  onClick: () => setCreatingLibrary(false),
+                  onClick: closeBootstrapDialog,
                   disabled: bootstrapSaving,
                   children: "Cancel"
                 }, undefined, false, undefined, this)
@@ -19091,7 +19152,8 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
                       }, undefined, true, undefined, this),
                       /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
                         children: [
-                          "Extension templates: ",
+                          "Extension templates:",
+                          " ",
                           libraryCounts.extensionTemplates || 0
                         ]
                       }, undefined, true, undefined, this),
@@ -19129,9 +19191,15 @@ function OrchestratorLibrariesPanel({ pushLog, onDisplaySettingsChanged, onNativ
     ]
   }, undefined, true, undefined, this);
 }
-function ResourceSettingsPanel({ onSaved, pushLog }) {
+function ResourceSettingsPanel({
+  onSaved,
+  pushLog
+}) {
   const [settings, setSettings] = import_react3.useState(null);
-  const [drafts, setDrafts] = import_react3.useState({ global: { skills: [], extensions: [] }, project: { skills: [], extensions: [] } });
+  const [drafts, setDrafts] = import_react3.useState({
+    global: { skills: [], extensions: [] },
+    project: { skills: [], extensions: [] }
+  });
   const [loading, setLoading] = import_react3.useState(false);
   const [saving, setSaving] = import_react3.useState(null);
   const [error, setError] = import_react3.useState("");
@@ -19144,7 +19212,16 @@ function ResourceSettingsPanel({ onSaved, pushLog }) {
         throw new Error(await res.text());
       const data = await res.json();
       setSettings(data);
-      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
+      setDrafts({
+        global: {
+          skills: data.global.skills,
+          extensions: data.global.extensions
+        },
+        project: {
+          skills: data.project.skills,
+          extensions: data.project.extensions
+        }
+      });
     } catch (e) {
       setError(e.message || "Failed to load skill and extension paths");
     } finally {
@@ -19155,7 +19232,7 @@ function ResourceSettingsPanel({ onSaved, pushLog }) {
     load();
   }, [load]);
   const save = async (scope) => {
-    const missing = [...drafts[scope].skills, ...drafts[scope].extensions].filter((value) => value.trim() && !value.trim().startsWith("!") && !/[*?\[\]{}]/.test(value)).filter((value) => {
+    const missing = [...drafts[scope].skills, ...drafts[scope].extensions].filter((value) => value.trim() && !value.trim().startsWith("!") && !/[*?[\]{}]/.test(value)).filter((value) => {
       const current = settings?.[scope];
       const found = current?.validation.skills.concat(current.validation.extensions).find((item) => item.rawPath === value);
       return found?.exists === false;
@@ -19171,12 +19248,25 @@ Save anyway?`))
     setSaving(scope);
     setError("");
     try {
-      const res = await fetch("/api/resource-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope, ...drafts[scope] }) });
+      const res = await fetch("/api/resource-settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scope, ...drafts[scope] })
+      });
       if (!res.ok)
         throw new Error(await res.text());
       const data = await res.json();
       setSettings(data);
-      setDrafts({ global: { skills: data.global.skills, extensions: data.global.extensions }, project: { skills: data.project.skills, extensions: data.project.extensions } });
+      setDrafts({
+        global: {
+          skills: data.global.skills,
+          extensions: data.global.extensions
+        },
+        project: {
+          skills: data.project.skills,
+          extensions: data.project.extensions
+        }
+      });
       pushLog(`Saved ${scope} skill and extension paths. Reload/restart may be needed for all sessions.`, "success");
       onSaved();
     } catch (e) {
@@ -19186,7 +19276,10 @@ Save anyway?`))
       setSaving(null);
     }
   };
-  const changed = (scope) => JSON.stringify(drafts[scope]) !== JSON.stringify({ skills: settings?.[scope].skills || [], extensions: settings?.[scope].extensions || [] });
+  const changed = (scope) => JSON.stringify(drafts[scope]) !== JSON.stringify({
+    skills: settings?.[scope].skills || [],
+    extensions: settings?.[scope].extensions || []
+  });
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
     className: "space-y-4",
     children: [
@@ -19227,11 +19320,13 @@ Save anyway?`))
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: "~"
                   }, undefined, false, undefined, this),
-                  "-prefixed, relative, globs, or exclusions. Global relative paths resolve from ",
+                  "-prefixed, relative, globs, or exclusions. Global relative paths resolve from",
+                  " ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: "~/.pi/agent"
                   }, undefined, false, undefined, this),
-                  "; project relative paths resolve from ",
+                  "; project relative paths resolve from",
+                  " ",
                   /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("code", {
                     children: ".pi"
                   }, undefined, false, undefined, this),
@@ -19260,7 +19355,13 @@ Save anyway?`))
             changed: changed("global"),
             saving: saving === "global",
             onSave: () => save("global"),
-            onReset: () => setDrafts((prev) => ({ ...prev, global: { skills: settings.global.skills, extensions: settings.global.extensions } }))
+            onReset: () => setDrafts((prev) => ({
+              ...prev,
+              global: {
+                skills: settings.global.skills,
+                extensions: settings.global.extensions
+              }
+            }))
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(ResourceScopePanel, {
             scope: settings.project,
@@ -19269,7 +19370,13 @@ Save anyway?`))
             changed: changed("project"),
             saving: saving === "project",
             onSave: () => save("project"),
-            onReset: () => setDrafts((prev) => ({ ...prev, project: { skills: settings.project.skills, extensions: settings.project.extensions } }))
+            onReset: () => setDrafts((prev) => ({
+              ...prev,
+              project: {
+                skills: settings.project.skills,
+                extensions: settings.project.extensions
+              }
+            }))
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
@@ -19281,7 +19388,15 @@ Save anyway?`))
     ]
   }, undefined, true, undefined, this);
 }
-function ResourceScopePanel({ scope, draft, onDraft, changed, saving, onSave, onReset }) {
+function ResourceScopePanel({
+  scope,
+  draft,
+  onDraft,
+  changed,
+  saving,
+  onSave,
+  onReset
+}) {
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Card, {
     className: "min-h-[60vh]",
     children: [
@@ -19354,7 +19469,13 @@ function ResourceScopePanel({ scope, draft, onDraft, changed, saving, onSave, on
     ]
   }, undefined, true, undefined, this);
 }
-function ResourceListEditor({ title, kind, values, validation, onChange }) {
+function ResourceListEditor({
+  title,
+  kind,
+  values,
+  validation,
+  onChange
+}) {
   const update = (index, value) => onChange(values.map((item, i) => i === index ? value : item));
   const remove = (index) => onChange(values.filter((_, i) => i !== index));
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -19402,7 +19523,12 @@ function ResourceListEditor({ title, kind, values, validation, onChange }) {
     ]
   }, undefined, true, undefined, this);
 }
-function ResourcePathRow({ value, validation, onChange, onRemove }) {
+function ResourcePathRow({
+  value,
+  validation,
+  onChange,
+  onRemove
+}) {
   const variant = validation?.errors.length ? "destructive" : validation?.exists ? "success" : "outline";
   const label = validation ? validation.type === "glob" || validation.type === "exclusion" ? validation.type : validation.exists ? `${validation.type}${typeof validation.count === "number" ? ` · ${validation.count}` : ""}` : "missing" : "pending";
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
@@ -19492,7 +19618,11 @@ async function responseErrorText2(res) {
     return text;
   }
 }
-function FieldLabel2({ children, required, optional }) {
+function FieldLabel2({
+  children,
+  required,
+  optional
+}) {
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("label", {
     className: "block text-xs uppercase tracking-wide text-muted-foreground",
     children: [
@@ -19509,14 +19639,20 @@ function FieldLabel2({ children, required, optional }) {
     ]
   }, undefined, true, undefined, this);
 }
-function FormMessage2({ children, tone = "muted" }) {
+function FormMessage2({
+  children,
+  tone = "muted"
+}) {
   const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("p", {
     className: `text-xs ${className}`,
     children
   }, undefined, false, undefined, this);
 }
-function ValidationSummary({ errors, serverError }) {
+function ValidationSummary({
+  errors,
+  serverError
+}) {
   if (!errors.length && !serverError)
     return null;
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
@@ -19534,8 +19670,19 @@ function ValidationSummary({ errors, serverError }) {
     ]
   }, undefined, true, undefined, this);
 }
-var spawnableAgentClasses = ["lead", "scout", "implementer", "reviewer"];
-function AgentTypesPanel({ types, onNew, onEdit, onTest, large }) {
+var spawnableAgentClasses = [
+  "lead",
+  "scout",
+  "implementer",
+  "reviewer"
+];
+function AgentTypesPanel({
+  types,
+  onNew,
+  onEdit,
+  onTest,
+  large
+}) {
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Card, {
     className: large ? "min-h-[70vh]" : "",
     children: [
@@ -19615,7 +19762,12 @@ function AgentTypesPanel({ types, onNew, onEdit, onTest, large }) {
     ]
   }, undefined, true, undefined, this);
 }
-function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
+function TemplateChips({
+  templates,
+  selectedText,
+  emptyText,
+  onToggle
+}) {
   const selected = new Set(splitItems(selectedText));
   return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
     className: "space-y-2",
@@ -19646,7 +19798,12 @@ function TemplateChips({ templates, selectedText, emptyText, onToggle }) {
     ]
   }, undefined, true, undefined, this);
 }
-function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
+function AgentTypeTestDialog({
+  open,
+  typeDef,
+  onClose,
+  pushLog
+}) {
   const [session, setSession] = import_react4.useState();
   const [messages, setMessages] = import_react4.useState([]);
   const [message, setMessage] = import_react4.useState("Smoke test ping: reply exactly OK.");
@@ -19668,7 +19825,9 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
     setMessage("Smoke test ping: reply exactly OK.");
     setServerError("");
     setBusy(true);
-    fetch(`/api/agent-types/${encodeURIComponent(typeDef.name)}/test-session`, { method: "POST" }).then(async (res) => {
+    fetch(`/api/agent-types/${encodeURIComponent(typeDef.name)}/test-session`, {
+      method: "POST"
+    }).then(async (res) => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok)
         throw new Error(data?.error || "Failed to start test session");
@@ -19678,7 +19837,12 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
         return;
       }
       setSession(data.session);
-      setMessages([{ role: "system", text: `Started disposable test session ${data.session.id}.` }]);
+      setMessages([
+        {
+          role: "system",
+          text: `Started disposable test session ${data.session.id}.`
+        }
+      ]);
       pushLog?.(`Started test session for ${typeDef.name}`, "success");
     }).catch((err) => {
       if (!cancelled)
@@ -19714,7 +19878,10 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
       if (!res.ok)
         throw new Error(data?.error || "Test message failed");
       setSession(data.session || session);
-      setMessages((prev) => [...prev, { role: "assistant", text: data.response || "(empty response)" }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: data.response || "(empty response)" }
+      ]);
     } catch (err) {
       setServerError(err?.message || String(err));
     } finally {
@@ -19737,7 +19904,8 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
           children: [
             /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
               children: [
-                "Status: ",
+                "Status:",
+                " ",
                 /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
                   className: "text-foreground",
                   children: session?.status || (busy ? "starting" : "not started")
@@ -19756,7 +19924,8 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
               children: [
                 "Runtime tools: ",
                 diagnostics.active.length,
-                " active / ",
+                " active /",
+                " ",
                 diagnostics.all.length,
                 " total",
                 diagnostics.conflicts?.length ? `, ${diagnostics.conflicts.length} conflicts` : ""
@@ -19771,7 +19940,8 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
             !!diagnostics?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
               className: "text-destructive",
               children: [
-                "Conflicts: ",
+                "Conflicts:",
+                " ",
                 diagnostics.conflicts.map((conflict) => `${conflict.name} (${conflict.sources.join(", ")})`).join("; ")
               ]
             }, undefined, true, undefined, this)
@@ -19786,7 +19956,8 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
                 className: "font-semibold capitalize text-muted-foreground",
                 children: [
                   entry.role,
-                  ": "
+                  ":",
+                  " "
                 ]
               }, undefined, true, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("span", {
@@ -19835,7 +20006,15 @@ function AgentTypeTestDialog({ open, typeDef, onClose, pushLog }) {
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemplates, onClose, onSaved }) {
+function TypeEditorDialog({
+  open,
+  typeDef,
+  models,
+  skillTemplates,
+  extensionTemplates,
+  onClose,
+  onSaved
+}) {
   const [name, setName] = import_react4.useState("");
   const [description, setDescription] = import_react4.useState("");
   const [agentClass, setAgentClass] = import_react4.useState("implementer");
@@ -19861,17 +20040,45 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
     setServerError("");
   }, [open, typeDef]);
   const selectedModel = models.find((m) => m.id === model);
-  const levels = selectedModel?.thinkingLevels || ["off", "minimal", "low", "medium", "high", "xhigh"];
+  const levels = selectedModel?.thinkingLevels || [
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ];
   const errors = [
     !name.trim() ? "Name is required." : undefined,
     !description.trim() ? "Description is required." : undefined
   ].filter(Boolean);
+  const isDirty = name !== (typeDef?.name || "") || description !== (typeDef?.description || "") || agentClass !== (spawnableAgentClasses.includes(typeDef?.agentClass) ? typeDef.agentClass : "implementer") || model !== (typeDef?.model || "") || thinking !== (typeDef?.thinking || "medium") || skillTemplatesText !== (typeDef?.skillTemplates || []).join(`
+`) || extensionTemplatesText !== (typeDef?.extensionTemplates || []).join(`
+`) || !!prompt.trim();
+  const discardMessage = "Discard unsaved agent type changes?";
+  const close = () => {
+    if (!isDirty || confirm(discardMessage))
+      onClose();
+  };
   const save = async () => {
     setServerError("");
     if (errors.length)
       return;
-    const payload = { name: name.trim(), description: description.trim(), agentClass, model: model || undefined, thinking: selectedModel?.thinking ? thinking : undefined, skillTemplates: splitItems(skillTemplatesText), extensionTemplates: splitItems(extensionTemplatesText), prompt: prompt.trim() || undefined };
-    const res = await fetch("/api/agent-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const payload = {
+      name: name.trim(),
+      description: description.trim(),
+      agentClass,
+      model: model || undefined,
+      thinking: selectedModel?.thinking ? thinking : undefined,
+      skillTemplates: splitItems(skillTemplatesText),
+      extensionTemplates: splitItems(extensionTemplatesText),
+      prompt: prompt.trim() || undefined
+    };
+    const res = await fetch("/api/agent-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
     if (!res.ok)
       return setServerError("Failed to save: " + await responseErrorText2(res));
     onSaved();
@@ -19882,6 +20089,8 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
     open,
     title: typeDef ? `Edit ${typeDef.name}` : "New Agent Type",
     onOpenChange: onClose,
+    confirmOnClose: isDirty,
+    confirmCloseMessage: discardMessage,
     children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV("div", {
       className: "space-y-3",
       children: [
@@ -20005,7 +20214,7 @@ function TypeEditorDialog({ open, typeDef, models, skillTemplates, extensionTemp
           children: [
             /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
               variant: "secondary",
-              onClick: onClose,
+              onClick: close,
               children: "Cancel"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Button, {
@@ -31637,7 +31846,11 @@ async function responseErrorText3(res) {
     return text7;
   }
 }
-function FieldLabel3({ children, required, optional }) {
+function FieldLabel3({
+  children,
+  required,
+  optional
+}) {
   return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("label", {
     className: "block text-xs uppercase tracking-wide text-muted-foreground",
     children: [
@@ -31654,14 +31867,20 @@ function FieldLabel3({ children, required, optional }) {
     ]
   }, undefined, true, undefined, this);
 }
-function FormMessage3({ children, tone = "muted" }) {
+function FormMessage3({
+  children,
+  tone = "muted"
+}) {
   const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
   return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("p", {
     className: `text-xs ${className}`,
     children
   }, undefined, false, undefined, this);
 }
-function ValidationSummary2({ errors, serverError }) {
+function ValidationSummary2({
+  errors,
+  serverError
+}) {
   if (!errors.length && !serverError)
     return null;
   return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
@@ -31720,7 +31939,14 @@ function SkillSourceBadges({ skill }) {
 function normalizeSkillName(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64).replace(/-$/g, "");
 }
-function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTemplates, onEditTemplate, onChanged }) {
+function SkillLibraryPanel({
+  skills,
+  loadingSkills = false,
+  diagnostics,
+  skillTemplates,
+  onEditTemplate,
+  onChanged
+}) {
   const [query, setQuery] = import_react6.useState("");
   const [scope, setScope] = import_react6.useState("all");
   const [selectedId, setSelectedId] = import_react6.useState();
@@ -31760,7 +31986,13 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
         return false;
       if (!q)
         return true;
-      return [skill.name, skill.description, skill.path, skill.source, skill.scope].some((value) => (value || "").toLowerCase().includes(q));
+      return [
+        skill.name,
+        skill.description,
+        skill.path,
+        skill.source,
+        skill.scope
+      ].some((value) => (value || "").toLowerCase().includes(q));
     });
   }, [editableFilter, query, referenceFilter, scope, skills, skillTemplates]);
   const templatesUsingSkill = import_react6.useMemo(() => selectedSkill ? skillTemplates.filter((template) => template.items.includes(skillTemplateItemValue(selectedSkill)) || template.items.includes(selectedSkill.name)) : [], [selectedSkill, skillTemplates]);
@@ -31869,7 +32101,14 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
       return;
     setSaveError("");
     if (fileDetail) {
-      const res2 = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: fileDetail.hash }) });
+      const res2 = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}/files?path=${encodeURIComponent(fileDetail.path)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: editContent,
+          expectedHash: fileDetail.hash
+        })
+      });
       if (!res2.ok)
         return setSaveError(await responseErrorText3(res2));
       const next2 = await res2.json();
@@ -31878,7 +32117,14 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
       setEditing(false);
       return;
     }
-    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent, expectedHash: detail.hash }) });
+    const res = await fetch(`/api/skills/${encodeURIComponent(detail.skill.id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: editContent,
+        expectedHash: detail.hash
+      })
+    });
     if (!res.ok)
       return setSaveError(await responseErrorText3(res));
     const next = await res.json();
@@ -31911,7 +32157,17 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
       return;
     setTemplateError("");
     const skills2 = Array.from(new Set([...template.items, skillTemplateItemValue(selectedSkill)]));
-    const res = await fetch("/api/skill-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: template.name, description: template.description, audience: templateAudience2(template), autoApply: templateAutoApply(template), skills: skills2 }) });
+    const res = await fetch("/api/skill-templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: template.name,
+        description: template.description,
+        audience: templateAudience2(template),
+        autoApply: templateAutoApply(template),
+        skills: skills2
+      })
+    });
     if (!res.ok)
       return setTemplateError(await responseErrorText3(res));
     setAddTemplateName("");
@@ -32286,7 +32542,9 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
                           type: "button",
                           disabled: file.type === "directory",
                           className: `block w-full truncate rounded px-2 py-1 text-left text-xs ${selectedFile === file.path ? "bg-primary/15 text-primary" : file.type === "directory" ? "text-muted-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`,
-                          style: { paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px` },
+                          style: {
+                            paddingLeft: `${8 + Math.max(0, file.path.split("/").length - 1) * 12}px`
+                          },
                           onClick: () => file.type === "file" && openSkillFile(file.path),
                           children: [
                             file.type === "directory" ? "▾ " : file.markdown ? "◇ " : "• ",
@@ -32325,7 +32583,15 @@ function SkillLibraryPanel({ skills, loadingSkills = false, diagnostics, skillTe
                           }, undefined, false, undefined, this),
                           detailView === "metadata" && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("pre", {
                             className: "h-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-4 font-mono text-xs leading-6",
-                            children: JSON.stringify({ skill: detail.skill, selectedFile, file: fileDetail, frontmatter: detail.frontmatter, diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath), mtimeMs: detail.mtimeMs, hash: detail.hash }, null, 2)
+                            children: JSON.stringify({
+                              skill: detail.skill,
+                              selectedFile,
+                              file: fileDetail,
+                              frontmatter: detail.frontmatter,
+                              diagnostics: diagnostics.filter((diagnostic) => diagnostic.path === detail.skill.path || diagnostic.path === detail.skill.filePath),
+                              mtimeMs: detail.mtimeMs,
+                              hash: detail.hash
+                            }, null, 2)
                           }, undefined, false, undefined, this)
                         ]
                       }, undefined, true, undefined, this)
@@ -32452,7 +32718,12 @@ function parseMarkdownBody(content3) {
   const match = content3.match(/^---\s*\n[\s\S]*?\n---\s*\n?/);
   return match ? content3.slice(match[0].length) : content3;
 }
-function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
+function CreateSkillDialog({
+  open,
+  libraries,
+  onClose,
+  onCreated
+}) {
   const libraryTargets = import_react6.useMemo(() => (libraries?.libraries || []).filter((library) => library.valid && library.manifest?.name), [libraries]);
   const defaultTarget = libraryTargets[0]?.manifest?.name ? `library:${libraryTargets[0].manifest.name}` : "global";
   const [target, setTarget] = import_react6.useState(defaultTarget);
@@ -32472,13 +32743,38 @@ function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
     }
   }, [defaultTarget, open]);
   const savedName = normalizeSkillName(name2);
-  const errors = [!savedName ? "Name is required." : undefined, !description.trim() ? "Description is required." : undefined].filter(Boolean);
+  const errors = [
+    !savedName ? "Name is required." : undefined,
+    !description.trim() ? "Description is required." : undefined
+  ].filter(Boolean);
+  const isDirty = target !== defaultTarget || !!name2 || !!description || !!body || scaffold !== "minimal";
+  const discardMessage = "Discard unsaved skill changes?";
+  const close = () => {
+    if (!isDirty || confirm(discardMessage))
+      onClose();
+  };
   const create2 = async () => {
     setServerError("");
     if (errors.length)
       return;
-    const payload = target.startsWith("library:") ? { targetLibrary: target.slice("library:".length), name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold } : { scope: "global", name: savedName, description: description.trim(), body: body.trim() || undefined, scaffold };
-    const res = await fetch("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const payload = target.startsWith("library:") ? {
+      targetLibrary: target.slice("library:".length),
+      name: savedName,
+      description: description.trim(),
+      body: body.trim() || undefined,
+      scaffold
+    } : {
+      scope: "global",
+      name: savedName,
+      description: description.trim(),
+      body: body.trim() || undefined,
+      scaffold
+    };
+    const res = await fetch("/api/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
     if (!res.ok)
       return setServerError(await responseErrorText3(res));
     onCreated(await res.json());
@@ -32487,6 +32783,8 @@ function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
     open,
     title: "New Skill",
     onOpenChange: onClose,
+    confirmOnClose: isDirty,
+    confirmCloseMessage: discardMessage,
     className: "max-w-3xl",
     children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
       className: "space-y-3",
@@ -32527,7 +32825,8 @@ function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
           tone: savedName ? "success" : "muted",
           children: [
-            "Will be saved as: ",
+            "Will be saved as:",
+            " ",
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
               className: "rounded bg-muted px-1 py-0.5 text-foreground",
               children: savedName || "—"
@@ -32579,7 +32878,7 @@ function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
           children: [
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
               variant: "secondary",
-              onClick: onClose,
+              onClick: close,
               children: "Cancel"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
@@ -32593,7 +32892,11 @@ function CreateSkillDialog({ open, libraries, onClose, onCreated }) {
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function CopySkillDialog({ source, onClose, onCopied }) {
+function CopySkillDialog({
+  source,
+  onClose,
+  onCopied
+}) {
   const [scope, setScope] = import_react6.useState("project");
   const [name2, setName] = import_react6.useState("");
   const [description, setDescription] = import_react6.useState("");
@@ -32614,11 +32917,27 @@ function CopySkillDialog({ source, onClose, onCopied }) {
     source && savedName === source.name ? "Choose a new skill name; duplicate names collide and Pi keeps the first discovered skill." : undefined,
     !description.trim() ? "Description is required." : undefined
   ].filter(Boolean);
+  const initialName = source ? `${source.name}-copy` : "";
+  const initialDescription = source?.description ? `${source.description} (derived copy)` : source ? "Derived copy" : "";
+  const isDirty = scope !== "project" || name2 !== initialName || description !== initialDescription;
+  const discardMessage = "Discard unsaved skill copy changes?";
+  const close = () => {
+    if (!isDirty || confirm(discardMessage))
+      onClose();
+  };
   const copy = async () => {
     if (!source?.id || errors.length)
       return;
     setServerError("");
-    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope, name: savedName, description: description.trim() }) });
+    const res = await fetch(`/api/skills/${encodeURIComponent(source.id)}/copy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scope,
+        name: savedName,
+        description: description.trim()
+      })
+    });
     if (!res.ok)
       return setServerError(await responseErrorText3(res));
     onCopied(await res.json());
@@ -32627,6 +32946,8 @@ function CopySkillDialog({ source, onClose, onCopied }) {
     open,
     title: source ? `Copy Skill: ${source.name}` : "Copy Skill",
     onOpenChange: onClose,
+    confirmOnClose: isDirty,
+    confirmCloseMessage: discardMessage,
     className: "max-w-2xl",
     children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
       className: "space-y-3",
@@ -32634,7 +32955,8 @@ function CopySkillDialog({ source, onClose, onCopied }) {
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
           className: "rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100",
           children: [
-            "Copy creates a new editable skill directory and rewrites ",
+            "Copy creates a new editable skill directory and rewrites",
+            " ",
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
               children: "SKILL.md"
             }, undefined, false, undefined, this),
@@ -32692,7 +33014,8 @@ function CopySkillDialog({ source, onClose, onCopied }) {
         /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FormMessage3, {
           tone: savedName && savedName !== source?.name ? "success" : "muted",
           children: [
-            "Will be saved as: ",
+            "Will be saved as:",
+            " ",
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("code", {
               className: "rounded bg-muted px-1 py-0.5 text-foreground",
               children: savedName || "—"
@@ -32716,7 +33039,7 @@ function CopySkillDialog({ source, onClose, onCopied }) {
           children: [
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
               variant: "secondary",
-              onClick: onClose,
+              onClick: close,
               children: "Cancel"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Button, {
@@ -32751,7 +33074,11 @@ function resolveRelativeMarkdownLink(basePath, href) {
 function escapeXmlLikeBlocks(content3) {
   return content3.replace(/^<([a-z][\w-]*)([^>]*)>$/gim, "`<$1$2>`").replace(/^<\/([a-z][\w-]*)>$/gim, "`</$1>`");
 }
-function MarkdownPreview({ content: content3, basePath = "SKILL.md", onOpenRelative }) {
+function MarkdownPreview({
+  content: content3,
+  basePath = "SKILL.md",
+  onOpenRelative
+}) {
   return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV("div", {
     className: "h-full overflow-auto rounded-md border border-border bg-background p-5 text-sm leading-6",
     children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Markdown, {
@@ -32876,7 +33203,11 @@ async function responseErrorText4(res) {
     return text7;
   }
 }
-function FieldLabel4({ children, required, optional }) {
+function FieldLabel4({
+  children,
+  required,
+  optional
+}) {
   return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("label", {
     className: "block text-xs uppercase tracking-wide text-muted-foreground",
     children: [
@@ -32893,14 +33224,20 @@ function FieldLabel4({ children, required, optional }) {
     ]
   }, undefined, true, undefined, this);
 }
-function FormMessage4({ children, tone = "muted" }) {
+function FormMessage4({
+  children,
+  tone = "muted"
+}) {
   const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
   return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("p", {
     className: `text-xs ${className}`,
     children
   }, undefined, false, undefined, this);
 }
-function ValidationSummary3({ errors, serverError }) {
+function ValidationSummary3({
+  errors,
+  serverError
+}) {
   if (!errors.length && !serverError)
     return null;
   return /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
@@ -32918,7 +33255,14 @@ function ValidationSummary3({ errors, serverError }) {
     ]
   }, undefined, true, undefined, this);
 }
-function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) {
+function TemplatesPanel({
+  kind,
+  templates,
+  onNew,
+  onEdit,
+  onDeleted,
+  pushLog
+}) {
   const label = kind === "skill" ? "Skill Templates" : "Extension Templates";
   const [smokeTests, setSmokeTests] = import_react7.useState({});
   const deleteTemplate = async (name2) => {
@@ -32940,7 +33284,16 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
       setSmokeTests((prev) => ({ ...prev, [name2]: result }));
       pushLog(`Smoke test ${result.success ? "passed" : "failed"} for extension template '${name2}'`, result.success ? "success" : "error");
     } catch (e) {
-      setSmokeTests((prev) => ({ ...prev, [name2]: { success: false, template: name2, extensions: [], missingExtensions: [], diagnostics: [{ level: "error", message: e.message }] } }));
+      setSmokeTests((prev) => ({
+        ...prev,
+        [name2]: {
+          success: false,
+          template: name2,
+          extensions: [],
+          missingExtensions: [],
+          diagnostics: [{ level: "error", message: e.message }]
+        }
+      }));
       pushLog(`Smoke test failed for extension template '${name2}': ${e.message}`, "error");
     }
   };
@@ -33074,7 +33427,8 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
                         result.smokeAgent.id,
                         " (",
                         result.smokeAgent.definition,
-                        ") · model: ",
+                        ") · model:",
+                        " ",
                         result.smokeAgent.model || "default selection",
                         result.smokeAgent.worktree ? ` · ${result.smokeAgent.worktree}` : ""
                       ]
@@ -33093,7 +33447,8 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
                     result.runtimeTools && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
                       className: "text-muted-foreground",
                       children: [
-                        "Tools: ",
+                        "Tools:",
+                        " ",
                         result.runtimeTools.active.map((tool) => tool.name).join(", ") || "none reported"
                       ]
                     }, undefined, true, undefined, this),
@@ -33119,7 +33474,15 @@ function TemplatesPanel({ kind, templates, onNew, onEdit, onDeleted, pushLog }) 
     ]
   }, undefined, true, undefined, this);
 }
-function TemplateEditorDialog({ open, kind, template, availableSkills, availableExtensions, onClose, onSaved }) {
+function TemplateEditorDialog({
+  open,
+  kind,
+  template,
+  availableSkills,
+  availableExtensions,
+  onClose,
+  onSaved
+}) {
   const [name2, setName] = import_react7.useState("");
   const [description, setDescription] = import_react7.useState("");
   const [audience, setAudience] = import_react7.useState("spawned");
@@ -33131,8 +33494,32 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
       return;
     setName(template?.name || "");
     setDescription(template?.description || "");
-    setAudience(kind === "skill" ? templateAudience3(template || { name: "", description: "", items: [], source: "", filePath: "" }) : "spawned");
-    setAutoApply(kind === "skill" ? templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }) : templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }) === "all" ? "spawned" : templateAutoApply2(template || { name: "", description: "", items: [], source: "", filePath: "" }));
+    setAudience(kind === "skill" ? templateAudience3(template || {
+      name: "",
+      description: "",
+      items: [],
+      source: "",
+      filePath: ""
+    }) : "spawned");
+    setAutoApply(kind === "skill" ? templateAutoApply2(template || {
+      name: "",
+      description: "",
+      items: [],
+      source: "",
+      filePath: ""
+    }) : templateAutoApply2(template || {
+      name: "",
+      description: "",
+      items: [],
+      source: "",
+      filePath: ""
+    }) === "all" ? "spawned" : templateAutoApply2(template || {
+      name: "",
+      description: "",
+      items: [],
+      source: "",
+      filePath: ""
+    }));
     setItemsText((template?.items || []).join(`
 `));
     setServerError("");
@@ -33164,12 +33551,55 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
     autoApply === "spawned" && audience === "orchestrator" ? "Apply to all spawned agents requires spawned or both audience." : undefined,
     autoApply === "all" && audience !== "all" ? "Apply everywhere requires both audience." : undefined
   ].filter(Boolean);
+  const initialAudience = kind === "skill" ? templateAudience3(template || {
+    name: "",
+    description: "",
+    items: [],
+    source: "",
+    filePath: ""
+  }) : "spawned";
+  const initialAutoApply = kind === "skill" ? templateAutoApply2(template || {
+    name: "",
+    description: "",
+    items: [],
+    source: "",
+    filePath: ""
+  }) : templateAutoApply2(template || {
+    name: "",
+    description: "",
+    items: [],
+    source: "",
+    filePath: ""
+  }) === "all" ? "spawned" : templateAutoApply2(template || {
+    name: "",
+    description: "",
+    items: [],
+    source: "",
+    filePath: ""
+  });
+  const isDirty = name2 !== (template?.name || "") || description !== (template?.description || "") || audience !== initialAudience || autoApply !== initialAutoApply || itemsText !== (template?.items || []).join(`
+`);
+  const discardMessage = "Discard unsaved template changes?";
+  const close = () => {
+    if (!isDirty || confirm(discardMessage))
+      onClose();
+  };
   const save = async () => {
     setServerError("");
     if (errors.length)
       return;
-    const payload = { name: savedName, description: description.trim(), audience: kind === "skill" ? audience : "spawned", autoApply, [field]: splitItems2(itemsText) };
-    const res = await fetch(`/api/${kind}-templates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const payload = {
+      name: savedName,
+      description: description.trim(),
+      audience: kind === "skill" ? audience : "spawned",
+      autoApply,
+      [field]: splitItems2(itemsText)
+    };
+    const res = await fetch(`/api/${kind}-templates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
     if (!res.ok)
       return setServerError("Failed to save: " + await responseErrorText4(res));
     onSaved();
@@ -33179,6 +33609,8 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
     open,
     title,
     onOpenChange: onClose,
+    confirmOnClose: isDirty,
+    confirmCloseMessage: discardMessage,
     children: /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
       className: "space-y-3",
       children: [
@@ -33196,7 +33628,8 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
         !template && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(FormMessage4, {
           tone: savedName ? "success" : "muted",
           children: [
-            "Will be saved as: ",
+            "Will be saved as:",
+            " ",
             /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("code", {
               className: "rounded bg-muted px-1 py-0.5 text-foreground",
               children: savedName || "—"
@@ -33295,7 +33728,8 @@ function TemplateEditorDialog({ open, kind, template, availableSkills, available
           children: [
             "Optional. Leave empty to create a template shell and add ",
             field,
-            " later."
+            " ",
+            "later."
           ]
         }, undefined, true, undefined, this),
         kind === "skill" && /* @__PURE__ */ jsx_dev_runtime11.jsxDEV("div", {
@@ -33356,7 +33790,7 @@ ${ext.name}`).join(`
           children: [
             /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
               variant: "secondary",
-              onClick: onClose,
+              onClick: close,
               children: "Cancel"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime11.jsxDEV(Button, {
@@ -33391,7 +33825,11 @@ async function responseErrorText5(res) {
     return text7;
   }
 }
-function FieldLabel5({ children, required, optional }) {
+function FieldLabel5({
+  children,
+  required,
+  optional
+}) {
   return /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("label", {
     className: "block text-xs uppercase tracking-wide text-muted-foreground",
     children: [
@@ -33408,14 +33846,24 @@ function FieldLabel5({ children, required, optional }) {
     ]
   }, undefined, true, undefined, this);
 }
-function FormMessage5({ children, tone = "muted" }) {
+function FormMessage5({
+  children,
+  tone = "muted"
+}) {
   const className = tone === "error" ? "text-destructive" : tone === "success" ? "text-emerald-400" : "text-muted-foreground";
   return /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("p", {
     className: `text-xs ${className}`,
     children
   }, undefined, false, undefined, this);
 }
-function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, onSaved }) {
+function RootProfileEditorDialog({
+  open,
+  mode,
+  sourceProfile,
+  detail,
+  onClose,
+  onSaved
+}) {
   const [libraries, setLibraries] = import_react8.useState(null);
   const [targetLibrary, setTargetLibrary] = import_react8.useState("");
   const [name2, setName] = import_react8.useState("");
@@ -33429,10 +33877,10 @@ function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, o
       return;
     setServerError("");
     fetch("/api/orchestrator-libraries").then((res) => res.ok ? res.json() : null).then((data) => setLibraries(data)).catch(() => setLibraries(null));
-    const profile = detail?.profile || sourceProfile;
-    setTargetLibrary(mode === "edit" ? "" : profile?.source === "orchestrator-library" ? profile.scope || "" : "");
-    setName(mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.name || "profile"}-copy` : profile?.name || "");
-    setDescription(mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.description || "Root orchestrator profile"} copy` : profile?.description || "");
+    const profile2 = detail?.profile || sourceProfile;
+    setTargetLibrary(mode === "edit" ? "" : profile2?.source === "orchestrator-library" ? profile2.scope || "" : "");
+    setName(mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.name || "profile"}-copy` : profile2?.name || "");
+    setDescription(mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.description || "Root orchestrator profile"} copy` : profile2?.description || "");
     setSkillsText((detail?.profile.skills || sourceProfile?.skills || []).join(`
 `));
     setSkillTemplatesText((detail?.profile.skillTemplates || sourceProfile?.skillTemplates || []).join(`
@@ -33445,13 +33893,35 @@ function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, o
     !description.trim() ? "Description is required." : undefined,
     mode !== "edit" && !targetLibrary && validLibraries.length ? "Choose an Orchestrator Library target." : undefined
   ].filter(Boolean);
+  const profile = detail?.profile || sourceProfile;
+  const initialTargetLibrary = mode === "edit" ? "" : profile?.source === "orchestrator-library" ? profile.scope || "" : "";
+  const isDirty = targetLibrary !== initialTargetLibrary || name2 !== (mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.name || "profile"}-copy` : profile?.name || "") || description !== (mode === "new" ? "" : mode === "copy" ? `${sourceProfile?.description || "Root orchestrator profile"} copy` : profile?.description || "") || skillsText !== (detail?.profile.skills || sourceProfile?.skills || []).join(`
+`) || skillTemplatesText !== (detail?.profile.skillTemplates || sourceProfile?.skillTemplates || []).join(`
+`) || instructions !== (detail?.body || sourceProfile?.instructions || "");
+  const discardMessage = "Discard unsaved root profile changes?";
+  const close = () => {
+    if (!isDirty || confirm(discardMessage))
+      onClose();
+  };
   const save = async () => {
     setServerError("");
     if (errors.length)
       return;
-    const payload = { targetLibrary: targetLibrary || undefined, name: name2.trim(), description: description.trim(), skills: splitItems3(skillsText), skillTemplates: splitItems3(skillTemplatesText), instructions, expectedHash: detail?.hash };
+    const payload = {
+      targetLibrary: targetLibrary || undefined,
+      name: name2.trim(),
+      description: description.trim(),
+      skills: splitItems3(skillsText),
+      skillTemplates: splitItems3(skillTemplatesText),
+      instructions,
+      expectedHash: detail?.hash
+    };
     const url = mode === "copy" && sourceProfile ? `/api/root-profiles/${encodeURIComponent(sourceProfile.name)}/copy` : "/api/root-profiles";
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
     if (!res.ok)
       return setServerError(await responseErrorText5(res));
     onSaved();
@@ -33461,6 +33931,8 @@ function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, o
     open,
     title,
     onOpenChange: onClose,
+    confirmOnClose: isDirty,
+    confirmCloseMessage: discardMessage,
     className: "max-w-4xl",
     children: /* @__PURE__ */ jsx_dev_runtime12.jsxDEV("div", {
       className: "space-y-3",
@@ -33564,7 +34036,7 @@ function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, o
           children: [
             /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(Button, {
               variant: "secondary",
-              onClick: onClose,
+              onClick: close,
               children: "Cancel"
             }, undefined, false, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime12.jsxDEV(Button, {
@@ -33578,7 +34050,11 @@ function RootProfileEditorDialog({ open, mode, sourceProfile, detail, onClose, o
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function RootOrchestratorProfilesPanel({ profiles, onChanged, pushLog }) {
+function RootOrchestratorProfilesPanel({
+  profiles,
+  onChanged,
+  pushLog
+}) {
   const [selectedName, setSelectedName] = import_react8.useState(profiles[0]?.name || "");
   const [detail, setDetail] = import_react8.useState();
   const [dialog, setDialog] = import_react8.useState(null);
@@ -33785,7 +34261,8 @@ function RootOrchestratorProfilesPanel({ profiles, onChanged, pushLog }) {
                           className: "font-medium text-foreground",
                           children: "/orchestrate:"
                         }, undefined, false, undefined, this),
-                        " running without an argument auto-activates the only profile, but prompts for selection when multiple profiles exist."
+                        " ",
+                        "running without an argument auto-activates the only profile, but prompts for selection when multiple profiles exist."
                       ]
                     }, undefined, true, undefined, this)
                   ]
@@ -34894,7 +35371,14 @@ function App() {
   const [inspectAgentName, setInspectAgentName] = import_react10.useState(null);
   const [inspectText, setInspectText] = import_react10.useState("Loading…");
   const pushLog = import_react10.useCallback((text7, level = "info") => {
-    setLogs((prev) => [{ id: Date.now() + Math.random(), level, text: `${new Date().toLocaleTimeString()}  ${text7}` }, ...prev].slice(0, 100));
+    setLogs((prev) => [
+      {
+        id: Date.now() + Math.random(),
+        level,
+        text: `${new Date().toLocaleTimeString()}  ${text7}`
+      },
+      ...prev
+    ].slice(0, 100));
   }, []);
   const refreshTypes = import_react10.useCallback(async () => {
     try {
@@ -34923,7 +35407,14 @@ function App() {
       if (!res.ok)
         return;
       const raw = await res.json();
-      setModels(raw.map((m) => typeof m === "string" ? { provider: "", id: m, context: "", maxOut: "", thinking: false, images: false } : m));
+      setModels(raw.map((m) => typeof m === "string" ? {
+        provider: "",
+        id: m,
+        context: "",
+        maxOut: "",
+        thinking: false,
+        images: false
+      } : m));
     } catch {
       setModels([]);
     }
@@ -34974,11 +35465,17 @@ function App() {
   const handleEvent = import_react10.useCallback((ev) => {
     switch (ev.type) {
       case "init":
-        setAgents(Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [k, { ...v }])));
+        setAgents(Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [
+          k,
+          { ...v }
+        ])));
         pushLog(`Synced ${Object.keys(ev.data.agents || {}).length} agents`);
         break;
       case "agent-spawned":
-        setAgents((prev) => ({ ...prev, [ev.data.name]: { ...prev[ev.data.name], ...ev.data } }));
+        setAgents((prev) => ({
+          ...prev,
+          [ev.data.name]: { ...prev[ev.data.name], ...ev.data }
+        }));
         pushLog(`Agent ${ev.data.name} spawned (${ev.data.parent || "root"})`, "success");
         break;
       case "agent-killed":
@@ -34991,22 +35488,79 @@ function App() {
         break;
       case "agent-delta":
         setAgents((prev) => {
-          const current = prev[ev.data.name] || { name: ev.data.name, status: "idle", turns: 0, children: [], worktree: "" };
-          return { ...prev, [ev.data.name]: { ...current, text: (current.text || "") + ev.data.delta } };
+          const current = prev[ev.data.name] || {
+            name: ev.data.name,
+            status: "idle",
+            turns: 0,
+            children: [],
+            worktree: ""
+          };
+          return {
+            ...prev,
+            [ev.data.name]: {
+              ...current,
+              text: (current.text || "") + ev.data.delta
+            }
+          };
         });
         break;
       case "agent-start":
-        setAgents((prev) => ({ ...prev, [ev.data.name]: { ...prev[ev.data.name] || { name: ev.data.name, turns: 0, children: [], worktree: "" }, status: "streaming" } }));
+        setAgents((prev) => ({
+          ...prev,
+          [ev.data.name]: {
+            ...prev[ev.data.name] || {
+              name: ev.data.name,
+              turns: 0,
+              children: [],
+              worktree: ""
+            },
+            status: "streaming"
+          }
+        }));
         break;
       case "agent-end":
-        setAgents((prev) => ({ ...prev, [ev.data.name]: { ...prev[ev.data.name] || { name: ev.data.name, turns: 0, children: [], worktree: "" }, status: "idle", text: ev.data.text } }));
+        setAgents((prev) => ({
+          ...prev,
+          [ev.data.name]: {
+            ...prev[ev.data.name] || {
+              name: ev.data.name,
+              turns: 0,
+              children: [],
+              worktree: ""
+            },
+            status: "idle",
+            text: ev.data.text
+          }
+        }));
         break;
       case "agent-error":
-        setAgents((prev) => ({ ...prev, [ev.data.name]: { ...prev[ev.data.name] || { name: ev.data.name, turns: 0, children: [], worktree: "" }, status: "error" } }));
+        setAgents((prev) => ({
+          ...prev,
+          [ev.data.name]: {
+            ...prev[ev.data.name] || {
+              name: ev.data.name,
+              turns: 0,
+              children: [],
+              worktree: ""
+            },
+            status: "error"
+          }
+        }));
         pushLog(`Agent ${ev.data.name} error: ${ev.data.error}`, "error");
         break;
       case "agent-exit":
-        setAgents((prev) => ({ ...prev, [ev.data.name]: { ...prev[ev.data.name] || { name: ev.data.name, turns: 0, children: [], worktree: "" }, status: "exited" } }));
+        setAgents((prev) => ({
+          ...prev,
+          [ev.data.name]: {
+            ...prev[ev.data.name] || {
+              name: ev.data.name,
+              turns: 0,
+              children: [],
+              worktree: ""
+            },
+            status: "exited"
+          }
+        }));
         pushLog(`Agent ${ev.data.name} exited (code ${ev.data.code ?? "?"})`, "warn");
         break;
       case "delegate":
@@ -35046,7 +35600,13 @@ function App() {
     refreshStats();
     const interval = setInterval(refreshStats, 5000);
     return () => clearInterval(interval);
-  }, [refreshModels, refreshRootProfiles, refreshStats, refreshTemplates, refreshTypes]);
+  }, [
+    refreshModels,
+    refreshRootProfiles,
+    refreshStats,
+    refreshTemplates,
+    refreshTypes
+  ]);
   const emergencyStop = async () => {
     if (!confirm("Emergency Stop: Kill all agents and clean up worktrees?"))
       return;
@@ -35259,7 +35819,10 @@ function App() {
     ]
   }, undefined, true, undefined, this);
 }
-function PageFrame({ mode, children }) {
+function PageFrame({
+  mode,
+  children
+}) {
   const className = mode === "centered" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-7xl";
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     className,
@@ -35286,7 +35849,10 @@ function EventLog({ logs }) {
   }, undefined, true, undefined, this);
 }
 function formatInspectData(data) {
-  const lines = [`status: ${data.status}`, `worktree: ${data.worktree}`];
+  const lines = [
+    `status: ${data.status}`,
+    `worktree: ${data.worktree}`
+  ];
   if (data.runtimeTools) {
     lines.push(`runtime tools reported: ${new Date(data.runtimeTools.reportedAt).toLocaleString()}`);
     lines.push(`active tools: ${data.runtimeTools.active.map((tool) => tool.name).join(", ") || "(none)"}`);
@@ -35323,7 +35889,14 @@ function formatInspectData(data) {
       lines.push(`${time} tool_start ${ev.toolName || ""} ${JSON.stringify(ev.args || {}).slice(0, 220)}`);
     else if (ev.type === "tool_execution_end")
       lines.push(`${time} tool_end ${ev.toolName || ""}`);
-    else if (["agent_start", "turn_start", "message_start", "message_end", "turn_end", "agent_end"].includes(ev.type))
+    else if ([
+      "agent_start",
+      "turn_start",
+      "message_start",
+      "message_end",
+      "turn_end",
+      "agent_end"
+    ].includes(ev.type))
       lines.push(`${time} ${ev.type}`);
     else
       lines.push(`${time} ${ev.type || item.type}`);

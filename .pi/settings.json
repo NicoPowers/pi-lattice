@@ -1,6 +1,6 @@
 {
   "piAgentOrchestrator": {
-    "showPackageExamples": true,
+    "showPackageExamples": false,
     "libraries": [
       {
         "path": ".pi/orchestrator-library"

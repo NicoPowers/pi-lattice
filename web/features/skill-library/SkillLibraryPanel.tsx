@@ -972,6 +972,16 @@ function CreateSkillDialog({
 		!savedName ? "Name is required." : undefined,
 		!description.trim() ? "Description is required." : undefined,
 	].filter(Boolean) as string[];
+	const isDirty =
+		target !== defaultTarget ||
+		!!name ||
+		!!description ||
+		!!body ||
+		scaffold !== "minimal";
+	const discardMessage = "Discard unsaved skill changes?";
+	const close = () => {
+		if (!isDirty || confirm(discardMessage)) onClose();
+	};
 	const create = async () => {
 		setServerError("");
 		if (errors.length) return;
@@ -1003,6 +1013,8 @@ function CreateSkillDialog({
 			open={open}
 			title="New Skill"
 			onOpenChange={onClose}
+			confirmOnClose={isDirty}
+			confirmCloseMessage={discardMessage}
 			className="max-w-3xl"
 		>
 			<div className="space-y-3">
@@ -1052,7 +1064,7 @@ function CreateSkillDialog({
 				/>
 				<ValidationSummary errors={errors} serverError={serverError} />
 				<div className="flex justify-end gap-2">
-					<Button variant="secondary" onClick={onClose}>
+					<Button variant="secondary" onClick={close}>
 						Cancel
 					</Button>
 					<Button onClick={create} disabled={!!errors.length}>
@@ -1099,6 +1111,20 @@ function CopySkillDialog({
 			: undefined,
 		!description.trim() ? "Description is required." : undefined,
 	].filter(Boolean) as string[];
+	const initialName = source ? `${source.name}-copy` : "";
+	const initialDescription = source?.description
+		? `${source.description} (derived copy)`
+		: source
+			? "Derived copy"
+			: "";
+	const isDirty =
+		scope !== "project" ||
+		name !== initialName ||
+		description !== initialDescription;
+	const discardMessage = "Discard unsaved skill copy changes?";
+	const close = () => {
+		if (!isDirty || confirm(discardMessage)) onClose();
+	};
 	const copy = async () => {
 		if (!source?.id || errors.length) return;
 		setServerError("");
@@ -1122,6 +1148,8 @@ function CopySkillDialog({
 			open={open}
 			title={source ? `Copy Skill: ${source.name}` : "Copy Skill"}
 			onOpenChange={onClose}
+			confirmOnClose={isDirty}
+			confirmCloseMessage={discardMessage}
 			className="max-w-2xl"
 		>
 			<div className="space-y-3">
@@ -1166,7 +1194,7 @@ function CopySkillDialog({
 				/>
 				<ValidationSummary errors={errors} serverError={serverError} />
 				<div className="flex justify-end gap-2">
-					<Button variant="secondary" onClick={onClose}>
+					<Button variant="secondary" onClick={close}>
 						Cancel
 					</Button>
 					<Button onClick={copy} disabled={!!errors.length}>
