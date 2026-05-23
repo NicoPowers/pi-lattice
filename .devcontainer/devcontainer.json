@@ -6,10 +6,11 @@
   },
   "workspaceFolder": "/workspaces/pi-agent-orchestrator",
   "remoteUser": "node",
+  "initializeCommand": "bash .devcontainer/init-ssh-agent.sh",
   "mounts": [
     "source=pi-agent-orchestrator-home,target=/home/node/.pi,type=volume",
     "source=pi-agent-orchestrator-bun-cache,target=/home/node/.bun/install/cache,type=volume",
-    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+    "source=/tmp/pi-agent-orchestrator-ssh-agent.sock,target=/ssh-agent,type=bind"
   ],
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent"

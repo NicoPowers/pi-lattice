@@ -219,6 +219,12 @@ Then inside Pi:
 
 The dashboard is forwarded on port `18765`.
 
+The devcontainer also initializes and forwards a WSL-side SSH agent through a
+stable socket so Git SSH access works inside the container. Unencrypted default
+keys are added automatically; passphrase-protected keys need to be added once
+from WSL. See [Containerized orchestration runtime](docs/container-runtime.md)
+for the exact socket path and verification command.
+
 ### Package install: use the published/bundled package
 
 For normal use outside this repository, install the package source directly:

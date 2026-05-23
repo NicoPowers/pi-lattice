@@ -24,6 +24,23 @@ The setup script runs `bun install`, builds the dashboard assets, and registers 
 
 The devcontainer forwards the dashboard port `18765`.
 
+The devcontainer also forwards a WSL-side SSH agent through a stable socket at
+`/tmp/pi-agent-orchestrator-ssh-agent.sock`. On container startup,
+`.devcontainer/init-ssh-agent.sh` starts that agent if needed and attempts to add
+the first non-passphrase-protected default key it finds:
+
+- `~/.ssh/id_ed25519`
+- `~/.ssh/id_rsa`
+- `~/.ssh/id_ecdsa`
+
+If the key is passphrase-protected, add it once from WSL with:
+
+```bash
+SSH_AUTH_SOCK=/tmp/pi-agent-orchestrator-ssh-agent.sock ssh-add ~/.ssh/id_ed25519
+```
+
+Inside the container, verify forwarding with `ssh-add -l`.
+
 ## Running Pi in the container
 
 From inside the container:
