@@ -67,6 +67,27 @@ const tabs: Array<{ id: Tab; label: string }> = [
 	{ id: "log", label: "Event Log" },
 ];
 
+function mergeAgentState(
+	previous: AgentState | undefined,
+	next: AgentState,
+): AgentState {
+	const merged = { ...previous, ...next };
+	const status = merged.status;
+	const setupPending =
+		next.setupPending ??
+		(!!previous?.setupPending &&
+			!merged.runtimeTools &&
+			status !== "error" &&
+			status !== "exited");
+	const removalPending = next.removalPending ?? previous?.removalPending;
+	return {
+		...merged,
+		setupPending: removalPending ? false : setupPending,
+		removalPending,
+		removalStartedAt: next.removalStartedAt ?? previous?.removalStartedAt,
+	};
+}
+
 function App() {
 	const [activeTab, setActiveTab] = useState<Tab>("agents");
 	const [connected, setConnected] = useState(false);
@@ -176,14 +197,45 @@ function App() {
 			if (!res.ok) return;
 			const raw = await res.json();
 			const list = (Array.isArray(raw) ? raw : []) as AgentState[];
-			setAgents((prev) =>
-				Object.fromEntries(
-					list.map((agent) => [agent.name, { ...prev[agent.name], ...agent }]),
-				),
-			);
+			setAgents((prev) => {
+				const next = Object.fromEntries(
+					list.map((agent) => [
+						agent.name,
+						mergeAgentState(prev[agent.name], agent),
+					]),
+				);
+				for (const [name, agent] of Object.entries(prev)) {
+					if (agent.removalPending && !next[name]) next[name] = agent;
+				}
+				return next;
+			});
 		} catch {
 			// live agent refresh is best-effort; SSE remains primary
 		}
+	}, []);
+
+	const scheduleAgentRemoval = useCallback((name: string) => {
+		setAgents((prev) => {
+			const current = prev[name];
+			if (!current) return prev;
+			return {
+				...prev,
+				[name]: {
+					...current,
+					setupPending: false,
+					removalPending: true,
+					removalStartedAt: Date.now(),
+				},
+			};
+		});
+		setTimeout(() => {
+			setAgents((prev) => {
+				if (!prev[name]?.removalPending) return prev;
+				const next = { ...prev };
+				delete next[name];
+				return next;
+			});
+		}, 1200);
 	}, []);
 
 	const refreshTemplates = useCallback(async () => {
@@ -228,11 +280,11 @@ function App() {
 		(ev: ServerEvent) => {
 			switch (ev.type) {
 				case "init":
-					setAgents(
+					setAgents((prev) =>
 						Object.fromEntries(
 							Object.entries(ev.data.agents || {}).map(([k, v]) => [
 								k,
-								{ ...v },
+								mergeAgentState(prev[k], v as AgentState),
 							]),
 						),
 					);
@@ -241,7 +293,7 @@ function App() {
 				case "agent-spawned":
 					setAgents((prev) => ({
 						...prev,
-						[ev.data.name]: { ...prev[ev.data.name], ...ev.data },
+						[ev.data.name]: mergeAgentState(prev[ev.data.name], ev.data),
 					}));
 					pushLog(
 						`Agent ${ev.data.name} spawned (${ev.data.parent || "root"})`,
@@ -249,17 +301,13 @@ function App() {
 					);
 					break;
 				case "agent-killed":
-					setAgents((prev) => {
-						const next = { ...prev };
-						delete next[ev.data.name];
-						return next;
-					});
+					scheduleAgentRemoval(ev.data.name);
 					pushLog(`Agent ${ev.data.name} killed`, "warn");
 					break;
 				case "agent-status":
 					setAgents((prev) => ({
 						...prev,
-						[ev.data.name]: {
+						[ev.data.name]: mergeAgentState(prev[ev.data.name], {
 							...(prev[ev.data.name] || {
 								name: ev.data.name,
 								turns: 0,
@@ -268,7 +316,7 @@ function App() {
 							}),
 							status: ev.data.status,
 							pendingSend: ev.data.pendingSend,
-						},
+						}),
 					}));
 					break;
 				case "agent-delta":
@@ -292,7 +340,7 @@ function App() {
 				case "agent-start":
 					setAgents((prev) => ({
 						...prev,
-						[ev.data.name]: {
+						[ev.data.name]: mergeAgentState(prev[ev.data.name], {
 							...(prev[ev.data.name] || {
 								name: ev.data.name,
 								turns: 0,
@@ -300,7 +348,7 @@ function App() {
 								worktree: "",
 							}),
 							status: "streaming",
-						},
+						}),
 					}));
 					break;
 				case "agent-end":
@@ -313,19 +361,19 @@ function App() {
 						};
 						return {
 							...prev,
-							[ev.data.name]: {
+							[ev.data.name]: mergeAgentState(current, {
 								...current,
 								status: "idle",
 								turns: (current.turns || 0) + 1,
 								text: ev.data.text,
-							},
+							}),
 						};
 					});
 					break;
 				case "agent-error":
 					setAgents((prev) => ({
 						...prev,
-						[ev.data.name]: {
+						[ev.data.name]: mergeAgentState(prev[ev.data.name], {
 							...(prev[ev.data.name] || {
 								name: ev.data.name,
 								turns: 0,
@@ -333,14 +381,14 @@ function App() {
 								worktree: "",
 							}),
 							status: "error",
-						},
+						}),
 					}));
 					pushLog(`Agent ${ev.data.name} error: ${ev.data.error}`, "error");
 					break;
 				case "agent-exit":
 					setAgents((prev) => ({
 						...prev,
-						[ev.data.name]: {
+						[ev.data.name]: mergeAgentState(prev[ev.data.name], {
 							...(prev[ev.data.name] || {
 								name: ev.data.name,
 								turns: 0,
@@ -348,7 +396,7 @@ function App() {
 								worktree: "",
 							}),
 							status: "exited",
-						},
+						}),
 					}));
 					pushLog(
 						`Agent ${ev.data.name} exited (code ${ev.data.code ?? "?"})`,
@@ -362,7 +410,7 @@ function App() {
 					break;
 			}
 		},
-		[pushLog],
+		[pushLog, scheduleAgentRemoval],
 	);
 
 	useEffect(() => {
@@ -450,7 +498,7 @@ function App() {
 			const data = await res.json();
 			setAgents((prev) => ({
 				...prev,
-				[name]: { ...prev[name], ...data },
+				[name]: mergeAgentState(prev[name], data),
 			}));
 			setInspectData(data);
 			setInspectText(formatInspectData(data));
@@ -506,15 +554,19 @@ function App() {
 						agentTypes={types}
 						onInspect={inspect}
 						onAgentSpawned={(agent) =>
-							setAgents((prev) => ({ ...prev, [agent.name]: agent }))
+							setAgents((prev) => ({
+								...prev,
+								[agent.name]: mergeAgentState(prev[agent.name], agent),
+							}))
 						}
-						onAgentKilled={(name) =>
+						onAgentSpawnFailed={(name) =>
 							setAgents((prev) => {
 								const next = { ...prev };
 								delete next[name];
 								return next;
 							})
 						}
+						onAgentKilled={scheduleAgentRemoval}
 						pushLog={pushLog}
 					/>
 				)}

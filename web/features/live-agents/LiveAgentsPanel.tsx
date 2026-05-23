@@ -53,6 +53,46 @@ function previewMarkdown(agent: AgentState): string {
 	return "";
 }
 
+function isAgentSettingUp(agent: AgentState): boolean {
+	return (
+		!!agent.setupPending &&
+		!agent.runtimeTools &&
+		agent.status !== "error" &&
+		agent.status !== "exited"
+	);
+}
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+	return <div className={`animate-pulse rounded bg-muted/70 ${className}`} />;
+}
+
+function AgentSetupSkeleton({ name }: { name: string }) {
+	return (
+		<div className="space-y-4" aria-label={`${name} setup in progress`}>
+			<div className="space-y-2">
+				<div className="flex flex-wrap gap-2">
+					<SkeletonLine className="h-4 w-28" />
+					<SkeletonLine className="h-4 w-36" />
+					<SkeletonLine className="h-4 w-24" />
+				</div>
+				<SkeletonLine className="h-4 w-48" />
+			</div>
+			<div className="rounded-md bg-background p-3">
+				<SkeletonLine className="mb-3 h-4 w-40" />
+				<SkeletonLine className="mb-2 h-3 w-full" />
+				<SkeletonLine className="mb-2 h-3 w-5/6" />
+				<SkeletonLine className="h-3 w-2/3" />
+			</div>
+			<div className="flex gap-2">
+				<SkeletonLine className="h-9 flex-1" />
+				<SkeletonLine className="h-9 w-16" />
+				<SkeletonLine className="h-9 w-20" />
+				<SkeletonLine className="h-9 w-14" />
+			</div>
+		</div>
+	);
+}
+
 export function AgentsPanel({
 	agents,
 	stats: _stats,
@@ -60,6 +100,7 @@ export function AgentsPanel({
 	onInspect,
 	onAgentKilled,
 	onAgentSpawned,
+	onAgentSpawnFailed,
 	pushLog,
 }: {
 	agents: Record<string, AgentState>;
@@ -67,7 +108,8 @@ export function AgentsPanel({
 	agentTypes?: AgentTypeInfo[];
 	onInspect: (name: string) => void;
 	onAgentKilled?: (name: string) => void;
-	onAgentSpawned?: (agent: AgentInfo) => void;
+	onAgentSpawned?: (agent: AgentState) => void;
+	onAgentSpawnFailed?: (name: string) => void;
 	pushLog: (text: string, level?: LogLine["level"]) => void;
 }) {
 	const entries = Object.entries(agents);
@@ -83,6 +125,7 @@ export function AgentsPanel({
 				<SpawnAgentForm
 					agentTypes={spawnableTypes}
 					onAgentSpawned={onAgentSpawned}
+					onAgentSpawnFailed={onAgentSpawnFailed}
 					pushLog={pushLog}
 				/>
 				{!entries.length ? (
@@ -111,10 +154,12 @@ export function AgentsPanel({
 function SpawnAgentForm({
 	agentTypes,
 	onAgentSpawned,
+	onAgentSpawnFailed,
 	pushLog,
 }: {
 	agentTypes: AgentTypeInfo[];
-	onAgentSpawned?: (agent: AgentInfo) => void;
+	onAgentSpawned?: (agent: AgentState) => void;
+	onAgentSpawnFailed?: (name: string) => void;
 	pushLog: (text: string, level?: LogLine["level"]) => void;
 }) {
 	const firstTypeName = agentTypes[0]?.name || "";
@@ -136,14 +181,29 @@ function SpawnAgentForm({
 			pushLog("Agent name is required", "error");
 			return;
 		}
+		const requestedModel = model.trim();
+		const requestedIssueId = issueId.trim();
 		setBusy(true);
+		onAgentSpawned?.({
+			name: spawnName,
+			status: "queued",
+			definition: selectedType || undefined,
+			model: requestedModel || undefined,
+			parent: undefined,
+			children: [],
+			turns: 0,
+			worktree: "",
+			issueId: requestedIssueId || undefined,
+			setupPending: true,
+			setupStartedAt: Date.now(),
+		});
 		try {
 			const body = {
 				name: spawnName,
 				parent: "self",
 				type: selectedType || undefined,
-				model: model.trim() || undefined,
-				issueId: issueId.trim() || undefined,
+				model: requestedModel || undefined,
+				issueId: requestedIssueId || undefined,
 			};
 			const res = await fetch("/api/spawn", {
 				method: "POST",
@@ -152,10 +212,15 @@ function SpawnAgentForm({
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const agent = (await res.json()) as AgentInfo;
-			onAgentSpawned?.(agent);
+			onAgentSpawned?.({
+				...agent,
+				setupPending: !agent.runtimeTools,
+				setupStartedAt: Date.now(),
+			});
 			pushLog(`Spawned ${agent.name}`, "success");
 			setName(spawnNameFor(selectedType || agent.definition));
 		} catch (e: any) {
+			onAgentSpawnFailed?.(spawnName);
 			pushLog(`Spawn failed: ${e.message}`, "error");
 		} finally {
 			setBusy(false);
@@ -227,6 +292,10 @@ function AgentCard({
 }) {
 	const [message, setMessage] = useState("");
 	const [localPendingMessage, setLocalPendingMessage] = useState("");
+	const [killPending, setKillPending] = useState(false);
+	const setupPending = isAgentSettingUp(agent);
+	const removing = killPending || !!agent.removalPending;
+	const interactionsDisabled = setupPending || removing;
 	const preview = previewMarkdown(
 		localPendingMessage && !agent.text
 			? {
@@ -241,7 +310,7 @@ function AgentCard({
 			: agent,
 	);
 	const send = async () => {
-		if (!message.trim()) return;
+		if (interactionsDisabled || !message.trim()) return;
 		const body = message.trim();
 		setMessage("");
 		setLocalPendingMessage(body);
@@ -264,6 +333,8 @@ function AgentCard({
 		}
 	}, [agent.status, agent.text]);
 	const kill = async () => {
+		if (removing) return;
+		setKillPending(true);
 		try {
 			const res = await fetch(`/api/agents/${encodeURIComponent(name)}/kill`, {
 				method: "POST",
@@ -272,6 +343,7 @@ function AgentCard({
 			onAgentKilled?.(name);
 			pushLog(`Killed ${name}`, "warn");
 		} catch (e: any) {
+			setKillPending(false);
 			pushLog(`Kill ${name} failed: ${e.message}`, "error");
 		}
 	};
@@ -292,99 +364,149 @@ function AgentCard({
 		}
 	};
 	return (
-		<Card className={agent.status === "streaming" ? "border-primary/50" : ""}>
+		<Card
+			className={`transition-all duration-1000 ease-out ${
+				removing
+					? "pointer-events-none translate-y-2 scale-[0.98] border-muted opacity-0"
+					: setupPending
+						? "border-primary/40 bg-card/70 opacity-100"
+						: agent.status === "streaming"
+							? "border-primary/50 opacity-100"
+							: "opacity-100"
+			}`}
+			aria-busy={setupPending || removing}
+			aria-disabled={interactionsDisabled}
+		>
 			<CardHeader className="border-b border-border">
 				<div className="flex items-center justify-between gap-3">
 					<CardTitle>{name}</CardTitle>
-					<Badge variant={statusVariant(agent.status)}>{agent.status}</Badge>
+					<div className="flex items-center gap-2">
+						{removing && <Badge variant="outline">closing</Badge>}
+						{setupPending && !removing && (
+							<Badge variant="outline">setting up</Badge>
+						)}
+						<Badge variant={statusVariant(agent.status)}>{agent.status}</Badge>
+					</div>
 				</div>
+				{(setupPending || removing) && (
+					<div className="pt-2 text-xs text-muted-foreground">
+						{removing
+							? "Shutting down agent. Card will close shortly."
+							: "Extracting runtime tools. Messaging disabled until setup completes."}
+					</div>
+				)}
 			</CardHeader>
 			<CardContent className="space-y-3 pt-4">
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-					<span>
-						{agent.definition ? `type: ${agent.definition}` : "no type"}
-					</span>
-					<span>model: {agent.model || "default"}</span>
-					<span>{agent.parent ? `parent: ${agent.parent}` : "root"}</span>
-					<span>turns: {agent.turns || 0}</span>
-					{agent.worktree && (
-						<>
-							<span title={agent.worktree}>
-								worktree: {shortPath(agent.worktree)}
+				{setupPending ? (
+					<AgentSetupSkeleton name={name} />
+				) : (
+					<>
+						<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+							<span>
+								{agent.definition ? `type: ${agent.definition}` : "no type"}
 							</span>
+							<span>model: {agent.model || "default"}</span>
+							<span>{agent.parent ? `parent: ${agent.parent}` : "root"}</span>
+							<span>turns: {agent.turns || 0}</span>
+							{agent.worktree && (
+								<>
+									<span title={agent.worktree}>
+										worktree: {shortPath(agent.worktree)}
+									</span>
+									<Button
+										variant="secondary"
+										className="px-2 py-1 text-xs"
+										onClick={copyPath}
+										disabled={interactionsDisabled}
+									>
+										Copy Path
+									</Button>
+								</>
+							)}
+							{agent.issueId && (
+								<Badge variant="outline">issue: {agent.issueId}</Badge>
+							)}
+							{agent.artifactPath && (
+								<>
+									<span title={agent.artifactPath}>
+										artifacts: {shortPath(agent.artifactPath)}
+									</span>
+									<Button
+										variant="secondary"
+										className="px-2 py-1 text-xs"
+										onClick={copyArtifactPath}
+										disabled={interactionsDisabled}
+									>
+										Copy Artifacts
+									</Button>
+								</>
+							)}
+							<span
+								title={
+									agent.runtimeTools?.active
+										.map((tool) => tool.name)
+										.join(", ") || "No runtime tool snapshot reported yet"
+								}
+							>
+								tools:{" "}
+								{agent.runtimeTools
+									? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total`
+									: "unknown"}
+							</span>
+							{!!agent.runtimeTools?.conflicts?.length && (
+								<Badge
+									variant="warning"
+									title={agent.runtimeTools.conflicts
+										.map(
+											(conflict) =>
+												`${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`,
+										)
+										.join("\n")}
+								>
+									tool conflicts: {agent.runtimeTools.conflicts.length}
+								</Badge>
+							)}
+						</div>
+						<div className="prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6">
+							{preview ? (
+								<ReactMarkdown remarkPlugins={[remarkGfm]}>
+									{preview}
+								</ReactMarkdown>
+							) : null}
+						</div>
+						<div className="flex gap-2">
+							<Input
+								value={message}
+								onChange={(e) => setMessage(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") send();
+								}}
+								placeholder="Message…"
+								disabled={interactionsDisabled}
+							/>
+							<Button
+								onClick={send}
+								disabled={interactionsDisabled || !message.trim()}
+							>
+								Send
+							</Button>
 							<Button
 								variant="secondary"
-								className="px-2 py-1 text-xs"
-								onClick={copyPath}
+								onClick={() => onInspect(name)}
+								disabled={interactionsDisabled}
 							>
-								Copy Path
+								Inspect
 							</Button>
-						</>
-					)}
-					{agent.issueId && (
-						<Badge variant="outline">issue: {agent.issueId}</Badge>
-					)}
-					{agent.artifactPath && (
-						<>
-							<span title={agent.artifactPath}>
-								artifacts: {shortPath(agent.artifactPath)}
-							</span>
 							<Button
-								variant="secondary"
-								className="px-2 py-1 text-xs"
-								onClick={copyArtifactPath}
+								variant="destructive"
+								onClick={kill}
+								disabled={interactionsDisabled}
 							>
-								Copy Artifacts
+								{removing ? "Killing…" : "Kill"}
 							</Button>
-						</>
-					)}
-					<span
-						title={
-							agent.runtimeTools?.active.map((tool) => tool.name).join(", ") ||
-							"No runtime tool snapshot reported yet"
-						}
-					>
-						tools:{" "}
-						{agent.runtimeTools
-							? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total`
-							: "unknown"}
-					</span>
-					{!!agent.runtimeTools?.conflicts?.length && (
-						<Badge
-							variant="warning"
-							title={agent.runtimeTools.conflicts
-								.map(
-									(conflict) =>
-										`${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`,
-								)
-								.join("\n")}
-						>
-							tool conflicts: {agent.runtimeTools.conflicts.length}
-						</Badge>
-					)}
-				</div>
-				<div className="prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6">
-					{preview ? (
-						<ReactMarkdown remarkPlugins={[remarkGfm]}>{preview}</ReactMarkdown>
-					) : null}
-				</div>
-				<div className="flex gap-2">
-					<Input
-						value={message}
-						onChange={(e) => setMessage(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") send();
-						}}
-						placeholder="Message…"
-					/>
-					<Button onClick={send}>Send</Button>
-					<Button variant="secondary" onClick={() => onInspect(name)}>
-						Inspect
-					</Button>
-					<Button variant="destructive" onClick={kill}>
-						Kill
-					</Button>
-				</div>
+						</div>
+					</>
+				)}
 			</CardContent>
 		</Card>
 	);

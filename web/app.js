@@ -29848,6 +29848,78 @@ function previewMarkdown(agent) {
   }
   return "";
 }
+function isAgentSettingUp(agent) {
+  return !!agent.setupPending && !agent.runtimeTools && agent.status !== "error" && agent.status !== "exited";
+}
+function SkeletonLine({ className = "" }) {
+  return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+    className: `animate-pulse rounded bg-muted/70 ${className}`
+  }, undefined, false, undefined, this);
+}
+function AgentSetupSkeleton({ name: name2 }) {
+  return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+    className: "space-y-4",
+    "aria-label": `${name2} setup in progress`,
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+        className: "space-y-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+            className: "flex flex-wrap gap-2",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+                className: "h-4 w-28"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+                className: "h-4 w-36"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+                className: "h-4 w-24"
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-4 w-48"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+        className: "rounded-md bg-background p-3",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "mb-3 h-4 w-40"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "mb-2 h-3 w-full"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "mb-2 h-3 w-5/6"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-3 w-2/3"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+        className: "flex gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-9 flex-1"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-9 w-16"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-9 w-20"
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+            className: "h-9 w-14"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
 function AgentsPanel({
   agents,
   stats: _stats,
@@ -29855,6 +29927,7 @@ function AgentsPanel({
   onInspect,
   onAgentKilled,
   onAgentSpawned,
+  onAgentSpawnFailed,
   pushLog
 }) {
   const entries = Object.entries(agents);
@@ -29873,6 +29946,7 @@ function AgentsPanel({
           /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SpawnAgentForm, {
             agentTypes: spawnableTypes,
             onAgentSpawned,
+            onAgentSpawnFailed,
             pushLog
           }, undefined, false, undefined, this),
           !entries.length ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
@@ -29896,6 +29970,7 @@ function AgentsPanel({
 function SpawnAgentForm({
   agentTypes,
   onAgentSpawned,
+  onAgentSpawnFailed,
   pushLog
 }) {
   const firstTypeName = agentTypes[0]?.name || "";
@@ -29916,14 +29991,29 @@ function SpawnAgentForm({
       pushLog("Agent name is required", "error");
       return;
     }
+    const requestedModel = model.trim();
+    const requestedIssueId = issueId.trim();
     setBusy(true);
+    onAgentSpawned?.({
+      name: spawnName,
+      status: "queued",
+      definition: selectedType || undefined,
+      model: requestedModel || undefined,
+      parent: undefined,
+      children: [],
+      turns: 0,
+      worktree: "",
+      issueId: requestedIssueId || undefined,
+      setupPending: true,
+      setupStartedAt: Date.now()
+    });
     try {
       const body = {
         name: spawnName,
         parent: "self",
         type: selectedType || undefined,
-        model: model.trim() || undefined,
-        issueId: issueId.trim() || undefined
+        model: requestedModel || undefined,
+        issueId: requestedIssueId || undefined
       };
       const res = await fetch("/api/spawn", {
         method: "POST",
@@ -29933,10 +30023,15 @@ function SpawnAgentForm({
       if (!res.ok)
         throw new Error(await res.text());
       const agent = await res.json();
-      onAgentSpawned?.(agent);
+      onAgentSpawned?.({
+        ...agent,
+        setupPending: !agent.runtimeTools,
+        setupStartedAt: Date.now()
+      });
       pushLog(`Spawned ${agent.name}`, "success");
       setName(spawnNameFor(selectedType || agent.definition));
     } catch (e) {
+      onAgentSpawnFailed?.(spawnName);
       pushLog(`Spawn failed: ${e.message}`, "error");
     } finally {
       setBusy(false);
@@ -30019,6 +30114,10 @@ function AgentCard({
 }) {
   const [message, setMessage] = import_react2.useState("");
   const [localPendingMessage, setLocalPendingMessage] = import_react2.useState("");
+  const [killPending, setKillPending] = import_react2.useState(false);
+  const setupPending = isAgentSettingUp(agent);
+  const removing = killPending || !!agent.removalPending;
+  const interactionsDisabled = setupPending || removing;
   const preview = previewMarkdown(localPendingMessage && !agent.text ? {
     ...agent,
     pendingSend: agent.pendingSend || {
@@ -30029,7 +30128,7 @@ function AgentCard({
     }
   } : agent);
   const send = async () => {
-    if (!message.trim())
+    if (interactionsDisabled || !message.trim())
       return;
     const body = message.trim();
     setMessage("");
@@ -30054,6 +30153,9 @@ function AgentCard({
     }
   }, [agent.status, agent.text]);
   const kill = async () => {
+    if (removing)
+      return;
+    setKillPending(true);
     try {
       const res = await fetch(`/api/agents/${encodeURIComponent(name2)}/kill`, {
         method: "POST"
@@ -30063,6 +30165,7 @@ function AgentCard({
       onAgentKilled?.(name2);
       pushLog(`Killed ${name2}`, "warn");
     } catch (e) {
+      setKillPending(false);
       pushLog(`Kill ${name2} failed: ${e.message}`, "error");
     }
   };
@@ -30083,144 +30186,175 @@ function AgentCard({
     }
   };
   return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Card, {
-    className: agent.status === "streaming" ? "border-primary/50" : "",
+    className: `transition-all duration-1000 ease-out ${removing ? "pointer-events-none translate-y-2 scale-[0.98] border-muted opacity-0" : setupPending ? "border-primary/40 bg-card/70 opacity-100" : agent.status === "streaming" ? "border-primary/50 opacity-100" : "opacity-100"}`,
+    "aria-busy": setupPending || removing,
+    "aria-disabled": interactionsDisabled,
     children: [
       /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(CardHeader, {
         className: "border-b border-border",
-        children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
-          className: "flex items-center justify-between gap-3",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(CardTitle, {
-              children: name2
-            }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
-              variant: statusVariant(agent.status),
-              children: agent.status
-            }, undefined, false, undefined, this)
-          ]
-        }, undefined, true, undefined, this)
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(CardContent, {
-        className: "space-y-3 pt-4",
         children: [
           /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
-            className: "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground",
+            className: "flex items-center justify-between gap-3",
             children: [
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                children: agent.definition ? `type: ${agent.definition}` : "no type"
+              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(CardTitle, {
+                children: name2
               }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+                className: "flex items-center gap-2",
                 children: [
-                  "model: ",
-                  agent.model || "default"
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                children: agent.parent ? `parent: ${agent.parent}` : "root"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                children: [
-                  "turns: ",
-                  agent.turns || 0
-                ]
-              }, undefined, true, undefined, this),
-              agent.worktree && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(jsx_dev_runtime6.Fragment, {
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                    title: agent.worktree,
-                    children: [
-                      "worktree: ",
-                      shortPath(agent.worktree)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
-                    variant: "secondary",
-                    className: "px-2 py-1 text-xs",
-                    onClick: copyPath,
-                    children: "Copy Path"
+                  removing && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                    variant: "outline",
+                    children: "closing"
+                  }, undefined, false, undefined, this),
+                  setupPending && !removing && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                    variant: "outline",
+                    children: "setting up"
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                    variant: statusVariant(agent.status),
+                    children: agent.status
                   }, undefined, false, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              agent.issueId && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
-                variant: "outline",
-                children: [
-                  "issue: ",
-                  agent.issueId
-                ]
-              }, undefined, true, undefined, this),
-              agent.artifactPath && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(jsx_dev_runtime6.Fragment, {
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                    title: agent.artifactPath,
-                    children: [
-                      "artifacts: ",
-                      shortPath(agent.artifactPath)
-                    ]
-                  }, undefined, true, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
-                    variant: "secondary",
-                    className: "px-2 py-1 text-xs",
-                    onClick: copyArtifactPath,
-                    children: "Copy Artifacts"
-                  }, undefined, false, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
-                title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
-                children: [
-                  "tools:",
-                  " ",
-                  agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
-                ]
-              }, undefined, true, undefined, this),
-              !!agent.runtimeTools?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
-                variant: "warning",
-                title: agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join(`
-`),
-                children: [
-                  "tool conflicts: ",
-                  agent.runtimeTools.conflicts.length
                 ]
               }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
-            className: "prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6",
-            children: preview ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Markdown, {
-              remarkPlugins: [remarkGfm],
-              children: preview
-            }, undefined, false, undefined, this) : null
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
-            className: "flex gap-2",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Input, {
-                value: message,
-                onChange: (e) => setMessage(e.target.value),
-                onKeyDown: (e) => {
-                  if (e.key === "Enter")
-                    send();
-                },
-                placeholder: "Message…"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
-                onClick: send,
-                children: "Send"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
-                variant: "secondary",
-                onClick: () => onInspect(name2),
-                children: "Inspect"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
-                variant: "destructive",
-                onClick: kill,
-                children: "Kill"
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this)
+          (setupPending || removing) && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+            className: "pt-2 text-xs text-muted-foreground",
+            children: removing ? "Shutting down agent. Card will close shortly." : "Extracting runtime tools. Messaging disabled until setup completes."
+          }, undefined, false, undefined, this)
         ]
-      }, undefined, true, undefined, this)
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(CardContent, {
+        className: "space-y-3 pt-4",
+        children: setupPending ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(AgentSetupSkeleton, {
+          name: name2
+        }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(jsx_dev_runtime6.Fragment, {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+              className: "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                  children: agent.definition ? `type: ${agent.definition}` : "no type"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                  children: [
+                    "model: ",
+                    agent.model || "default"
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                  children: agent.parent ? `parent: ${agent.parent}` : "root"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                  children: [
+                    "turns: ",
+                    agent.turns || 0
+                  ]
+                }, undefined, true, undefined, this),
+                agent.worktree && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(jsx_dev_runtime6.Fragment, {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                      title: agent.worktree,
+                      children: [
+                        "worktree: ",
+                        shortPath(agent.worktree)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: copyPath,
+                      disabled: interactionsDisabled,
+                      children: "Copy Path"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                agent.issueId && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                  variant: "outline",
+                  children: [
+                    "issue: ",
+                    agent.issueId
+                  ]
+                }, undefined, true, undefined, this),
+                agent.artifactPath && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(jsx_dev_runtime6.Fragment, {
+                  children: [
+                    /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                      title: agent.artifactPath,
+                      children: [
+                        "artifacts: ",
+                        shortPath(agent.artifactPath)
+                      ]
+                    }, undefined, true, undefined, this),
+                    /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+                      variant: "secondary",
+                      className: "px-2 py-1 text-xs",
+                      onClick: copyArtifactPath,
+                      disabled: interactionsDisabled,
+                      children: "Copy Artifacts"
+                    }, undefined, false, undefined, this)
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("span", {
+                  title: agent.runtimeTools?.active.map((tool) => tool.name).join(", ") || "No runtime tool snapshot reported yet",
+                  children: [
+                    "tools:",
+                    " ",
+                    agent.runtimeTools ? `${agent.runtimeTools.active.length} active / ${agent.runtimeTools.all.length} total` : "unknown"
+                  ]
+                }, undefined, true, undefined, this),
+                !!agent.runtimeTools?.conflicts?.length && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                  variant: "warning",
+                  title: agent.runtimeTools.conflicts.map((conflict) => `${conflict.name}: ${conflict.count} registrations (${conflict.sources.join(", ") || "unknown sources"})`).join(`
+`),
+                  children: [
+                    "tool conflicts: ",
+                    agent.runtimeTools.conflicts.length
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, undefined, true, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+              className: "prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6",
+              children: preview ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Markdown, {
+                remarkPlugins: [remarkGfm],
+                children: preview
+              }, undefined, false, undefined, this) : null
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+              className: "flex gap-2",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Input, {
+                  value: message,
+                  onChange: (e) => setMessage(e.target.value),
+                  onKeyDown: (e) => {
+                    if (e.key === "Enter")
+                      send();
+                  },
+                  placeholder: "Message…",
+                  disabled: interactionsDisabled
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+                  onClick: send,
+                  disabled: interactionsDisabled || !message.trim(),
+                  children: "Send"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+                  variant: "secondary",
+                  onClick: () => onInspect(name2),
+                  disabled: interactionsDisabled,
+                  children: "Inspect"
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Button, {
+                  variant: "destructive",
+                  onClick: kill,
+                  disabled: interactionsDisabled,
+                  children: removing ? "Killing…" : "Kill"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
@@ -35983,6 +36117,18 @@ var tabs = [
   { id: "hierarchy", label: "Hierarchy" },
   { id: "log", label: "Event Log" }
 ];
+function mergeAgentState(previous3, next) {
+  const merged = { ...previous3, ...next };
+  const status = merged.status;
+  const setupPending = next.setupPending ?? (!!previous3?.setupPending && !merged.runtimeTools && status !== "error" && status !== "exited");
+  const removalPending = next.removalPending ?? previous3?.removalPending;
+  return {
+    ...merged,
+    setupPending: removalPending ? false : setupPending,
+    removalPending,
+    removalStartedAt: next.removalStartedAt ?? previous3?.removalStartedAt
+  };
+}
 function App() {
   const [activeTab, setActiveTab] = import_react10.useState("agents");
   const [connected, setConnected] = import_react10.useState(false);
@@ -36067,8 +36213,43 @@ function App() {
         return;
       const raw = await res.json();
       const list4 = Array.isArray(raw) ? raw : [];
-      setAgents((prev) => Object.fromEntries(list4.map((agent) => [agent.name, { ...prev[agent.name], ...agent }])));
+      setAgents((prev) => {
+        const next = Object.fromEntries(list4.map((agent) => [
+          agent.name,
+          mergeAgentState(prev[agent.name], agent)
+        ]));
+        for (const [name2, agent] of Object.entries(prev)) {
+          if (agent.removalPending && !next[name2])
+            next[name2] = agent;
+        }
+        return next;
+      });
     } catch {}
+  }, []);
+  const scheduleAgentRemoval = import_react10.useCallback((name2) => {
+    setAgents((prev) => {
+      const current = prev[name2];
+      if (!current)
+        return prev;
+      return {
+        ...prev,
+        [name2]: {
+          ...current,
+          setupPending: false,
+          removalPending: true,
+          removalStartedAt: Date.now()
+        }
+      };
+    });
+    setTimeout(() => {
+      setAgents((prev) => {
+        if (!prev[name2]?.removalPending)
+          return prev;
+        const next = { ...prev };
+        delete next[name2];
+        return next;
+      });
+    }, 1200);
   }, []);
   const refreshTemplates = import_react10.useCallback(async () => {
     setSkillsLoading(true);
@@ -36109,31 +36290,27 @@ function App() {
   const handleEvent = import_react10.useCallback((ev) => {
     switch (ev.type) {
       case "init":
-        setAgents(Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [
+        setAgents((prev) => Object.fromEntries(Object.entries(ev.data.agents || {}).map(([k, v]) => [
           k,
-          { ...v }
+          mergeAgentState(prev[k], v)
         ])));
         pushLog(`Synced ${Object.keys(ev.data.agents || {}).length} agents`);
         break;
       case "agent-spawned":
         setAgents((prev) => ({
           ...prev,
-          [ev.data.name]: { ...prev[ev.data.name], ...ev.data }
+          [ev.data.name]: mergeAgentState(prev[ev.data.name], ev.data)
         }));
         pushLog(`Agent ${ev.data.name} spawned (${ev.data.parent || "root"})`, "success");
         break;
       case "agent-killed":
-        setAgents((prev) => {
-          const next = { ...prev };
-          delete next[ev.data.name];
-          return next;
-        });
+        scheduleAgentRemoval(ev.data.name);
         pushLog(`Agent ${ev.data.name} killed`, "warn");
         break;
       case "agent-status":
         setAgents((prev) => ({
           ...prev,
-          [ev.data.name]: {
+          [ev.data.name]: mergeAgentState(prev[ev.data.name], {
             ...prev[ev.data.name] || {
               name: ev.data.name,
               turns: 0,
@@ -36142,7 +36319,7 @@ function App() {
             },
             status: ev.data.status,
             pendingSend: ev.data.pendingSend
-          }
+          })
         }));
         break;
       case "agent-delta":
@@ -36166,7 +36343,7 @@ function App() {
       case "agent-start":
         setAgents((prev) => ({
           ...prev,
-          [ev.data.name]: {
+          [ev.data.name]: mergeAgentState(prev[ev.data.name], {
             ...prev[ev.data.name] || {
               name: ev.data.name,
               turns: 0,
@@ -36174,7 +36351,7 @@ function App() {
               worktree: ""
             },
             status: "streaming"
-          }
+          })
         }));
         break;
       case "agent-end":
@@ -36187,19 +36364,19 @@ function App() {
           };
           return {
             ...prev,
-            [ev.data.name]: {
+            [ev.data.name]: mergeAgentState(current, {
               ...current,
               status: "idle",
               turns: (current.turns || 0) + 1,
               text: ev.data.text
-            }
+            })
           };
         });
         break;
       case "agent-error":
         setAgents((prev) => ({
           ...prev,
-          [ev.data.name]: {
+          [ev.data.name]: mergeAgentState(prev[ev.data.name], {
             ...prev[ev.data.name] || {
               name: ev.data.name,
               turns: 0,
@@ -36207,14 +36384,14 @@ function App() {
               worktree: ""
             },
             status: "error"
-          }
+          })
         }));
         pushLog(`Agent ${ev.data.name} error: ${ev.data.error}`, "error");
         break;
       case "agent-exit":
         setAgents((prev) => ({
           ...prev,
-          [ev.data.name]: {
+          [ev.data.name]: mergeAgentState(prev[ev.data.name], {
             ...prev[ev.data.name] || {
               name: ev.data.name,
               turns: 0,
@@ -36222,7 +36399,7 @@ function App() {
               worktree: ""
             },
             status: "exited"
-          }
+          })
         }));
         pushLog(`Agent ${ev.data.name} exited (code ${ev.data.code ?? "?"})`, "warn");
         break;
@@ -36230,7 +36407,7 @@ function App() {
         pushLog(`${ev.data.from} → ${ev.data.to} | ${ev.data.task.slice(0, 60)}`);
         break;
     }
-  }, [pushLog]);
+  }, [pushLog, scheduleAgentRemoval]);
   import_react10.useEffect(() => {
     let stopped = false;
     let es = null;
@@ -36315,7 +36492,7 @@ function App() {
       const data = await res.json();
       setAgents((prev) => ({
         ...prev,
-        [name2]: { ...prev[name2], ...data }
+        [name2]: mergeAgentState(prev[name2], data)
       }));
       setInspectData(data);
       setInspectText(formatInspectData(data));
@@ -36382,12 +36559,16 @@ function App() {
             stats: agentStats,
             agentTypes: types2,
             onInspect: inspect,
-            onAgentSpawned: (agent) => setAgents((prev) => ({ ...prev, [agent.name]: agent })),
-            onAgentKilled: (name2) => setAgents((prev) => {
+            onAgentSpawned: (agent) => setAgents((prev) => ({
+              ...prev,
+              [agent.name]: mergeAgentState(prev[agent.name], agent)
+            })),
+            onAgentSpawnFailed: (name2) => setAgents((prev) => {
               const next = { ...prev };
               delete next[name2];
               return next;
             }),
+            onAgentKilled: scheduleAgentRemoval,
             pushLog
           }, undefined, false, undefined, this),
           activeTab === "roadmap" && /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(PageFrame, {
