@@ -69,6 +69,48 @@ describe("SSE formatting", () => {
 		expect(sse).toContain('data: {"type":"agent-spawned"');
 		expect(sse).toEndWith("\n\n");
 	});
+
+	it("keeps idle event streams alive with heartbeat comments", async () => {
+		const { startServer } = await import("../extensions/multi-agent/server.js");
+		const { agents } = await import("../extensions/multi-agent/state.js");
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-sse-heartbeat-"));
+		const handle = await startServer({
+			repoCwd: tmpDir,
+			spawnAgent: async () => ({
+				agent: undefined as any,
+				error: "disabled in tests",
+			}),
+			sendToAgent: async () => {},
+			removeWorktree: async () => {},
+			discoverDefinitions: () => [],
+			getDefinition: () => undefined,
+			discoverExtensions: () => [],
+			sseHeartbeatMs: 10,
+		});
+		const controller = new AbortController();
+		try {
+			const res = await fetch(`${handle.url}/events`, {
+				signal: controller.signal,
+			});
+			expect(res.status).toBe(200);
+			const reader = res.body!.getReader();
+			let text = "";
+			const timeoutAt = Date.now() + 1000;
+			while (!text.includes(": heartbeat\n\n") && Date.now() < timeoutAt) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				text += new TextDecoder().decode(value);
+			}
+			expect(text).toContain('data: {"type":"init"');
+			expect(text).toContain(": heartbeat\n\n");
+			await reader.cancel().catch(() => {});
+		} finally {
+			controller.abort();
+			handle.stop();
+			agents.clear();
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("agent timeline API", () => {

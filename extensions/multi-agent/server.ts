@@ -28,6 +28,7 @@ export interface ServerDeps {
 		id: string,
 		options: any,
 	) => Promise<{ agent: Agent; error?: string }>;
+	sseHeartbeatMs?: number;
 	sendToAgent: (
 		agent: Agent,
 		message: string,
@@ -67,6 +68,7 @@ interface AgentTypeTestSession {
 
 const sseClients = new Set<http.ServerResponse>();
 const archivedAgentTimelines = new Map<string, any>();
+const DEFAULT_SSE_HEARTBEAT_MS = 10_000;
 
 function archiveAgentTimeline(agent: Agent, repoCwd?: string) {
 	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
@@ -281,9 +283,10 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			res.writeHead(200, {
 				...corsHeaders(),
 				"Content-Type": "text/event-stream",
-				"Cache-Control": "no-cache",
+				"Cache-Control": "no-cache, no-transform",
 				Connection: "keep-alive",
 			});
+			res.flushHeaders?.();
 			sseClients.add(res);
 			const initEvent = {
 				type: "init",
@@ -297,7 +300,16 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				},
 			};
 			res.write(`data: ${JSON.stringify(initEvent)}\n\n`);
+			const heartbeat = setInterval(() => {
+				try {
+					res.write(": heartbeat\n\n");
+				} catch {
+					clearInterval(heartbeat);
+					sseClients.delete(res);
+				}
+			}, deps.sseHeartbeatMs ?? DEFAULT_SSE_HEARTBEAT_MS);
 			req.on("close", () => {
+				clearInterval(heartbeat);
 				sseClients.delete(res);
 			});
 			return;
