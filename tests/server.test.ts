@@ -71,6 +71,101 @@ describe("SSE formatting", () => {
 	});
 });
 
+describe("agent timeline API", () => {
+	it("returns a rich timeline payload for active agents", async () => {
+		const { startServer } = await import("../extensions/multi-agent/server.js");
+		const { agents } = await import("../extensions/multi-agent/state.js");
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "pi-agent-timeline-api-"),
+		);
+		const worktree = path.join(tmpDir, "worktree");
+		fs.mkdirSync(path.join(worktree, ".pi"), { recursive: true });
+		fs.writeFileSync(
+			path.join(worktree, ".pi", "stderr.log"),
+			"warn\n",
+			"utf-8",
+		);
+		agents.set("lead", {
+			id: "lead",
+			proc: { killed: false } as any,
+			stdin: {} as any,
+			status: "idle",
+			accumulatedText: "answer",
+			history: [],
+			events: [
+				{
+					ts: 1_700_000_000_000,
+					type: "message_update",
+					event: {
+						type: "message_update",
+						assistantMessageEvent: { type: "text_delta", delta: "hello " },
+					},
+				},
+				{
+					ts: 1_700_000_000_001,
+					type: "message_update",
+					event: {
+						type: "message_update",
+						assistantMessageEvent: { type: "text_delta", delta: "world" },
+					},
+				},
+			],
+			buffer: "",
+			definition: {
+				name: "lead",
+				description: "Lead agent",
+				tools: ["read"],
+				skills: ["tdd"],
+				systemPrompt: "prompt",
+				source: "project",
+				filePath: "/agents/lead.md",
+			},
+			model: "test-model",
+			worktreePath: worktree,
+			children: [],
+		});
+		const handle = await startServer({
+			repoCwd: tmpDir,
+			spawnAgent: async () => ({
+				agent: undefined as any,
+				error: "disabled in tests",
+			}),
+			sendToAgent: async () => {},
+			removeWorktree: async () => {},
+			discoverDefinitions: () => [],
+			getDefinition: () => undefined,
+			discoverExtensions: () => [],
+		});
+
+		try {
+			const res = await fetch(`${handle.url}/api/agents/lead/events`);
+			expect(res.status).toBe(200);
+			const body = await res.json();
+			expect(body.timeline.metadata).toMatchObject({
+				name: "lead",
+				model: "test-model",
+				worktree,
+			});
+			expect(body.timeline.definition).toMatchObject({
+				name: "lead",
+				tools: ["read"],
+				skills: ["tdd"],
+			});
+			expect(body.timeline.stderrTail).toBe("warn");
+			expect(body.timeline.entries).toContainEqual(
+				expect.objectContaining({
+					type: "assistant_text",
+					text: "hello world",
+				}),
+			);
+		} finally {
+			handle.stop();
+			agents.clear();
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+});
+
 describe("roadmap API", () => {
 	it("returns a read-only Roadmap overview backed by Seeds", async () => {
 		const { startServer } = await import("../extensions/multi-agent/server.js");

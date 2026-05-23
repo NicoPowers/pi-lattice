@@ -642,7 +642,12 @@ export async function spawnAgent(
 	proc.stderr!.on("data", (data: Buffer) => {
 		const text = data.toString();
 		if (text.trim()) {
-			log("rpc", `Agent '${id}' STDERR`, text.trim());
+			const trimmed = text.trim();
+			log("rpc", `Agent '${id}' STDERR`, trimmed);
+			appendAgentEvent(agent, "stderr", {
+				text: trimmed.length > 1_000 ? `${trimmed.slice(0, 999)}…` : trimmed,
+				length: trimmed.length,
+			});
 			try {
 				fs.appendFileSync(stderrLogPath, text, "utf-8");
 			} catch {

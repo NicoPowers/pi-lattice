@@ -23,13 +23,6 @@ function shortPath(p?: string): string {
 	return p.length > 42 ? "…" + p.slice(-39) : p;
 }
 
-function formatCompactNumber(n: number | undefined): string {
-	if (typeof n !== "number" || !Number.isFinite(n)) return "—";
-	if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-	if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-	return String(n);
-}
-
 function statusVariant(
 	status: AgentInfo["status"],
 ): "default" | "success" | "destructive" | "outline" {
@@ -62,7 +55,7 @@ function previewMarkdown(agent: AgentState): string {
 
 export function AgentsPanel({
 	agents,
-	stats,
+	stats: _stats,
 	agentTypes = [],
 	onInspect,
 	onAgentKilled,
@@ -103,7 +96,6 @@ export function AgentsPanel({
 								key={name}
 								name={name}
 								agent={agent}
-								stats={stats[name]}
 								onInspect={onInspect}
 								onAgentKilled={onAgentKilled}
 								pushLog={pushLog}
@@ -223,14 +215,12 @@ function SpawnAgentForm({
 function AgentCard({
 	name,
 	agent,
-	stats,
 	onInspect,
 	onAgentKilled,
 	pushLog,
 }: {
 	name: string;
 	agent: AgentState;
-	stats?: StatsEntry;
 	onInspect: (name: string) => void;
 	onAgentKilled?: (name: string) => void;
 	pushLog: (text: string, level?: LogLine["level"]) => void;
@@ -317,7 +307,6 @@ function AgentCard({
 					<span>model: {agent.model || "default"}</span>
 					<span>{agent.parent ? `parent: ${agent.parent}` : "root"}</span>
 					<span>turns: {agent.turns || 0}</span>
-					<Stats stats={stats} />
 					{agent.worktree && (
 						<>
 							<span title={agent.worktree}>
@@ -398,37 +387,6 @@ function AgentCard({
 				</div>
 			</CardContent>
 		</Card>
-	);
-}
-
-function Stats({ stats }: { stats?: StatsEntry }) {
-	if (!stats || stats.error)
-		return (
-			<>
-				<span>ctx: —</span>
-				<span>cost: —</span>
-			</>
-		);
-	const s = stats.stats || {};
-	const state = stats.state || {};
-	const context = s.contextUsage || {};
-	const used = context.tokens ?? context.current ?? s.tokens?.total;
-	const max =
-		context.contextWindow ?? context.max ?? state.model?.contextWindow;
-	const pct = used && max ? Math.round((used / max) * 100) : undefined;
-	const cost = typeof s.cost === "number" ? `$${s.cost.toFixed(4)}` : "—";
-	const tokenText =
-		used && max
-			? `${formatCompactNumber(used)} / ${formatCompactNumber(max)}`
-			: formatCompactNumber(s.tokens?.total);
-	return (
-		<>
-			<span>
-				ctx: {pct !== undefined ? `${pct}% ` : ""}
-				{tokenText}
-			</span>
-			<span>cost: {cost}</span>
-		</>
 	);
 }
 

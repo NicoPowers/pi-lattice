@@ -17,6 +17,7 @@ import {
 	AgentsPanel,
 	HierarchyPanel,
 } from "./features/live-agents/LiveAgentsPanel.js";
+import { InspectTimeline as InspectTimelinePanel } from "./features/live-agents/InspectTimeline.js";
 import { OrchestratorLibrariesPanel } from "./features/orchestrator-libraries/OrchestratorLibrariesPanel.js";
 import {
 	AgentTypesPanel,
@@ -97,6 +98,7 @@ function App() {
 	);
 	const [inspectAgentName, setInspectAgentName] = useState<string | null>(null);
 	const [inspectText, setInspectText] = useState("Loading…");
+	const [inspectData, setInspectData] = useState<any | null>(null);
 
 	const pushLog = useCallback(
 		(text: string, level: LogLine["level"] = "info") => {
@@ -437,16 +439,23 @@ function App() {
 	const inspect = async (name: string) => {
 		setInspectAgentName(name);
 		setInspectText("Loading…");
+		setInspectData(null);
 		try {
-			const res = await fetch(`/api/agents/${encodeURIComponent(name)}/events`);
+			const [res, statsRes] = await Promise.all([
+				fetch(`/api/agents/${encodeURIComponent(name)}/events`),
+				fetch("/api/agent-stats"),
+			]);
 			if (!res.ok) throw new Error(await res.text());
+			if (statsRes.ok) setAgentStats(await statsRes.json());
 			const data = await res.json();
 			setAgents((prev) => ({
 				...prev,
 				[name]: { ...prev[name], ...data },
 			}));
+			setInspectData(data);
 			setInspectText(formatInspectData(data));
 		} catch (e: any) {
+			setInspectData(null);
 			setInspectText(`Inspect failed: ${e.message}`);
 		}
 	};
@@ -638,11 +647,18 @@ function App() {
 				open={!!inspectAgentName}
 				title={`Inspect ${inspectAgentName || "Agent"}`}
 				onOpenChange={() => setInspectAgentName(null)}
-				className="max-w-5xl"
+				className="max-w-6xl"
 			>
-				<pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 text-sm leading-6">
-					{inspectText}
-				</pre>
+				{inspectData?.timeline ? (
+					<InspectTimelinePanel
+						timeline={inspectData.timeline}
+						stats={inspectAgentName ? agentStats[inspectAgentName] : undefined}
+					/>
+				) : (
+					<pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 text-sm leading-6">
+						{inspectText}
+					</pre>
+				)}
 			</Dialog>
 		</div>
 	);

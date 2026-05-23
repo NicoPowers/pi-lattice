@@ -1,8 +1,15 @@
 import * as http from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { type Agent, type AgentDefinition, agents, log } from "./state.js";
+import {
+	appendAgentEvent,
+	type Agent,
+	type AgentDefinition,
+	agents,
+	log,
+} from "./state.js";
 import { rpcCommand, steerAgent, type AgentSendUpdate } from "./send.js";
+import { buildAgentTimeline } from "./timeline.js";
 import {
 	logRuntimeToolConflicts,
 	readRuntimeToolSnapshot,
@@ -55,6 +62,22 @@ interface AgentTypeTestSession {
 // ── SSE state ──
 
 const sseClients = new Set<http.ServerResponse>();
+const archivedAgentTimelines = new Map<string, any>();
+
+function archiveAgentTimeline(agent: Agent) {
+	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
+	logRuntimeToolConflicts(agent.id, agent.runtimeTools);
+	archivedAgentTimelines.set(
+		agent.id,
+		buildAgentTimeline(agent, {
+			stderrTail: readStderrTail(agent.worktreePath),
+		}),
+	);
+	if (archivedAgentTimelines.size > 100) {
+		const oldest = archivedAgentTimelines.keys().next().value;
+		if (oldest) archivedAgentTimelines.delete(oldest);
+	}
+}
 
 export function broadcast(event: { type: string; data: any }) {
 	const payload = `data: ${JSON.stringify(event)}\n\n`;
@@ -1458,25 +1481,28 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			const name = decodeURIComponent(eventsMatch[1]);
 			const agent = agents.get(name);
 			if (!agent) {
-				send(res, errorResponse("Agent not found", 404));
+				const archived = archivedAgentTimelines.get(name);
+				if (!archived) {
+					send(res, errorResponse("Agent not found", 404));
+					return;
+				}
+				send(res, jsonResponse({ ...archived.metadata, timeline: archived }));
 				return;
 			}
 			agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
 			logRuntimeToolConflicts(agent.id, agent.runtimeTools);
+			const stderrTail = readStderrTail(agent.worktreePath);
+			const timeline = buildAgentTimeline(agent, { stderrTail });
 			send(
 				res,
 				jsonResponse({
-					name,
-					status: agent.status,
-					model: agent.model || agent.definition?.model,
-					worktree: agent.worktreePath,
-					issueId: agent.issueId,
-					artifactPath: agent.artifactPath,
-					artifactFiles: agent.artifactFiles,
+					...timeline.metadata,
+					definition: agent.definition?.name,
+					timeline,
 					runtimeTools: agent.runtimeTools,
 					pendingSend: agent.pendingSend,
-					stderrTail: readStderrTail(agent.worktreePath),
-					history: agent.history,
+					stderrTail,
+					history: timeline.history,
 					accumulatedText: agent.accumulatedText,
 					events: agent.events,
 				}),
@@ -1586,6 +1612,11 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			log("lifecycle", "EMERGENCY STOP triggered");
 			// Kill all agents
 			for (const [name, agent] of agents) {
+				appendAgentEvent(agent, "kill_requested", {
+					reason: "emergency-stop",
+					signal: "SIGTERM",
+				});
+				archiveAgentTimeline(agent);
 				if (!agent.proc.killed) {
 					try {
 						agent.proc.kill("SIGTERM");
@@ -1623,11 +1654,22 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				return;
 			}
 
+			appendAgentEvent(agent, "kill_requested", {
+				reason: "dashboard",
+				signal: "SIGTERM",
+			});
 			for (const childId of agent.children) {
 				const child = agents.get(childId);
-				if (child && !child.proc.killed) child.proc.kill("SIGTERM");
+				if (!child) continue;
+				appendAgentEvent(child, "kill_requested", {
+					reason: "parent-killed",
+					parent: name,
+					signal: "SIGTERM",
+				});
+				if (!child.proc.killed) child.proc.kill("SIGTERM");
 			}
 			if (!agent.proc.killed) agent.proc.kill("SIGTERM");
+			archiveAgentTimeline(agent);
 
 			setTimeout(() => {
 				if (!agent.proc.killed) agent.proc.kill("SIGKILL");
