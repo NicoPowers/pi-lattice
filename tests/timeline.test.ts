@@ -145,4 +145,41 @@ describe("agent timeline", () => {
 			toolName: "read",
 		});
 	});
+
+	it("flags pending turns that exceed the no-events threshold", () => {
+		const now = 1_700_000_060_000;
+		const timeline = buildAgentTimeline(
+			makeAgent({
+				status: "waiting",
+				pendingSend: {
+					message: "please continue",
+					startedAt: now - 60_000,
+					timeoutMs: 300_000,
+					status: "waiting",
+				},
+				events: [
+					{
+						ts: now - 60_000,
+						type: "user_message",
+						event: { type: "user_message", message: "please continue" },
+					},
+				],
+			}),
+			{ now, stuckThresholdMs: 30_000, stderrTail: "provider warning" },
+		);
+
+		expect(timeline.metadata.turnDiagnostics).toMatchObject({
+			stuck: true,
+			thresholdMs: 30_000,
+			elapsedMs: 60_000,
+			pendingStatus: "waiting",
+		});
+		expect(timeline.metadata.turnDiagnostics?.reasons).toContain(
+			"No agent_start or assistant delta after threshold",
+		);
+		expect(timeline.metadata.turnDiagnostics?.likelyCauses).toContain(
+			"stderr present",
+		);
+		expect(timeline.metadata.turnDiagnostics?.actions).toContain("kill agent");
+	});
 });

@@ -45,6 +45,16 @@ export interface PendingAgentSend {
 	status: Extract<AgentStatus, "queued" | "writing" | "waiting" | "streaming">;
 }
 
+export interface TurnDiagnostics {
+	stuck: boolean;
+	elapsedMs?: number;
+	thresholdMs: number;
+	pendingStatus?: PendingAgentSend["status"];
+	reasons: string[];
+	likelyCauses: string[];
+	actions: string[];
+}
+
 export interface AgentInfo {
 	name: string;
 	status: AgentStatus;
@@ -59,6 +69,7 @@ export interface AgentInfo {
 	artifactFiles?: IssueArtifactFiles;
 	runtimeTools?: RuntimeToolSnapshot;
 	pendingSend?: PendingAgentSend;
+	turnDiagnostics?: TurnDiagnostics;
 	text?: string;
 }
 
@@ -329,6 +340,7 @@ export type ServerEvent =
 				name: string;
 				status: AgentStatus;
 				pendingSend?: PendingAgentSend;
+				turnDiagnostics?: TurnDiagnostics;
 			};
 	  }
 	| { type: "agent-start"; data: { name: string } }

@@ -20,6 +20,16 @@ export interface AgentTimelineEntry {
 	details?: Record<string, unknown>;
 }
 
+export interface TurnDiagnostics {
+	stuck: boolean;
+	elapsedMs?: number;
+	thresholdMs: number;
+	pendingStatus?: NonNullable<Agent["pendingSend"]>["status"];
+	reasons: string[];
+	likelyCauses: string[];
+	actions: string[];
+}
+
 export interface AgentTimeline {
 	metadata: {
 		name: string;
@@ -32,6 +42,7 @@ export interface AgentTimeline {
 		artifactPath?: string;
 		artifactFiles?: Agent["artifactFiles"];
 		pendingSend?: Agent["pendingSend"];
+		turnDiagnostics?: TurnDiagnostics;
 		turns: number;
 		launch?: Agent["launch"];
 		observabilityPath?: string;
@@ -50,8 +61,14 @@ export interface AgentTimeline {
 
 export function buildAgentTimeline(
 	agent: Agent,
-	options: { stderrTail?: string; now?: number } = {},
+	options: {
+		stderrTail?: string;
+		now?: number;
+		stuckThresholdMs?: number;
+	} = {},
 ): AgentTimeline {
+	const entries = buildEntries(agent.events.slice(-MAX_TIMELINE_EVENTS));
+	const stderrTail = cleanTail(options.stderrTail);
 	return {
 		metadata: {
 			name: agent.id,
@@ -64,6 +81,11 @@ export function buildAgentTimeline(
 			artifactPath: agent.artifactPath,
 			artifactFiles: agent.artifactFiles,
 			pendingSend: agent.pendingSend,
+			turnDiagnostics: buildTurnDiagnostics(agent, entries, {
+				now: options.now,
+				stuckThresholdMs: options.stuckThresholdMs,
+				stderrTail,
+			}),
 			turns: Math.floor(agent.history.length / 2),
 			launch: agent.launch,
 			observabilityPath: agent.observability?.agentPath,
@@ -72,9 +94,9 @@ export function buildAgentTimeline(
 			? summarizeDefinition(agent.definition)
 			: undefined,
 		runtimeTools: agent.runtimeTools,
-		stderrTail: cleanTail(options.stderrTail),
+		stderrTail,
 		history: truncateHistory(agent.history),
-		entries: buildEntries(agent.events.slice(-MAX_TIMELINE_EVENTS)),
+		entries,
 		limits: {
 			maxEvents: MAX_TIMELINE_EVENTS,
 			textLimit: DEFAULT_TEXT_LIMIT,
@@ -151,6 +173,91 @@ function buildEntries(events: Agent["events"]): AgentTimelineEntry[] {
 	}
 	flushAssistantText();
 	return entries;
+}
+
+function buildTurnDiagnostics(
+	agent: Agent,
+	entries: AgentTimelineEntry[],
+	options: {
+		now?: number;
+		stuckThresholdMs?: number;
+		stderrTail?: string;
+	},
+): TurnDiagnostics | undefined {
+	const pending = agent.pendingSend;
+	if (!pending) return undefined;
+
+	const now = options.now ?? Date.now();
+	const thresholdMs = options.stuckThresholdMs ?? 30_000;
+	const elapsedMs = Math.max(0, now - pending.startedAt);
+	const eventsSinceSend = agent.events.filter(
+		(item) => item.ts >= pending.startedAt,
+	);
+	const hasAgentStart = eventsSinceSend.some(
+		(item) => (item.event?.type || item.type) === "agent_start",
+	);
+	const hasAssistantDelta = eventsSinceSend.some(
+		(item) =>
+			(item.event?.type || item.type) === "message_update" &&
+			item.event?.assistantMessageEvent?.type === "text_delta",
+	);
+	const hasSendError = entries.some(
+		(entry) => entry.type === "send_error" || entry.type === "agent_error",
+	);
+	const proc = agent.proc as any;
+	const stdin = agent.stdin as any;
+	const processExited =
+		agent.status === "exited" ||
+		(proc?.exitCode !== null && proc?.exitCode !== undefined) ||
+		!!proc?.signalCode;
+	const stdinClosed = !!(
+		stdin?.destroyed ||
+		stdin?.closed ||
+		stdin?.writableDestroyed ||
+		stdin?.writableEnded ||
+		stdin?.writableFinished
+	);
+	const preflightPending =
+		pending.status === "queued" || pending.status === "writing";
+	const timeoutPending = elapsedMs < pending.timeoutMs;
+	const noUsefulEvents = !hasAgentStart && !hasAssistantDelta;
+	const stuck = elapsedMs >= thresholdMs && noUsefulEvents;
+
+	const reasons: string[] = [];
+	if (stuck) reasons.push("No agent_start or assistant delta after threshold");
+	if (preflightPending)
+		reasons.push("Prompt is still in preflight/write phase");
+	if (hasSendError) reasons.push("Send error recorded");
+	if (processExited) reasons.push("Process exited while turn was pending");
+	if (stdinClosed) reasons.push("Agent stdin is closed");
+	if (timeoutPending) reasons.push("Turn timeout has not elapsed yet");
+
+	const likelyCauses: string[] = [];
+	if (preflightPending) likelyCauses.push("preflight pending");
+	if (pending.status === "waiting" && noUsefulEvents)
+		likelyCauses.push("no RPC response or model event yet");
+	if (options.stderrTail) likelyCauses.push("stderr present");
+	if (processExited) likelyCauses.push("process exited");
+	if (stdinClosed) likelyCauses.push("stdin closed");
+	if (timeoutPending) likelyCauses.push("timeout pending");
+	if (!likelyCauses.length) likelyCauses.push("pending turn in progress");
+
+	return {
+		stuck,
+		elapsedMs,
+		thresholdMs,
+		pendingStatus: pending.status,
+		reasons,
+		likelyCauses: Array.from(new Set(likelyCauses)),
+		actions: [
+			"copy diagnostics",
+			"inspect stderr",
+			"open worktree/log path",
+			"retry or send new prompt if safe",
+			"steer agent",
+			"kill agent",
+		],
+	};
 }
 
 function normalizeEntry(

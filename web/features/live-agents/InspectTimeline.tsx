@@ -1,4 +1,5 @@
 import type { StatsEntry } from "../../shared/dashboard-types.js";
+import { Button } from "../../components/ui/button.js";
 
 function formatCompactNumber(n: number | undefined): string {
 	if (typeof n !== "number" || !Number.isFinite(n)) return "—";
@@ -15,6 +16,14 @@ function formatCurrency(value: unknown): string {
 	return typeof value === "number" && Number.isFinite(value)
 		? `$${value.toFixed(4)}`
 		: "—";
+}
+
+function formatDuration(ms: unknown): string {
+	if (typeof ms !== "number" || !Number.isFinite(ms)) return "—";
+	if (ms < 1000) return `${ms}ms`;
+	const seconds = Math.round(ms / 1000);
+	if (seconds < 60) return `${seconds}s`;
+	return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 function readContextAndCost(stats?: StatsEntry) {
@@ -60,7 +69,42 @@ export function InspectTimeline({
 	const metadata = timeline.metadata || {};
 	const definition = timeline.definition;
 	const entries = Array.isArray(timeline.entries) ? timeline.entries : [];
+	const diagnostics = metadata.turnDiagnostics;
 	const usage = readContextAndCost(stats);
+	const agentName = String(metadata.name || "");
+	const copyText = async (text: string) => {
+		await navigator.clipboard?.writeText(text);
+	};
+	const copyDiagnostics = () =>
+		copyText(
+			JSON.stringify(
+				{
+					metadata,
+					diagnostics,
+					stderrTail: timeline.stderrTail,
+					entries,
+				},
+				null,
+				2,
+			),
+		).catch(() => {});
+	const sendPrompt = (kind: "send" | "steer") => {
+		const message = globalThis.prompt?.(
+			kind === "send" ? "Message agent" : "Steer agent",
+		);
+		if (!message || !agentName) return;
+		fetch(`/api/agents/${encodeURIComponent(agentName)}/${kind}`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ message }),
+		}).catch(() => {});
+	};
+	const killAgent = () => {
+		if (!agentName) return;
+		fetch(`/api/agents/${encodeURIComponent(agentName)}/kill`, {
+			method: "POST",
+		}).catch(() => {});
+	};
 	return (
 		<div className="max-h-[72vh] space-y-4 overflow-auto pr-1 text-sm">
 			<section className="grid gap-3 md:grid-cols-2">
@@ -120,6 +164,56 @@ export function InspectTimeline({
 					}
 				/>
 			</InspectSection>
+			{diagnostics && (
+				<InspectSection title="Turn diagnostics">
+					<div
+						className={`mb-3 rounded-md border p-3 ${diagnostics.stuck ? "border-amber-400/60 bg-amber-400/10 text-amber-100" : "border-border bg-background text-muted-foreground"}`}
+					>
+						<div className="font-semibold">
+							{diagnostics.stuck
+								? "Stuck turn detected"
+								: "Pending turn monitored"}
+						</div>
+						<div className="mt-1 text-xs">
+							pending: {diagnostics.pendingStatus || "unknown"} · elapsed:{" "}
+							{formatDuration(diagnostics.elapsedMs)} · threshold:{" "}
+							{formatDuration(diagnostics.thresholdMs)}
+						</div>
+					</div>
+					<InspectField
+						label="reasons"
+						value={formatList(diagnostics.reasons)}
+					/>
+					<InspectField
+						label="likely causes"
+						value={formatList(diagnostics.likelyCauses)}
+					/>
+					<InspectField
+						label="actions"
+						value={formatList(diagnostics.actions)}
+					/>
+					<div className="mt-3 flex flex-wrap gap-2">
+						<Button variant="secondary" onClick={copyDiagnostics}>
+							Copy Diagnostics
+						</Button>
+						<Button
+							variant="secondary"
+							onClick={() => copyText(String(metadata.worktree || ""))}
+						>
+							Copy Worktree Path
+						</Button>
+						<Button variant="secondary" onClick={() => sendPrompt("send")}>
+							Retry / Send
+						</Button>
+						<Button variant="secondary" onClick={() => sendPrompt("steer")}>
+							Steer
+						</Button>
+						<Button variant="destructive" onClick={killAgent}>
+							Kill
+						</Button>
+					</div>
+				</InspectSection>
+			)}
 			{definition && (
 				<InspectSection title="Definition / spawn config">
 					<div className="grid gap-2 md:grid-cols-2">

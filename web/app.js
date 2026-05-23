@@ -30117,6 +30117,7 @@ function AgentCard({
   const [killPending, setKillPending] = import_react2.useState(false);
   const setupPending = isAgentSettingUp(agent);
   const removing = killPending || !!agent.removalPending;
+  const stuck = !!agent.turnDiagnostics?.stuck;
   const interactionsDisabled = setupPending || removing;
   const preview = previewMarkdown(localPendingMessage && !agent.text ? {
     ...agent,
@@ -30186,7 +30187,7 @@ function AgentCard({
     }
   };
   return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Card, {
-    className: `transition-all duration-1000 ease-out ${removing ? "pointer-events-none translate-y-2 scale-[0.98] border-muted opacity-0" : setupPending ? "border-primary/40 bg-card/70 opacity-100" : agent.status === "streaming" ? "border-primary/50 opacity-100" : "opacity-100"}`,
+    className: `transition-all duration-1000 ease-out ${removing ? "pointer-events-none translate-y-2 scale-[0.98] border-muted opacity-0" : setupPending ? "border-primary/40 bg-card/70 opacity-100" : stuck ? "border-amber-400/60 bg-amber-400/10 opacity-100" : agent.status === "streaming" ? "border-primary/50 opacity-100" : "opacity-100"}`,
     "aria-busy": setupPending || removing,
     "aria-disabled": interactionsDisabled,
     children: [
@@ -30210,6 +30211,10 @@ function AgentCard({
                     variant: "outline",
                     children: "setting up"
                   }, undefined, false, undefined, this),
+                  stuck && !removing && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
+                    variant: "warning",
+                    children: "stuck"
+                  }, undefined, false, undefined, this),
                   /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Badge, {
                     variant: statusVariant(agent.status),
                     children: agent.status
@@ -30218,9 +30223,9 @@ function AgentCard({
               }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this),
-          (setupPending || removing) && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+          (setupPending || removing || stuck) && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
             className: "pt-2 text-xs text-muted-foreground",
-            children: removing ? "Shutting down agent. Card will close shortly." : "Extracting runtime tools. Messaging disabled until setup completes."
+            children: removing ? "Shutting down agent. Card will close shortly." : setupPending ? "Extracting runtime tools. Messaging disabled until setup completes." : agent.turnDiagnostics?.reasons.join("; ") || "Pending turn appears stuck."
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
@@ -30449,6 +30454,16 @@ function formatList(value) {
 function formatCurrency(value) {
   return typeof value === "number" && Number.isFinite(value) ? `$${value.toFixed(4)}` : "—";
 }
+function formatDuration(ms) {
+  if (typeof ms !== "number" || !Number.isFinite(ms))
+    return "—";
+  if (ms < 1000)
+    return `${ms}ms`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60)
+    return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
 function readContextAndCost(stats) {
   if (!stats || stats.error) {
     return {
@@ -30487,7 +30502,35 @@ function InspectTimeline({
   const metadata = timeline.metadata || {};
   const definition3 = timeline.definition;
   const entries = Array.isArray(timeline.entries) ? timeline.entries : [];
+  const diagnostics = metadata.turnDiagnostics;
   const usage = readContextAndCost(stats);
+  const agentName = String(metadata.name || "");
+  const copyText = async (text7) => {
+    await navigator.clipboard?.writeText(text7);
+  };
+  const copyDiagnostics = () => copyText(JSON.stringify({
+    metadata,
+    diagnostics,
+    stderrTail: timeline.stderrTail,
+    entries
+  }, null, 2)).catch(() => {});
+  const sendPrompt = (kind) => {
+    const message = globalThis.prompt?.(kind === "send" ? "Message agent" : "Steer agent");
+    if (!message || !agentName)
+      return;
+    fetch(`/api/agents/${encodeURIComponent(agentName)}/${kind}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message })
+    }).catch(() => {});
+  };
+  const killAgent = () => {
+    if (!agentName)
+      return;
+    fetch(`/api/agents/${encodeURIComponent(agentName)}/kill`, {
+      method: "POST"
+    }).catch(() => {});
+  };
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
     className: "max-h-[72vh] space-y-4 overflow-auto pr-1 text-sm",
     children: [
@@ -30573,6 +30616,75 @@ function InspectTimeline({
             label: "pending",
             value: metadata.pendingSend ? `${metadata.pendingSend.status}: ${metadata.pendingSend.message}` : "—"
           }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      diagnostics && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(InspectSection, {
+        title: "Turn diagnostics",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            className: `mb-3 rounded-md border p-3 ${diagnostics.stuck ? "border-amber-400/60 bg-amber-400/10 text-amber-100" : "border-border bg-background text-muted-foreground"}`,
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "font-semibold",
+                children: diagnostics.stuck ? "Stuck turn detected" : "Pending turn monitored"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+                className: "mt-1 text-xs",
+                children: [
+                  "pending: ",
+                  diagnostics.pendingStatus || "unknown",
+                  " · elapsed: ",
+                  " ",
+                  formatDuration(diagnostics.elapsedMs),
+                  " · threshold: ",
+                  " ",
+                  formatDuration(diagnostics.thresholdMs)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(InspectField, {
+            label: "reasons",
+            value: formatList(diagnostics.reasons)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(InspectField, {
+            label: "likely causes",
+            value: formatList(diagnostics.likelyCauses)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(InspectField, {
+            label: "actions",
+            value: formatList(diagnostics.actions)
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("div", {
+            className: "mt-3 flex flex-wrap gap-2",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: copyDiagnostics,
+                children: "Copy Diagnostics"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: () => copyText(String(metadata.worktree || "")),
+                children: "Copy Worktree Path"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: () => sendPrompt("send"),
+                children: "Retry / Send"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "secondary",
+                onClick: () => sendPrompt("steer"),
+                children: "Steer"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(Button, {
+                variant: "destructive",
+                onClick: killAgent,
+                children: "Kill"
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
         ]
       }, undefined, true, undefined, this),
       definition3 && /* @__PURE__ */ jsx_dev_runtime7.jsxDEV(InspectSection, {
@@ -36318,7 +36430,8 @@ function App() {
               worktree: ""
             },
             status: ev.data.status,
-            pendingSend: ev.data.pendingSend
+            pendingSend: ev.data.pendingSend,
+            turnDiagnostics: ev.data.turnDiagnostics
           })
         }));
         break;

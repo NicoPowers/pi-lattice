@@ -295,6 +295,7 @@ function AgentCard({
 	const [killPending, setKillPending] = useState(false);
 	const setupPending = isAgentSettingUp(agent);
 	const removing = killPending || !!agent.removalPending;
+	const stuck = !!agent.turnDiagnostics?.stuck;
 	const interactionsDisabled = setupPending || removing;
 	const preview = previewMarkdown(
 		localPendingMessage && !agent.text
@@ -370,9 +371,11 @@ function AgentCard({
 					? "pointer-events-none translate-y-2 scale-[0.98] border-muted opacity-0"
 					: setupPending
 						? "border-primary/40 bg-card/70 opacity-100"
-						: agent.status === "streaming"
-							? "border-primary/50 opacity-100"
-							: "opacity-100"
+						: stuck
+							? "border-amber-400/60 bg-amber-400/10 opacity-100"
+							: agent.status === "streaming"
+								? "border-primary/50 opacity-100"
+								: "opacity-100"
 			}`}
 			aria-busy={setupPending || removing}
 			aria-disabled={interactionsDisabled}
@@ -385,14 +388,18 @@ function AgentCard({
 						{setupPending && !removing && (
 							<Badge variant="outline">setting up</Badge>
 						)}
+						{stuck && !removing && <Badge variant="warning">stuck</Badge>}
 						<Badge variant={statusVariant(agent.status)}>{agent.status}</Badge>
 					</div>
 				</div>
-				{(setupPending || removing) && (
+				{(setupPending || removing || stuck) && (
 					<div className="pt-2 text-xs text-muted-foreground">
 						{removing
 							? "Shutting down agent. Card will close shortly."
-							: "Extracting runtime tools. Messaging disabled until setup completes."}
+							: setupPending
+								? "Extracting runtime tools. Messaging disabled until setup completes."
+								: agent.turnDiagnostics?.reasons.join("; ") ||
+									"Pending turn appears stuck."}
 					</div>
 				)}
 			</CardHeader>

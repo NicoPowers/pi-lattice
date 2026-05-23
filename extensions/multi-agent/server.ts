@@ -107,6 +107,9 @@ export function broadcast(event: { type: string; data: any }) {
 function serializeAgent(agent: Agent) {
 	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
 	logRuntimeToolConflicts(agent.id, agent.runtimeTools);
+	const timeline = buildAgentTimeline(agent, {
+		stderrTail: readStderrTail(agent.worktreePath),
+	});
 	return {
 		name: agent.id,
 		status: agent.status,
@@ -121,6 +124,7 @@ function serializeAgent(agent: Agent) {
 		artifactFiles: agent.artifactFiles,
 		runtimeTools: agent.runtimeTools,
 		pendingSend: agent.pendingSend,
+		turnDiagnostics: timeline.metadata.turnDiagnostics,
 	};
 }
 
@@ -1613,6 +1617,9 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 										name,
 										status: update.status,
 										pendingSend: agent.pendingSend,
+										turnDiagnostics: buildAgentTimeline(agent, {
+											stderrTail: readStderrTail(agent.worktreePath),
+										}).metadata.turnDiagnostics,
 									},
 								});
 							} else {

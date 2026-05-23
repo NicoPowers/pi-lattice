@@ -34,6 +34,54 @@ async function render(element: React.ReactElement) {
 }
 
 describe("InspectTimeline", () => {
+	it("renders stuck-turn diagnostics and operator actions", async () => {
+		const { window, cleanup } = await render(
+			<InspectTimeline
+				timeline={{
+					metadata: {
+						name: "lead",
+						status: "waiting",
+						worktree: "/tmp/pi-worktree-lead",
+						children: [],
+						turns: 0,
+						pendingSend: {
+							message: "please continue",
+							startedAt: Date.now() - 60_000,
+							timeoutMs: 300_000,
+							status: "waiting",
+						},
+						turnDiagnostics: {
+							stuck: true,
+							elapsedMs: 60_000,
+							thresholdMs: 30_000,
+							pendingStatus: "waiting",
+							reasons: ["No agent_start or assistant delta after threshold"],
+							likelyCauses: ["stderr present", "timeout pending"],
+							actions: ["copy diagnostics", "steer agent", "kill agent"],
+						},
+					},
+					stderrTail: "provider warning",
+					entries: [],
+				}}
+			/>,
+		);
+		try {
+			const text = window.document.body.textContent || "";
+			expect(text).toContain("Turn diagnostics");
+			expect(text).toContain("Stuck turn detected");
+			expect(text).toContain(
+				"No agent_start or assistant delta after threshold",
+			);
+			expect(text).toContain("stderr present");
+			expect(text).toContain("Copy Diagnostics");
+			expect(text).toContain("Steer");
+			expect(text).toContain("Kill");
+			expect(text).toContain("Copy Worktree Path");
+		} finally {
+			await cleanup();
+		}
+	});
+
 	it("renders detailed context and cost telemetry for the inspected agent", async () => {
 		const { window, cleanup } = await render(
 			<InspectTimeline

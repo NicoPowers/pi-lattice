@@ -24,6 +24,7 @@ import {
 	resolveRootProfileCapabilities,
 	type RootOrchestratorProfile,
 } from "./root-profiles.js";
+import { buildAgentTimeline } from "./timeline.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
@@ -49,6 +50,7 @@ function modelPattern(model: any): string | undefined {
 function serializeAgentForDashboard(agent: import("./state.js").Agent) {
 	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
 	logRuntimeToolConflicts(agent.id, agent.runtimeTools);
+	const timeline = buildAgentTimeline(agent);
 	return {
 		name: agent.id,
 		status: agent.status,
@@ -63,6 +65,7 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
 		artifactFiles: agent.artifactFiles,
 		runtimeTools: agent.runtimeTools,
 		pendingSend: agent.pendingSend,
+		turnDiagnostics: timeline.metadata.turnDiagnostics,
 	};
 }
 

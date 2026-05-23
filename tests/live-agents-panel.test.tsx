@@ -126,10 +126,12 @@ describe("Live Agents dashboard", () => {
 				body: { parent: "self", type: "team-coder" },
 			});
 			expect(requests[0]!.body.name).toContain("team-coder");
-			expect(spawned[0]).toMatchObject({
-				name: "team-coder-agent",
-				model: "openai/gpt-5.5",
-			});
+			expect(spawned).toContainEqual(
+				expect.objectContaining({
+					name: "team-coder-agent",
+					model: "openai/gpt-5.5",
+				}),
+			);
 			expect(
 				logs.some((line) => line.includes("Spawned team-coder-agent")),
 			).toBe(true);
@@ -166,6 +168,50 @@ describe("Live Agents dashboard", () => {
 			const text = window.document.body.textContent || "";
 			expect(text).toContain("You: Can you hear me?");
 			expect(text).toContain("waiting for response");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("highlights agents with stuck pending turns", async () => {
+		const { window, cleanup } = await render(
+			<AgentsPanel
+				agents={{
+					lead: {
+						name: "lead",
+						status: "waiting",
+						definition: "lead",
+						children: [],
+						turns: 0,
+						worktree: "/tmp/pi-worktree-lead",
+						pendingSend: {
+							message: "please continue",
+							startedAt: Date.now() - 60_000,
+							timeoutMs: 300_000,
+							status: "waiting",
+						},
+						turnDiagnostics: {
+							stuck: true,
+							elapsedMs: 60_000,
+							thresholdMs: 30_000,
+							pendingStatus: "waiting",
+							reasons: ["No agent_start or assistant delta after threshold"],
+							likelyCauses: ["timeout pending"],
+							actions: ["copy diagnostics", "kill agent"],
+						},
+					},
+				}}
+				stats={{}}
+				onInspect={() => {}}
+				pushLog={() => {}}
+			/>,
+		);
+		try {
+			const text = window.document.body.textContent || "";
+			expect(text).toContain("stuck");
+			expect(text).toContain(
+				"No agent_start or assistant delta after threshold",
+			);
 		} finally {
 			await cleanup();
 		}

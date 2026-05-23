@@ -316,6 +316,7 @@ function App() {
 							}),
 							status: ev.data.status,
 							pendingSend: ev.data.pendingSend,
+							turnDiagnostics: ev.data.turnDiagnostics,
 						}),
 					}));
 					break;
