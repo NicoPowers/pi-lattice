@@ -36103,7 +36103,11 @@ function formatInspectData(data) {
     if (ev.type === "message_update")
       continue;
     flush();
-    if (ev.type === "tool_execution_start")
+    if (ev.type === "user_message")
+      lines.push(`${time} user_message ${JSON.stringify(ev.message || "")}`);
+    else if (ev.type === "steer_message")
+      lines.push(`${time} steer_message ${JSON.stringify(ev.message || "")}`);
+    else if (ev.type === "tool_execution_start")
       lines.push(`${time} tool_start ${ev.toolName || ""} ${JSON.stringify(ev.args || {}).slice(0, 220)}`);
     else if (ev.type === "tool_execution_end")
       lines.push(`${time} tool_end ${ev.toolName || ""}`);

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test";
-import { rpcCommand, sendToAgent } from "../extensions/multi-agent/send.js";
+import {
+	rpcCommand,
+	sendToAgent,
+	steerAgent,
+} from "../extensions/multi-agent/send.js";
 import type { Agent } from "../extensions/multi-agent/state.js";
 
 function makeAgent(
@@ -58,6 +62,14 @@ async function waitForNextTurn(agent: Agent) {
 	throw new Error("agent turn was not started");
 }
 
+async function waitForWrites(writes: string[], count: number) {
+	for (let i = 0; i < 20; i++) {
+		if (writes.length >= count) return;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+	throw new Error(`expected ${count} write(s), saw ${writes.length}`);
+}
+
 describe("sendToAgent", () => {
 	it("writes prompt RPC, records user history, and clears previous text", async () => {
 		const { agent, writes } = makeAgent();
@@ -75,6 +87,27 @@ describe("sendToAgent", () => {
 		expect(agent.accumulatedText).toBe("");
 		expect(agent._currentSend).toBeUndefined();
 		expect(agent._nextTurn).toBeUndefined();
+	});
+
+	it("records a visible user-message event before prompt completion", async () => {
+		const { agent, writes } = makeAgent({}, () => {
+			/* Leave prompt preflight pending so the message remains in flight. */
+		});
+
+		const send = sendToAgent(agent, "pending handoff", 10).catch(() => {});
+		await waitForWrites(writes, 1);
+
+		expect(agent.events).toContainEqual(
+			expect.objectContaining({
+				type: "user_message",
+				event: expect.objectContaining({
+					type: "user_message",
+					message: "pending handoff",
+				}),
+			}),
+		);
+
+		await send;
 	});
 
 	it("serializes concurrent sends so prompts do not overlap", async () => {
@@ -196,5 +229,32 @@ describe("sendToAgent", () => {
 
 		expect(agent.history).toContainEqual({ role: "user", text: "hello" });
 		expect(agent.accumulatedText).toBe("OK");
+	});
+});
+
+describe("steerAgent", () => {
+	it("records a visible steer event before writing the steering command", async () => {
+		let eventCountWhenWritten = -1;
+		const { agent, writes } = makeAgent({}, (a) => {
+			eventCountWhenWritten = a.events.length;
+		});
+
+		await steerAgent(agent, "look at the handoff artifact");
+
+		expect(writes).toHaveLength(1);
+		expect(JSON.parse(writes[0]!.trim())).toMatchObject({
+			type: "steer",
+			message: "look at the handoff artifact",
+		});
+		expect(eventCountWhenWritten).toBe(1);
+		expect(agent.events).toContainEqual(
+			expect.objectContaining({
+				type: "steer_message",
+				event: expect.objectContaining({
+					type: "steer_message",
+					message: "look at the handoff artifact",
+				}),
+			}),
+		);
 	});
 });

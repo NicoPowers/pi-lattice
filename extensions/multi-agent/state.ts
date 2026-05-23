@@ -96,5 +96,18 @@ export interface PendingTask {
 	startTime: number;
 }
 
+export function appendAgentEvent(
+	agent: Agent,
+	type: string,
+	event: Record<string, any>,
+) {
+	agent.events.push({
+		ts: Date.now(),
+		type,
+		event: { type, ...event },
+	});
+	if (agent.events.length > 500) agent.events.shift();
+}
+
 export const agents = new Map<string, Agent>();
 export const pendingTasks = new Map<string, PendingTask>();

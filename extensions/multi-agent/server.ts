@@ -2,7 +2,7 @@ import * as http from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { type Agent, type AgentDefinition, agents, log } from "./state.js";
-import { rpcCommand } from "./send.js";
+import { rpcCommand, steerAgent } from "./send.js";
 import {
 	logRuntimeToolConflicts,
 	readRuntimeToolSnapshot,
@@ -1481,11 +1481,18 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				send(res, errorResponse("message is required", 400));
 				return;
 			}
-			agent.stdin.write(
-				JSON.stringify({ type: "steer", message: body.message }) + "\n",
-			);
-			log("steer", `Steered agent '${name}'`, { message: body.message });
-			send(res, jsonResponse({ success: true }));
+			try {
+				await steerAgent(agent, body.message);
+				send(res, jsonResponse({ success: true }));
+			} catch (err: any) {
+				send(
+					res,
+					jsonResponse(
+						{ success: false, error: err?.message || String(err) },
+						500,
+					),
+				);
+			}
 			return;
 		}
 

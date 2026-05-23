@@ -1,4 +1,4 @@
-import { type Agent, log } from "./state.js";
+import { appendAgentEvent, type Agent, log } from "./state.js";
 
 function isBrokenInputError(err: any): boolean {
 	return (
@@ -143,6 +143,7 @@ export async function sendToAgent(
 		}
 
 		agent.accumulatedText = "";
+		appendAgentEvent(agent, "user_message", { message });
 
 		let rejectTurn: ((e: Error) => void) | undefined;
 		let abortHandler: (() => void) | undefined;
@@ -190,4 +191,10 @@ export async function sendToAgent(
 	} finally {
 		agent._currentSend = undefined;
 	}
+}
+
+export async function steerAgent(agent: Agent, message: string): Promise<void> {
+	appendAgentEvent(agent, "steer_message", { message });
+	await writeAgentCommand(agent, { type: "steer", message });
+	log("steer", `Steered agent '${agent.id}'`, { message });
 }

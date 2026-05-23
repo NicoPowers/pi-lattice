@@ -10,7 +10,7 @@ import {
 } from "./definitions.js";
 import { discoverExtensions } from "./ext-discovery.js";
 import { spawnAgent } from "./spawn.js";
-import { sendToAgent } from "./send.js";
+import { sendToAgent, steerAgent } from "./send.js";
 import { removeWorktree, cleanupOrphanedWorktrees } from "./worktree.js";
 import { startServer, broadcast } from "./server.js";
 import { resolveCapabilities } from "./capability-resolution.js";
@@ -922,12 +922,7 @@ export default function (pi: ExtensionAPI) {
 					details: {},
 				};
 			}
-			agent.stdin.write(
-				JSON.stringify({ type: "steer", message: params.message }) + "\n",
-			);
-			log("steer", `Steered agent '${params.name}'`, {
-				message: params.message,
-			});
+			await steerAgent(agent, params.message);
 			return {
 				content: [{ type: "text", text: `Steered '${params.name}'.` }],
 				details: { name: params.name },
