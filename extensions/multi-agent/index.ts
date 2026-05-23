@@ -25,6 +25,10 @@ import {
 	type RootOrchestratorProfile,
 } from "./root-profiles.js";
 import { buildAgentTimeline } from "./timeline.js";
+import {
+	buildSeedsDependencyGuardPrompt,
+	guardSeedsToolCall,
+} from "./seeds-guard.js";
 
 let serverHandle: { url: string; stop: () => void } | undefined;
 let orchestrationMode = false;
@@ -192,10 +196,21 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (event, _ctx) => {
-		if (!orchestrationMode || !activeRootProfile) return;
-		return {
-			systemPrompt: `${event.systemPrompt}\n\n${rootProfileSystemPrompt(activeRootProfile)}`,
-		};
+		const promptParts = [event.systemPrompt, buildSeedsDependencyGuardPrompt()];
+		if (orchestrationMode && activeRootProfile) {
+			promptParts.push(rootProfileSystemPrompt(activeRootProfile));
+		}
+		return { systemPrompt: promptParts.filter(Boolean).join("\n\n") };
+	});
+
+	pi.on("tool_call", async (event, ctx) => {
+		const result = guardSeedsToolCall(
+			{ toolName: event.toolName, input: event.input as any },
+			ctx.cwd,
+		);
+		return result.block
+			? { block: true, reason: result.reason || "Blocked by Seeds guard" }
+			: undefined;
 	});
 
 	pi.on("session_shutdown", async () => {
