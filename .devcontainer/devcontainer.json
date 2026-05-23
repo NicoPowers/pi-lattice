@@ -8,8 +8,12 @@
   "remoteUser": "node",
   "mounts": [
     "source=pi-agent-orchestrator-home,target=/home/node/.pi,type=volume",
-    "source=pi-agent-orchestrator-bun-cache,target=/home/node/.bun/install/cache,type=volume"
+    "source=pi-agent-orchestrator-bun-cache,target=/home/node/.bun/install/cache,type=volume",
+    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
   ],
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
   "forwardPorts": [18765],
   "postCreateCommand": "bash .devcontainer/dev-setup.sh",
   "customizations": {
