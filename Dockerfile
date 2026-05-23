@@ -29,7 +29,7 @@ USER root
 RUN mkdir -p /home/${USERNAME}/.pi \
   && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.pi
 
-RUN npm install -g @earendil-works/pi-coding-agent
+RUN npm install -g @earendil-works/pi-coding-agent @os-eco/mulch-cli@0.10.1 @os-eco/seeds-cli@0.4.7
 
 USER ${USERNAME}
 WORKDIR /workspaces/pi-agent-orchestrator
