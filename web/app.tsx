@@ -286,19 +286,23 @@ function App() {
 					}));
 					break;
 				case "agent-end":
-					setAgents((prev) => ({
-						...prev,
-						[ev.data.name]: {
-							...(prev[ev.data.name] || {
-								name: ev.data.name,
-								turns: 0,
-								children: [],
-								worktree: "",
-							}),
-							status: "idle",
-							text: ev.data.text,
-						},
-					}));
+					setAgents((prev) => {
+						const current = prev[ev.data.name] || {
+							name: ev.data.name,
+							turns: 0,
+							children: [],
+							worktree: "",
+						};
+						return {
+							...prev,
+							[ev.data.name]: {
+								...current,
+								status: "idle",
+								turns: (current.turns || 0) + 1,
+								text: ev.data.text,
+							},
+						};
+					});
 					break;
 				case "agent-error":
 					setAgents((prev) => ({
@@ -464,7 +468,11 @@ function App() {
 					<AgentsPanel
 						agents={agents}
 						stats={agentStats}
+						agentTypes={types}
 						onInspect={inspect}
+						onAgentSpawned={(agent) =>
+							setAgents((prev) => ({ ...prev, [agent.name]: agent }))
+						}
 						onAgentKilled={(name) =>
 							setAgents((prev) => {
 								const next = { ...prev };
@@ -653,6 +661,7 @@ function EventLog({ logs }: { logs: LogLine[] }) {
 function formatInspectData(data: any): string {
 	const lines: string[] = [
 		`status: ${data.status}`,
+		`model: ${data.model || "default"}`,
 		`worktree: ${data.worktree}`,
 	];
 	if (data.issueId) lines.push(`issue: ${data.issueId}`);

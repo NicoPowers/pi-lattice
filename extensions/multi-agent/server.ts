@@ -80,6 +80,7 @@ function serializeAgent(agent: Agent) {
 		name: agent.id,
 		status: agent.status,
 		definition: agent.definition?.name,
+		model: agent.model || agent.definition?.model,
 		parent: agent.parent,
 		children: agent.children,
 		turns: Math.floor(agent.history.length / 2),
@@ -1404,8 +1405,12 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				? { ...definition, skills: capabilities.skills }
 				: undefined;
 
+			const requestedModel =
+				typeof model === "string" && model.trim()
+					? model.trim()
+					: deps.currentModel?.();
 			const result = await deps.spawnAgent(name, {
-				model,
+				model: requestedModel,
 				repoCwd: deps.repoCwd,
 				definition: resolvedDefinition,
 				parent: parent === "self" ? undefined : parent,
@@ -1451,6 +1456,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				jsonResponse({
 					name,
 					status: agent.status,
+					model: agent.model || agent.definition?.model,
 					worktree: agent.worktreePath,
 					issueId: agent.issueId,
 					artifactPath: agent.artifactPath,

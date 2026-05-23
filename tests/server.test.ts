@@ -1161,6 +1161,7 @@ describe("agent spawn API", () => {
 						history: [],
 						events: [],
 						buffer: "",
+						model: options.model,
 						worktreePath: worktreeDir,
 						children: [],
 						issueId: "pi-agent-orchestrator-f91c",
@@ -1174,6 +1175,7 @@ describe("agent spawn API", () => {
 			discoverDefinitions: () => [],
 			getDefinition: () => undefined,
 			discoverExtensions: () => [],
+			currentModel: () => "openai/gpt-5.5",
 		});
 
 		try {
@@ -1189,15 +1191,18 @@ describe("agent spawn API", () => {
 
 			expect(res.status).toBe(201);
 			expect(spawnedOptions.issueId).toBe("pi-agent-orchestrator-f91c");
+			expect(spawnedOptions.model).toBe("openai/gpt-5.5");
 			const spawned = await res.json();
 			expect(spawned.issueId).toBe("pi-agent-orchestrator-f91c");
 			expect(spawned.artifactPath).toBe(artifactPath);
+			expect(spawned.model).toBe("openai/gpt-5.5");
 
 			const inspectRes = await fetch(`${handle.url}/api/agents/lead/events`);
 			expect(inspectRes.status).toBe(200);
 			const inspect = await inspectRes.json();
 			expect(inspect.issueId).toBe("pi-agent-orchestrator-f91c");
 			expect(inspect.artifactPath).toBe(artifactPath);
+			expect(inspect.model).toBe("openai/gpt-5.5");
 		} finally {
 			handle.stop();
 			fs.rmSync(tmpDir, { recursive: true, force: true });

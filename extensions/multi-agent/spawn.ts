@@ -323,6 +323,7 @@ export async function spawnAgent(
 		}
 	}
 
+	const effectiveModel = definition?.model || model;
 	const piArgs = buildPiArgs({
 		model,
 		definition,
@@ -360,6 +361,7 @@ export async function spawnAgent(
 		events: [],
 		buffer: "",
 		definition,
+		model: effectiveModel,
 		worktreePath,
 		parent,
 		children: [],

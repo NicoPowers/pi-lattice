@@ -85,6 +85,7 @@ export interface Agent {
 	events: Array<{ ts: number; type: string; event: any }>;
 	buffer: string;
 	definition?: AgentDefinition;
+	model?: string;
 	worktreePath: string;
 	parent?: string;
 	children: string[];

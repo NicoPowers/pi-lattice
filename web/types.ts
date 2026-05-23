@@ -49,6 +49,7 @@ export interface AgentInfo {
 	name: string;
 	status: AgentStatus;
 	definition?: string;
+	model?: string;
 	parent?: string;
 	children: string[];
 	turns: number;

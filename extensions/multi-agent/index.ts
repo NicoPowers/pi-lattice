@@ -53,6 +53,7 @@ function serializeAgentForDashboard(agent: import("./state.js").Agent) {
 		name: agent.id,
 		status: agent.status,
 		definition: agent.definition?.name,
+		model: agent.model || agent.definition?.model,
 		parent: agent.parent,
 		children: agent.children,
 		turns: Math.floor(agent.history.length / 2),
