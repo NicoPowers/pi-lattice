@@ -33,6 +33,8 @@ export interface AgentTimeline {
 		artifactFiles?: Agent["artifactFiles"];
 		pendingSend?: Agent["pendingSend"];
 		turns: number;
+		launch?: Agent["launch"];
+		observabilityPath?: string;
 	};
 	definition?: ReturnType<typeof summarizeDefinition>;
 	runtimeTools?: Agent["runtimeTools"];
@@ -63,6 +65,8 @@ export function buildAgentTimeline(
 			artifactFiles: agent.artifactFiles,
 			pendingSend: agent.pendingSend,
 			turns: Math.floor(agent.history.length / 2),
+			launch: agent.launch,
+			observabilityPath: agent.observability?.agentPath,
 		},
 		definition: agent.definition
 			? summarizeDefinition(agent.definition)

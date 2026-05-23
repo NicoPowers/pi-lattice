@@ -4,3 +4,4 @@ node_modules/
 .pi-lens/
 .pi/pi-agent-orchestrator/external-libraries/
 .pi/pi-agent-orchestrator/issues/
+.pi/pi-agent-orchestrator/sessions/

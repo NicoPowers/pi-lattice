@@ -30590,7 +30590,10 @@ function InspectTimeline({
     ]
   }, undefined, true, undefined, this);
 }
-function InspectSection({ title, children }) {
+function InspectSection({
+  title,
+  children
+}) {
   return /* @__PURE__ */ jsx_dev_runtime7.jsxDEV("section", {
     className: "rounded-md border border-border bg-card/50 p-3",
     children: [

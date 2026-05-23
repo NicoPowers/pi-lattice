@@ -19,6 +19,10 @@ import {
 	renderIssueArtifactInstructions,
 	resolveIssueArtifactMetadata,
 } from "./artifacts.js";
+import {
+	prepareAgentDebugArtifacts,
+	persistAgentDebugSnapshot,
+} from "./debug-artifacts.js";
 
 export function handleAgentProcessClose(
 	agent: Agent,
@@ -28,6 +32,11 @@ export function handleAgentProcessClose(
 	agent.status = "exited";
 	agent.pendingSend = undefined;
 	appendAgentEvent(agent, "agent_exit", { code, signal: signal || undefined });
+	if (agent.observability) {
+		persistAgentDebugSnapshot(agent, {
+			repoCwd: path.resolve(agent.observability.rootPath, "..", "..", ".."),
+		});
+	}
 	const reason = signal ? `signal ${signal}` : `code ${code}`;
 	const err = new Error(`Agent '${agent.id}' exited with ${reason}`);
 	if (agent._nextTurn) {
@@ -435,6 +444,7 @@ export async function spawnAgent(
 		env: processEnv,
 		cwd: launch.cwd,
 	});
+	const observability = prepareAgentDebugArtifacts({ repoCwd, agentId: id });
 
 	log("spawn", `Agent '${id}' process started (pid=${proc.pid})`);
 
@@ -456,8 +466,17 @@ export async function spawnAgent(
 		artifactPath: issueArtifactMetadata.artifactPath,
 		artifactFiles: issueArtifactMetadata.artifactFiles,
 		dashboardVisible,
+		launch: {
+			command: launch.command,
+			args: launch.args,
+			cwd: launch.cwd,
+			pid: proc.pid,
+			startedAt: Date.now(),
+		},
+		observability,
 		_rpcRequests: new Map(),
 	};
+	persistAgentDebugSnapshot(agent, { repoCwd });
 
 	const flush = () => {
 		const lines = agent.buffer.split("\n");
@@ -488,6 +507,7 @@ export async function spawnAgent(
 					agent.status = "streaming";
 					if (agent.pendingSend) agent.pendingSend.status = "streaming";
 					agent.accumulatedText = "";
+					persistAgentDebugSnapshot(agent, { repoCwd });
 					if (agent.dashboardVisible !== false)
 						broadcast({ type: "agent-start", data: { name: agent.id } });
 				} else if (event.type === "message_update") {
@@ -519,6 +539,7 @@ export async function spawnAgent(
 						role: "assistant",
 						text: agent.accumulatedText,
 					});
+					persistAgentDebugSnapshot(agent, { repoCwd });
 					if (agent.dashboardVisible !== false)
 						broadcast({
 							type: "agent-end",
@@ -648,6 +669,7 @@ export async function spawnAgent(
 				text: trimmed.length > 1_000 ? `${trimmed.slice(0, 999)}…` : trimmed,
 				length: trimmed.length,
 			});
+			persistAgentDebugSnapshot(agent, { repoCwd, stderrTail: trimmed });
 			try {
 				fs.appendFileSync(stderrLogPath, text, "utf-8");
 			} catch {

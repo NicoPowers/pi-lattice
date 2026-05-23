@@ -1,4 +1,5 @@
 import { appendAgentEvent, type Agent, log } from "./state.js";
+import { persistAgentDebugSnapshot } from "./debug-artifacts.js";
 
 function isBrokenInputError(err: any): boolean {
 	return (
@@ -166,6 +167,7 @@ export async function sendToAgent(
 		};
 		onUpdate?.({ type: "status", status: agent.status });
 		appendAgentEvent(agent, "user_message", { message });
+		persistAgentDebugSnapshot(agent, { repoCwd: "." });
 
 		let phase: "preflight" | "turn" = "preflight";
 		let rejectTurn: ((e: Error) => void) | undefined;
@@ -193,6 +195,7 @@ export async function sendToAgent(
 			onUpdate?.({ type: "status", status: agent.status });
 			await rpcCommand(agent, cmd, Math.min(timeoutMs, 30_000));
 			agent.history.push({ role: "user", text: message });
+			persistAgentDebugSnapshot(agent, { repoCwd: "." });
 			phase = "turn";
 			if (agent.status === "writing") agent.status = "waiting";
 			if (agent.pendingSend) agent.pendingSend.status = "waiting";
@@ -215,6 +218,7 @@ export async function sendToAgent(
 				phase,
 				error: error.message,
 			});
+			persistAgentDebugSnapshot(agent, { repoCwd: "." });
 			onUpdate?.({ type: "error", phase, error: error.message });
 			throw err;
 		} finally {
@@ -240,6 +244,7 @@ export async function sendToAgent(
 
 export async function steerAgent(agent: Agent, message: string): Promise<void> {
 	appendAgentEvent(agent, "steer_message", { message });
+	persistAgentDebugSnapshot(agent, { repoCwd: "." });
 	await writeAgentCommand(agent, { type: "steer", message });
 	log("steer", `Steered agent '${agent.id}'`, { message });
 }

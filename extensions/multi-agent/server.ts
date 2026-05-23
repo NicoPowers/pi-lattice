@@ -14,6 +14,10 @@ import {
 	logRuntimeToolConflicts,
 	readRuntimeToolSnapshot,
 } from "./runtime-tools.js";
+import {
+	persistAgentDebugSnapshot,
+	readLatestAgentDebugTimeline,
+} from "./debug-artifacts.js";
 import type { DraftAgentPromptOptions } from "./prompt-draft.js";
 
 // ── Types ──
@@ -64,13 +68,15 @@ interface AgentTypeTestSession {
 const sseClients = new Set<http.ServerResponse>();
 const archivedAgentTimelines = new Map<string, any>();
 
-function archiveAgentTimeline(agent: Agent) {
+function archiveAgentTimeline(agent: Agent, repoCwd?: string) {
 	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
 	logRuntimeToolConflicts(agent.id, agent.runtimeTools);
+	const stderrTail = readStderrTail(agent.worktreePath);
+	if (repoCwd) persistAgentDebugSnapshot(agent, { repoCwd, stderrTail });
 	archivedAgentTimelines.set(
 		agent.id,
 		buildAgentTimeline(agent, {
-			stderrTail: readStderrTail(agent.worktreePath),
+			stderrTail,
 		}),
 	);
 	if (archivedAgentTimelines.size > 100) {
@@ -1483,7 +1489,19 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			if (!agent) {
 				const archived = archivedAgentTimelines.get(name);
 				if (!archived) {
-					send(res, errorResponse("Agent not found", 404));
+					const persisted = readLatestAgentDebugTimeline(deps.repoCwd, name);
+					if (!persisted) {
+						send(res, errorResponse("Agent not found", 404));
+						return;
+					}
+					send(
+						res,
+						jsonResponse({
+							...persisted.timeline.metadata,
+							timeline: persisted.timeline,
+							persistedDebug: persisted,
+						}),
+					);
 					return;
 				}
 				send(res, jsonResponse({ ...archived.metadata, timeline: archived }));
@@ -1616,7 +1634,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 					reason: "emergency-stop",
 					signal: "SIGTERM",
 				});
-				archiveAgentTimeline(agent);
+				archiveAgentTimeline(agent, deps.repoCwd);
 				if (!agent.proc.killed) {
 					try {
 						agent.proc.kill("SIGTERM");
@@ -1669,7 +1687,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 				if (!child.proc.killed) child.proc.kill("SIGTERM");
 			}
 			if (!agent.proc.killed) agent.proc.kill("SIGTERM");
-			archiveAgentTimeline(agent);
+			archiveAgentTimeline(agent, deps.repoCwd);
 
 			setTimeout(() => {
 				if (!agent.proc.killed) agent.proc.kill("SIGKILL");

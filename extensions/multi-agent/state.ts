@@ -81,6 +81,22 @@ export interface PendingAgentSend {
 	status: Extract<AgentStatus, "queued" | "writing" | "waiting" | "streaming">;
 }
 
+export interface AgentLaunchMetadata {
+	command: string;
+	args: string[];
+	cwd: string;
+	pid?: number;
+	startedAt: number;
+}
+
+export interface AgentObservabilityArtifacts {
+	sessionId: string;
+	agentId: string;
+	rootPath: string;
+	agentPath: string;
+	timelinePath: string;
+}
+
 export interface Agent {
 	id: string;
 	proc: ChildProcess;
@@ -101,6 +117,8 @@ export interface Agent {
 	runtimeTools?: RuntimeToolSnapshot;
 	dashboardVisible?: boolean;
 	pendingSend?: PendingAgentSend;
+	launch?: AgentLaunchMetadata;
+	observability?: AgentObservabilityArtifacts;
 	_currentSend?: Promise<void>;
 	_nextTurn?: { resolve: () => void; reject: (e: Error) => void };
 	_rpcRequests?: Map<
