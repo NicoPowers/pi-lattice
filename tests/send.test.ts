@@ -79,6 +79,20 @@ async function waitForStatus(agent: Agent, status: Agent["status"]) {
 	throw new Error(`expected status ${status}, saw ${agent.status}`);
 }
 
+async function expectRejectionMessage(
+	promise: Promise<unknown>,
+	message: string,
+) {
+	let error: unknown;
+	try {
+		await promise;
+	} catch (err) {
+		error = err;
+	}
+	expect(error).toBeInstanceOf(Error);
+	expect((error as Error).message).toContain(message);
+}
+
 describe("sendToAgent", () => {
 	it("writes prompt RPC, records user history, and clears previous text", async () => {
 		const { agent, writes } = makeAgent();
@@ -196,7 +210,8 @@ describe("sendToAgent", () => {
 	it("rejects immediately for exited agents without writing", async () => {
 		const { agent, writes } = makeAgent({ status: "exited" });
 
-		await expect(sendToAgent(agent, "hello", 1_000)).rejects.toThrow(
+		await expectRejectionMessage(
+			sendToAgent(agent, "hello", 1_000),
 			"Agent is exited",
 		);
 		expect(writes).toHaveLength(0);
@@ -215,7 +230,8 @@ describe("sendToAgent", () => {
 			} as any,
 		});
 
-		await expect(sendToAgent(agent, "hello", 1_000)).rejects.toThrow(
+		await expectRejectionMessage(
+			sendToAgent(agent, "hello", 1_000),
 			"input stream is closed (EPIPE)",
 		);
 		expect(agent.status).toBe("exited");
@@ -235,9 +251,10 @@ describe("sendToAgent", () => {
 			} as any,
 		});
 
-		await expect(
+		await expectRejectionMessage(
 			rpcCommand(agent, { type: "get-runtime-tools" }, 1_000),
-		).rejects.toThrow("input stream is closed (EPIPE)");
+			"input stream is closed (EPIPE)",
+		);
 		expect(agent.status).toBe("exited");
 		expect(agent._rpcRequests?.size).toBe(0);
 	});
@@ -256,7 +273,8 @@ describe("sendToAgent", () => {
 			});
 		});
 
-		await expect(sendToAgent(agent, "hello", 10_000)).rejects.toThrow(
+		await expectRejectionMessage(
+			sendToAgent(agent, "hello", 10_000),
 			"No API key found for moonshotai.",
 		);
 		expect(commandId).toStartWith("rpc_");
@@ -303,7 +321,10 @@ describe("sendToAgent", () => {
 			/* Keep preflight pending until RPC timeout. */
 		});
 
-		await expect(sendToAgent(agent, "timeout", 1)).rejects.toThrow("timed out");
+		await expectRejectionMessage(
+			sendToAgent(agent, "timeout", 1),
+			"timed out",
+		);
 
 		expect(agent.status).toBe("error");
 		expect(agent.events).toContainEqual(

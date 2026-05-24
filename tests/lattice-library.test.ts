@@ -75,10 +75,21 @@ describe("Lattice Library manifest", () => {
 		});
 	});
 
-	it("reports a missing manifest", () => {
+	it("reports a missing manifest without accepting legacy manifest names", () => {
 		withTempDir("pio-library-missing-", (dir) => {
+			const legacyManifest = ["orchestrator", "library.json"].join("-");
+			const legacySchema = ["pi", "orchestrator", "library/v1"].join("-");
+			fs.writeFileSync(
+				path.join(dir, legacyManifest),
+				JSON.stringify({
+					schema: legacySchema,
+					name: "legacy-library",
+					resources: {},
+				}),
+			);
 			const library = readLatticeLibrary(dir);
 			expect(library.valid).toBe(false);
+			expect(library.manifestPath).toBe(path.join(dir, "lattice-library.json"));
 			expect(
 				library.diagnostics.some((diagnostic) =>
 					diagnostic.message.includes("Missing lattice-library.json"),
@@ -201,6 +212,26 @@ describe("Lattice Library manifest", () => {
 					),
 				),
 			).toBe(true);
+		});
+	});
+
+	it("ignores legacy product compatibility values", () => {
+		withTempDir("pio-library-legacy-version-", (dir) => {
+			const legacyCompatibilityKey = ["pi", "Agent", "Orchestrator"].join("");
+			writeManifest(dir, {
+				schema: LATTICE_LIBRARY_SCHEMA,
+				name: "legacy-version",
+				compatibility: { [legacyCompatibilityKey]: ">=999.0.0" },
+				resources: {},
+			});
+			const library = readLatticeLibrary(dir);
+			expect(library.valid).toBe(true);
+			const legacyProductName = ["pi", "agent", "orchestrator"].join("-");
+			expect(
+				library.diagnostics.some((diagnostic) =>
+					diagnostic.message.includes(legacyProductName),
+				),
+			).toBe(false);
 		});
 	});
 
@@ -487,8 +518,17 @@ describe("configured Lattice Library discovery", () => {
 				"external-libraries",
 				"external-one",
 			);
+			const legacyProductDir = ["pi", "agent", "orchestrator"].join("-");
+			const legacyRoot = path.join(
+				dir,
+				".pi",
+				legacyProductDir,
+				"libraries",
+				"legacy",
+			);
 			createLibrary(repoOne, "repo-one", "agent-a");
 			createLibrary(externalOne, "external-one", "agent-b");
+			createLibrary(legacyRoot, "legacy", "agent-c");
 
 			const discovery = discoverConfiguredLatticeLibraries(dir, {
 				globalSettingsPath: path.join(dir, "global-settings.json"),
@@ -657,7 +697,7 @@ describe("Lattice Library settings", () => {
 		});
 	});
 
-	it("reads global and project libraries in order", () => {
+	it("reads global and project libraries in order without legacy namespace fallback", () => {
 		withTempDir("pio-library-settings-read-", (dir) => {
 			const globalSettingsPath = path.join(dir, "global-settings.json");
 			fs.writeFileSync(
@@ -666,6 +706,9 @@ describe("Lattice Library settings", () => {
 					piLattice: {
 						libraries: ["~/personal", { path: "~/team", editable: true }],
 					},
+					[["pi", "Agent", "Orchestrator"].join("")]: {
+						libraries: ["~/legacy"],
+					},
 				}),
 			);
 			fs.mkdirSync(path.join(dir, ".pi"), { recursive: true });
@@ -673,6 +716,9 @@ describe("Lattice Library settings", () => {
 				path.join(dir, ".pi", "settings.json"),
 				JSON.stringify({
 					piLattice: { libraries: ["./.pi/lattice-library"] },
+					[["pi", "Agent", "Orchestrator"].join("")]: {
+						libraries: ["./.pi/legacy-library"],
+					},
 				}),
 			);
 

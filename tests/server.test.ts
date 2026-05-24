@@ -505,6 +505,18 @@ describe("orchestrator display settings API", () => {
 			expect(teamCoder?.agentClass).toBe("implementer");
 			expect(teamCoder?.prompt).toBe("Persisted team coder prompt.");
 
+			const legacyLibraryPath = [
+				"/api",
+				["orchestrator", "libraries"].join("-"),
+				"display-settings",
+			].join("/");
+			const legacyRes = await fetch(`${handle.url}${legacyLibraryPath}`, {
+				method: "PUT",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ showPackageExamples: false }),
+			});
+			expect(legacyRes.status).toBe(404);
+
 			res = await fetch(
 				`${handle.url}/api/lattice-libraries/display-settings`,
 				{

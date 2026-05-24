@@ -38,7 +38,7 @@ _Avoid_: Prompt template when referring to skill/extension templates
 
 **Lattice Library**:
 A user- or team-owned resource repository with a `lattice-library.json` manifest and namespaced orchestration resources.
-_Avoid_: Orchestrator Library in user-facing copy, Lattice Library library, package resources, native Pi resource path
+_Avoid_: old library name in user-facing copy, Lattice Library library, package resources, native Pi resource path
 
 **Native Pi Resource Settings**:
 The advanced raw Pi skill and extension path settings shown as an escape hatch inside Lattice Library management.
@@ -59,8 +59,8 @@ _Avoid_: Lattice Library resources
 
 ## Rename map
 
-- Product/app/package: **Pi Lattice** / `pi-lattice`; avoid Pi Agent Orchestrator except legacy compatibility notes.
-- User-owned resource repo: **Lattice Library**; avoid Orchestrator Library in user-facing copy. Legacy `orchestrator-library.json`, `pi-orchestrator-library/v1`, and `piAgentOrchestrator` remain accepted for compatibility only.
+- Product/app/package: **Pi Lattice** / `pi-lattice`; avoid old product names except historical tracker or migration context.
+- User-owned resource repo: **Lattice Library**; avoid old library names except historical tracker or migration context.
 - Runtime role: **root orchestrator** remains valid descriptive role language for the interactive Pi session coordinating agents.
 - Root `/orchestrate` configuration: **Root Profile** in dashboard/docs; internal APIs/types may keep `RootOrchestratorProfile` while compatibility work is active.
 - Profile storage: keep `orchestratorProfiles` manifest key and `orchestrator-profiles/` directory for now as stable on-disk compatibility paths; user-facing copy should say Root Profiles.

@@ -363,12 +363,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 		}
 
 		// Lattice Library API
-		if (
-			["/api/lattice-libraries", "/api/orchestrator-libraries"].includes(
-				url.pathname,
-			) &&
-			req.method === "GET"
-		) {
+		if (url.pathname === "/api/lattice-libraries" && req.method === "GET") {
 			const { discoverConfiguredLatticeLibraries } = await import(
 				"./lattice-library.js"
 			);
@@ -376,10 +371,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			return;
 		}
 		if (
-			[
-				"/api/lattice-libraries/enabled",
-				"/api/orchestrator-libraries/enabled",
-			].includes(url.pathname) &&
+			url.pathname === "/api/lattice-libraries/enabled" &&
 			req.method === "PUT"
 		) {
 			let body: any;
@@ -408,10 +400,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			return;
 		}
 		if (
-			[
-				"/api/lattice-libraries/display-settings",
-				"/api/orchestrator-libraries/display-settings",
-			].includes(url.pathname) &&
+			url.pathname === "/api/lattice-libraries/display-settings" &&
 			req.method === "PUT"
 		) {
 			let body: any;
@@ -440,10 +429,7 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 			return;
 		}
 		if (
-			[
-				"/api/lattice-libraries/bootstrap",
-				"/api/orchestrator-libraries/bootstrap",
-			].includes(url.pathname) &&
+			url.pathname === "/api/lattice-libraries/bootstrap" &&
 			req.method === "POST"
 		) {
 			let body: any;
