@@ -281,6 +281,152 @@ describe("roadmap API", () => {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
 	});
+
+	it("patches an issue through the Roadmap mutation API and returns a refreshed overview", async () => {
+		const { startServer } = await import("../extensions/multi-agent/server.js");
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "pi-roadmap-patch-api-"),
+		);
+		const issuesPath = path.join(tmpDir, ".seeds", "issues.jsonl");
+		fs.mkdirSync(path.dirname(issuesPath), { recursive: true });
+		fs.writeFileSync(
+			issuesPath,
+			JSON.stringify({
+				id: "ready",
+				title: "Ready",
+				status: "open",
+				type: "task",
+				priority: 1,
+				createdAt: "2026-05-20T00:00:00.000Z",
+				updatedAt: "2026-05-20T00:00:00.000Z",
+				labels: [],
+				description: "Before",
+			}),
+		);
+		const seedsCalls: string[][] = [];
+		const handle = await startServer({
+			repoCwd: tmpDir,
+			spawnAgent: async () => ({
+				agent: undefined as any,
+				error: "disabled in tests",
+			}),
+			sendToAgent: async () => {},
+			removeWorktree: async () => {},
+			discoverDefinitions: () => [],
+			getDefinition: () => undefined,
+			discoverExtensions: () => [],
+			runSeedsCommand: async (args, options) => {
+				seedsCalls.push(args);
+				expect(options.cwd).toBe(tmpDir);
+				const issue = JSON.parse(fs.readFileSync(issuesPath, "utf-8"));
+				fs.writeFileSync(
+					issuesPath,
+					JSON.stringify({
+						...issue,
+						status: "in_progress",
+						description: "After",
+					}),
+				);
+				return { success: true, stdout: "{}" };
+			},
+		});
+
+		try {
+			const res = await fetch(`${handle.url}/api/roadmap/issues/ready`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ status: "in_progress", description: "After" }),
+			});
+			expect(res.status).toBe(200);
+			const overview = await res.json();
+			expect(seedsCalls).toEqual([
+				[
+					"update",
+					"ready",
+					"--status",
+					"in_progress",
+					"--description",
+					"After",
+					"--json",
+				],
+			]);
+			expect(overview.issues[0]).toMatchObject({
+				id: "ready",
+				status: "in_progress",
+				description: "After",
+			});
+			expect(overview.counts).toMatchObject({ inProgress: 1, ready: 0 });
+		} finally {
+			handle.stop();
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects invalid Roadmap issue patch requests", async () => {
+		const { startServer } = await import("../extensions/multi-agent/server.js");
+		const tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "pi-roadmap-invalid-api-"),
+		);
+		fs.mkdirSync(path.join(tmpDir, ".seeds"), { recursive: true });
+		fs.writeFileSync(
+			path.join(tmpDir, ".seeds", "issues.jsonl"),
+			JSON.stringify({
+				id: "ready",
+				title: "Ready",
+				status: "open",
+				type: "task",
+				priority: 1,
+				labels: [],
+				description: "",
+			}),
+		);
+		let seedsCalled = false;
+		const handle = await startServer({
+			repoCwd: tmpDir,
+			spawnAgent: async () => ({
+				agent: undefined as any,
+				error: "disabled in tests",
+			}),
+			sendToAgent: async () => {},
+			removeWorktree: async () => {},
+			discoverDefinitions: () => [],
+			getDefinition: () => undefined,
+			discoverExtensions: () => [],
+			runSeedsCommand: async () => {
+				seedsCalled = true;
+				return { success: true };
+			},
+		});
+
+		try {
+			const invalidJson = await fetch(
+				`${handle.url}/api/roadmap/issues/ready`,
+				{ method: "PATCH", body: "{" },
+			);
+			expect(invalidJson.status).toBe(400);
+
+			const invalidStatus = await fetch(
+				`${handle.url}/api/roadmap/issues/ready`,
+				{
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ status: "blocked" }),
+				},
+			);
+			expect(invalidStatus.status).toBe(400);
+
+			const missing = await fetch(`${handle.url}/api/roadmap/issues/missing`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ status: "closed" }),
+			});
+			expect(missing.status).toBe(404);
+			expect(seedsCalled).toBe(false);
+		} finally {
+			handle.stop();
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("template API", () => {

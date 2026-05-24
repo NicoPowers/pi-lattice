@@ -19,6 +19,7 @@ import {
 	readLatestAgentDebugTimeline,
 } from "./debug-artifacts.js";
 import type { DraftAgentPromptOptions } from "./prompt-draft.js";
+import type { SeedsCommandOptions, SeedsCommandResult } from "./roadmap.js";
 
 // ── Types ──
 
@@ -50,6 +51,10 @@ export interface ServerDeps {
 	}>;
 	currentModel?: () => string | undefined;
 	draftAgentPrompt?: (options: DraftAgentPromptOptions) => Promise<string>;
+	runSeedsCommand?: (
+		args: string[],
+		options: SeedsCommandOptions,
+	) => Promise<SeedsCommandResult>;
 }
 
 interface ServerHandle {
@@ -359,6 +364,30 @@ export async function startServer(deps: ServerDeps): Promise<ServerHandle> {
 		if (url.pathname === "/api/roadmap" && req.method === "GET") {
 			const { readRoadmapOverview } = await import("./roadmap.js");
 			send(res, jsonResponse(readRoadmapOverview(deps.repoCwd)));
+			return;
+		}
+
+		// PATCH /api/roadmap/issues/:id
+		const roadmapIssueMatch = url.pathname.match(
+			/^\/api\/roadmap\/issues\/([^/]+)$/,
+		);
+		if (roadmapIssueMatch && req.method === "PATCH") {
+			let body: any;
+			try {
+				body = JSON.parse(await readBody(req));
+			} catch {
+				send(res, errorResponse("Invalid JSON", 400));
+				return;
+			}
+			const { updateRoadmapIssue } = await import("./roadmap.js");
+			const result = await updateRoadmapIssue(
+				deps.repoCwd,
+				decodeURIComponent(roadmapIssueMatch[1]),
+				body,
+				{ runSeedsCommand: deps.runSeedsCommand },
+			);
+			if (result.success) send(res, jsonResponse(result.overview));
+			else send(res, errorResponse(result.error, result.status));
 			return;
 		}
 
