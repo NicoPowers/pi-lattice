@@ -153,7 +153,11 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 					</div>
 				)}
 				{!loading && !error && overview && (
-					<RoadmapSummary overview={overview} onSelectIssue={selectIssue} />
+					<RoadmapSummary
+						overview={overview}
+						onSelectIssue={selectIssue}
+						pushLog={pushLog}
+					/>
 				)}
 			</CardContent>
 			{overview && (
@@ -179,9 +183,11 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 function RoadmapSummary({
 	overview,
 	onSelectIssue,
+	pushLog,
 }: {
 	overview: RoadmapOverview;
 	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const hierarchy = useMemo(() => buildRoadmapHierarchy(overview), [overview]);
 	const focusEpic = useMemo(() => findFocusEpic(hierarchy), [hierarchy]);
@@ -222,6 +228,7 @@ function RoadmapSummary({
 					group={focusEpic}
 					onSelectIssue={onSelectIssue}
 					onExpand={() => setExpandedEpicIds(new Set([focusEpic.epic.id]))}
+					pushLog={pushLog}
 				/>
 			)}
 			<RoadmapHierarchyView
@@ -229,6 +236,7 @@ function RoadmapSummary({
 				expandedEpicIds={expandedEpicIds}
 				onToggleEpic={toggleEpic}
 				onSelectIssue={onSelectIssue}
+				pushLog={pushLog}
 			/>
 		</div>
 	);
@@ -238,10 +246,12 @@ function FocusEpic({
 	group,
 	onSelectIssue,
 	onExpand,
+	pushLog,
 }: {
 	group: RoadmapEpicGroup;
 	onSelectIssue: (id: string) => void;
 	onExpand: () => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const activeCount = group.activeChildren.length;
 	return (
@@ -259,6 +269,8 @@ function FocusEpic({
 						{group.epic.title}
 					</button>
 					<div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+						<span>{group.epic.id}</span>
+						<CopyIssueIdButton issueId={group.epic.id} pushLog={pushLog} />
 						<Badge variant={statusBadgeVariant(group.epic.status)}>
 							{formatStatus(group.epic.status)}
 						</Badge>
@@ -285,11 +297,13 @@ function RoadmapHierarchyView({
 	expandedEpicIds,
 	onToggleEpic,
 	onSelectIssue,
+	pushLog,
 }: {
 	hierarchy: RoadmapHierarchy;
 	expandedEpicIds: Set<string>;
 	onToggleEpic: (id: string) => void;
 	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const { active, closed } = splitEpicGroups(hierarchy);
 	return (
@@ -316,6 +330,7 @@ function RoadmapHierarchyView({
 							expanded={expandedEpicIds.has(group.epic.id)}
 							onToggleEpic={onToggleEpic}
 							onSelectIssue={onSelectIssue}
+							pushLog={pushLog}
 						/>
 					))}
 				</div>
@@ -337,6 +352,7 @@ function RoadmapHierarchyView({
 								expanded={expandedEpicIds.has(group.epic.id)}
 								onToggleEpic={onToggleEpic}
 								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
 							/>
 						))}
 					</div>
@@ -345,6 +361,7 @@ function RoadmapHierarchyView({
 			<UngroupedIssues
 				issues={hierarchy.ungrouped}
 				onSelectIssue={onSelectIssue}
+				pushLog={pushLog}
 			/>
 		</div>
 	);
@@ -355,11 +372,13 @@ function EpicRow({
 	expanded,
 	onToggleEpic,
 	onSelectIssue,
+	pushLog,
 }: {
 	group: RoadmapEpicGroup;
 	expanded: boolean;
 	onToggleEpic: (id: string) => void;
 	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const blockedCount = group.activeChildren.filter(
 		(issue) => issue.unresolvedBlockers.length,
@@ -374,16 +393,23 @@ function EpicRow({
 				>
 					{expanded ? "Collapse" : "Expand"}
 				</Button>
-				<button
-					type="button"
-					className="min-w-0 flex-1 text-left"
+				<div
+					role="button"
+					tabIndex={0}
+					className="min-w-0 flex-1 cursor-pointer text-left"
 					onClick={() => onSelectIssue(group.epic.id)}
+					onKeyDown={(event) => {
+						if (event.key !== "Enter" && event.key !== " ") return;
+						event.preventDefault();
+						onSelectIssue(group.epic.id);
+					}}
 				>
 					<div className="truncate text-sm font-semibold hover:text-primary">
 						{group.epic.title}
 					</div>
 					<div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
 						<span>{group.epic.id}</span>
+						<CopyIssueIdButton issueId={group.epic.id} pushLog={pushLog} />
 						<Badge variant={statusBadgeVariant(group.epic.status)}>
 							{formatStatus(group.epic.status)}
 						</Badge>
@@ -397,7 +423,7 @@ function EpicRow({
 							<Badge variant="destructive">{blockedCount} blocked</Badge>
 						)}
 					</div>
-				</button>
+				</div>
 			</div>
 			{expanded && (
 				<div className="space-y-2 border-t border-border p-3">
@@ -407,6 +433,7 @@ function EpicRow({
 								key={issue.id}
 								issue={issue}
 								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
 							/>
 						))
 					) : (
@@ -422,6 +449,7 @@ function EpicRow({
 									issue={issue}
 									compact
 									onSelectIssue={onSelectIssue}
+									pushLog={pushLog}
 								/>
 							))}
 						</div>
@@ -435,9 +463,11 @@ function EpicRow({
 function UngroupedIssues({
 	issues,
 	onSelectIssue,
+	pushLog,
 }: {
 	issues: RoadmapIssueView[];
 	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const active = sortIssueViews(
 		issues.filter((issue) => issue.status !== "closed"),
@@ -462,6 +492,7 @@ function UngroupedIssues({
 								key={issue.id}
 								issue={issue}
 								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
 							/>
 						))}
 					</div>
@@ -478,6 +509,7 @@ function UngroupedIssues({
 								issue={issue}
 								compact
 								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
 							/>
 						))}
 					</div>
@@ -491,20 +523,29 @@ function IssueCard({
 	issue,
 	compact,
 	onSelectIssue,
+	pushLog,
 }: {
 	issue: RoadmapIssueView;
 	compact?: boolean;
 	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
 	return (
-		<button
-			type="button"
-			className={`block w-full rounded border border-border/70 bg-card/40 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`}
+		<div
+			role="button"
+			tabIndex={0}
+			className={`block w-full cursor-pointer rounded border border-border/70 bg-card/40 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`}
 			onClick={() => onSelectIssue(issue.id)}
+			onKeyDown={(event) => {
+				if (event.key !== "Enter" && event.key !== " ") return;
+				event.preventDefault();
+				onSelectIssue(issue.id);
+			}}
 		>
 			<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 				<span>{issue.id}</span>
+				<CopyIssueIdButton issueId={issue.id} pushLog={pushLog} />
 				<Badge variant={statusBadgeVariant(issue.status)}>
 					{formatStatus(issue.status)}
 				</Badge>
@@ -523,7 +564,7 @@ function IssueCard({
 					Blocked by {blockerText}
 				</div>
 			)}
-		</button>
+		</div>
 	);
 }
 
@@ -555,6 +596,7 @@ function IssueDetailDialog({
 	const [statusSaving, setStatusSaving] = useState(false);
 	const [statusError, setStatusError] = useState("");
 	const [statusMessage, setStatusMessage] = useState("");
+	const [startWorkIssueId, setStartWorkIssueId] = useState<string | null>(null);
 	const [descriptionEditing, setDescriptionEditing] = useState(false);
 	const [draftDescription, setDraftDescription] = useState("");
 	const [descriptionSaving, setDescriptionSaving] = useState(false);
@@ -618,6 +660,26 @@ function IssueDetailDialog({
 		}
 	};
 
+	const startWork = async (targetIssue: RoadmapIssueView) => {
+		if (!canStartWork(targetIssue)) return;
+		setStartWorkIssueId(targetIssue.id);
+		setStatusError("");
+		setStatusMessage("");
+		try {
+			await onUpdateStatus(targetIssue.id, "in_progress");
+			setStatusMessage("Status updated to in progress");
+		} catch (err: any) {
+			const message = err?.message || "Failed to start work";
+			setStatusError(`Failed to start work: ${message}`);
+			pushLog?.(
+				`Failed to start work on Roadmap issue ${targetIssue.id}: ${message}`,
+				"error",
+			);
+		} finally {
+			setStartWorkIssueId(null);
+		}
+	};
+
 	const startDescriptionEdit = () => {
 		if (!issue) return;
 		setDraftDescription(issue.description || "");
@@ -678,13 +740,27 @@ function IssueDetailDialog({
 						)}
 						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 							<span>{issue.id}</span>
+							<CopyIssueIdButton issueId={issue.id} pushLog={pushLog} />
 							<Badge variant={statusBadgeVariant(issue.status)}>
 								{formatStatus(issue.status)}
 							</Badge>
 							<Badge variant="outline">P{issue.priority}</Badge>
 							<Badge variant="outline">{issue.type}</Badge>
 						</div>
-						<h3 className="mt-2 text-xl font-semibold">{issue.title}</h3>
+						<div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+							<h3 className="text-xl font-semibold">{issue.title}</h3>
+							{canStartWork(issue) && (
+								<Button
+									type="button"
+									variant="default"
+									className="px-2 py-1 text-xs"
+									disabled={startWorkIssueId === issue.id}
+									onClick={() => startWork(issue)}
+								>
+									{startWorkIssueId === issue.id ? "Starting…" : "Start work"}
+								</Button>
+							)}
+						</div>
 					</div>
 					<div className="rounded border border-border bg-card/40 p-3">
 						<div className="flex flex-wrap items-end gap-2">
@@ -822,6 +898,7 @@ function IssueDetailDialog({
 								backIssueId={returnEpicId}
 								onSelectIssue={onSelectIssue}
 								onClose={onClose}
+								pushLog={pushLog}
 							/>
 							<DependencyList
 								title="Dependents"
@@ -829,6 +906,7 @@ function IssueDetailDialog({
 								backIssueId={returnEpicId}
 								onSelectIssue={onSelectIssue}
 								onClose={onClose}
+								pushLog={pushLog}
 							/>
 						</div>
 						{isEpic && epicBuckets && (
@@ -836,6 +914,9 @@ function IssueDetailDialog({
 								buckets={epicBuckets}
 								epicId={issue.id}
 								onSelectIssue={onSelectIssue}
+								onStartWork={startWork}
+								startWorkIssueId={startWorkIssueId}
+								pushLog={pushLog}
 							/>
 						)}
 					</div>
@@ -849,10 +930,16 @@ function EpicTasksPanel({
 	buckets,
 	epicId,
 	onSelectIssue,
+	onStartWork,
+	startWorkIssueId,
+	pushLog,
 }: {
 	buckets: RoadmapTaskBuckets;
 	epicId: string;
 	onSelectIssue: (id: string, backIssueId?: string) => void;
+	onStartWork: (issue: RoadmapIssueView) => void;
+	startWorkIssueId: string | null;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const total = Object.values(buckets).reduce(
 		(sum, issues) => sum + issues.length,
@@ -880,27 +967,40 @@ function EpicTasksPanel({
 						title="In progress"
 						issues={buckets.inProgress}
 						onSelectIssue={(id) => onSelectIssue(id, epicId)}
+						onStartWork={onStartWork}
+						startWorkIssueId={startWorkIssueId}
+						pushLog={pushLog}
 					/>
 					<TaskBucketSection
 						title="Ready"
 						issues={buckets.ready}
 						onSelectIssue={(id) => onSelectIssue(id, epicId)}
+						onStartWork={onStartWork}
+						startWorkIssueId={startWorkIssueId}
+						pushLog={pushLog}
 					/>
 					<TaskBucketSection
 						title="Blocked"
 						issues={buckets.blocked}
 						onSelectIssue={(id) => onSelectIssue(id, epicId)}
+						onStartWork={onStartWork}
+						startWorkIssueId={startWorkIssueId}
+						pushLog={pushLog}
 					/>
 					<TaskBucketSection
 						title="Backlog"
 						issues={buckets.backlog}
 						onSelectIssue={(id) => onSelectIssue(id, epicId)}
+						onStartWork={onStartWork}
+						startWorkIssueId={startWorkIssueId}
+						pushLog={pushLog}
 					/>
 					{!!buckets.closed.length && (
 						<TaskBucketSection
 							title="Closed"
 							issues={buckets.closed}
 							onSelectIssue={(id) => onSelectIssue(id, epicId)}
+							pushLog={pushLog}
 							muted
 						/>
 					)}
@@ -919,11 +1019,17 @@ function TaskBucketSection({
 	issues,
 	muted,
 	onSelectIssue,
+	onStartWork,
+	startWorkIssueId,
+	pushLog,
 }: {
 	title: string;
 	issues: RoadmapIssueView[];
 	muted?: boolean;
 	onSelectIssue: (id: string) => void;
+	onStartWork?: (issue: RoadmapIssueView) => void;
+	startWorkIssueId?: string | null;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	return (
 		<section className={muted ? "opacity-70" : undefined}>
@@ -936,12 +1042,25 @@ function TaskBucketSection({
 			{issues.length ? (
 				<div className="space-y-2">
 					{issues.map((issue) => (
-						<IssueCard
-							key={issue.id}
-							issue={issue}
-							compact
-							onSelectIssue={onSelectIssue}
-						/>
+						<div key={issue.id} className="space-y-2">
+							<IssueCard
+								issue={issue}
+								compact
+								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
+							/>
+							{onStartWork && canStartWork(issue) && (
+								<Button
+									type="button"
+									variant="secondary"
+									className="px-2 py-1 text-xs"
+									disabled={startWorkIssueId === issue.id}
+									onClick={() => onStartWork(issue)}
+								>
+									{startWorkIssueId === issue.id ? "Starting…" : "Start work"}
+								</Button>
+							)}
+						</div>
 					))}
 				</div>
 			) : (
@@ -959,12 +1078,14 @@ function DependencyList({
 	backIssueId,
 	onSelectIssue,
 	onClose,
+	pushLog,
 }: {
 	title: string;
 	dependencies: RoadmapDependency[];
 	backIssueId?: string;
 	onSelectIssue: (id: string, backIssueId?: string) => void;
 	onClose: () => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	return (
 		<div>
@@ -972,11 +1093,18 @@ function DependencyList({
 			{dependencies.length ? (
 				<div className="space-y-2">
 					{dependencies.map((dependency) => (
-						<button
+						<div
 							key={dependency.id}
-							type="button"
-							className="block w-full rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60"
+							role="button"
+							tabIndex={0}
+							className="block w-full cursor-pointer rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60"
 							onClick={() => {
+								onSelectIssue(dependency.id, backIssueId);
+								if (dependency.status === "unknown") onClose();
+							}}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" && event.key !== " ") return;
+								event.preventDefault();
 								onSelectIssue(dependency.id, backIssueId);
 								if (dependency.status === "unknown") onClose();
 							}}
@@ -990,16 +1118,90 @@ function DependencyList({
 									<Badge variant="outline">P{dependency.priority}</Badge>
 								)}
 							</div>
-							<div className="mt-1 text-xs text-muted-foreground">
-								{dependency.id}
+							<div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+								<span>{dependency.id}</span>
+								<CopyIssueIdButton issueId={dependency.id} pushLog={pushLog} />
 							</div>
-						</button>
+						</div>
 					))}
 				</div>
 			) : (
 				<p className="text-sm text-muted-foreground">None.</p>
 			)}
 		</div>
+	);
+}
+
+function CopyIssueIdButton({
+	issueId,
+	pushLog,
+}: {
+	issueId: string;
+	pushLog?: RoadmapPanelProps["pushLog"];
+}) {
+	const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+		"idle",
+	);
+
+	useEffect(() => {
+		if (copyState === "idle") return;
+		const timeout = setTimeout(() => setCopyState("idle"), 1600);
+		return () => clearTimeout(timeout);
+	}, [copyState]);
+
+	const copyIssueId = async (event: {
+		preventDefault: () => void;
+		stopPropagation: () => void;
+	}) => {
+		event.preventDefault();
+		event.stopPropagation();
+		try {
+			if (!navigator.clipboard?.writeText) {
+				throw new Error("Clipboard unavailable");
+			}
+			await navigator.clipboard.writeText(issueId);
+			setCopyState("copied");
+		} catch (err: any) {
+			const message = err?.message || "Clipboard unavailable";
+			setCopyState("failed");
+			pushLog?.(`Failed to copy issue ID ${issueId}: ${message}`, "error");
+		}
+	};
+
+	const feedbackText = copyState === "copied" ? "Copied" : "Copy failed";
+
+	return (
+		<span className="relative inline-flex items-center">
+			<button
+				type="button"
+				aria-label={`Copy issue ID ${issueId}`}
+				title={`Copy issue ID ${issueId}`}
+				className={`inline-flex h-5 w-5 items-center justify-center rounded border border-border/70 text-muted-foreground transition hover:border-primary/60 hover:text-primary ${copyState === "copied" ? "border-primary/60 text-primary" : ""} ${copyState === "failed" ? "border-destructive/60 text-destructive" : ""}`}
+				onClick={copyIssueId}
+			>
+				<svg
+					aria-hidden="true"
+					viewBox="0 0 24 24"
+					className="h-3.5 w-3.5"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+					<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+				</svg>
+			</button>
+			{copyState !== "idle" && (
+				<span
+					role="status"
+					className={`pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[0.65rem] font-medium text-primary-foreground shadow-lg animate-bounce ${copyState === "failed" ? "bg-destructive" : "bg-primary"}`}
+				>
+					{feedbackText}
+				</span>
+			)}
+		</span>
 	);
 }
 
@@ -1057,6 +1259,10 @@ function formatStatus(status: string): string {
 function toEditableStatus(status: string): EditableRoadmapStatus {
 	if (status === "in_progress" || status === "closed") return status;
 	return "open";
+}
+
+function canStartWork(issue: RoadmapIssueView): boolean {
+	return issue.type !== "epic" && issue.status === "open";
 }
 
 function formatDate(value?: string): string | undefined {

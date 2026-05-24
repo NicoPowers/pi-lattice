@@ -35470,7 +35470,8 @@ function RoadmapPanel({ pushLog }) {
           }, undefined, false, undefined, this),
           !loading && !error && overview && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(RoadmapSummary, {
             overview,
-            onSelectIssue: selectIssue
+            onSelectIssue: selectIssue,
+            pushLog
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
@@ -35490,7 +35491,8 @@ function RoadmapPanel({ pushLog }) {
 }
 function RoadmapSummary({
   overview,
-  onSelectIssue
+  onSelectIssue,
+  pushLog
 }) {
   const hierarchy = import_react9.useMemo(() => buildRoadmapHierarchy(overview), [overview]);
   const focusEpic = import_react9.useMemo(() => findFocusEpic(hierarchy), [hierarchy]);
@@ -35564,13 +35566,15 @@ function RoadmapSummary({
       focusEpic && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(FocusEpic, {
         group: focusEpic,
         onSelectIssue,
-        onExpand: () => setExpandedEpicIds(new Set([focusEpic.epic.id]))
+        onExpand: () => setExpandedEpicIds(new Set([focusEpic.epic.id])),
+        pushLog
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(RoadmapHierarchyView, {
         hierarchy,
         expandedEpicIds,
         onToggleEpic: toggleEpic,
-        onSelectIssue
+        onSelectIssue,
+        pushLog
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
@@ -35578,7 +35582,8 @@ function RoadmapSummary({
 function FocusEpic({
   group,
   onSelectIssue,
-  onExpand
+  onExpand,
+  pushLog
 }) {
   const activeCount = group.activeChildren.length;
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
@@ -35602,6 +35607,13 @@ function FocusEpic({
             /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
               className: "mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground",
               children: [
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+                  children: group.epic.id
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+                  issueId: group.epic.id,
+                  pushLog
+                }, undefined, false, undefined, this),
                 /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
                   variant: statusBadgeVariant(group.epic.status),
                   children: formatStatus(group.epic.status)
@@ -35638,7 +35650,8 @@ function RoadmapHierarchyView({
   hierarchy,
   expandedEpicIds,
   onToggleEpic,
-  onSelectIssue
+  onSelectIssue,
+  pushLog
 }) {
   const { active, closed } = splitEpicGroups(hierarchy);
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
@@ -35686,7 +35699,8 @@ function RoadmapHierarchyView({
           group,
           expanded: expandedEpicIds.has(group.epic.id),
           onToggleEpic,
-          onSelectIssue
+          onSelectIssue,
+          pushLog
         }, group.epic.id, false, undefined, this))
       }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
         className: "text-sm text-muted-foreground",
@@ -35711,14 +35725,16 @@ function RoadmapHierarchyView({
               group,
               expanded: expandedEpicIds.has(group.epic.id),
               onToggleEpic,
-              onSelectIssue
+              onSelectIssue,
+              pushLog
             }, group.epic.id, false, undefined, this))
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(UngroupedIssues, {
         issues: hierarchy.ungrouped,
-        onSelectIssue
+        onSelectIssue,
+        pushLog
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
@@ -35727,7 +35743,8 @@ function EpicRow({
   group,
   expanded,
   onToggleEpic,
-  onSelectIssue
+  onSelectIssue,
+  pushLog
 }) {
   const blockedCount = group.activeChildren.filter((issue) => issue.unresolvedBlockers.length).length;
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
@@ -35742,10 +35759,17 @@ function EpicRow({
             onClick: () => onToggleEpic(group.epic.id),
             children: expanded ? "Collapse" : "Expand"
           }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
-            type: "button",
-            className: "min-w-0 flex-1 text-left",
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+            role: "button",
+            tabIndex: 0,
+            className: "min-w-0 flex-1 cursor-pointer text-left",
             onClick: () => onSelectIssue(group.epic.id),
+            onKeyDown: (event) => {
+              if (event.key !== "Enter" && event.key !== " ")
+                return;
+              event.preventDefault();
+              onSelectIssue(group.epic.id);
+            },
             children: [
               /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
                 className: "truncate text-sm font-semibold hover:text-primary",
@@ -35756,6 +35780,10 @@ function EpicRow({
                 children: [
                   /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
                     children: group.epic.id
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+                    issueId: group.epic.id,
+                    pushLog
                   }, undefined, false, undefined, this),
                   /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
                     variant: statusBadgeVariant(group.epic.status),
@@ -35793,7 +35821,8 @@ function EpicRow({
         children: [
           group.activeChildren.length ? group.activeChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
             issue,
-            onSelectIssue
+            onSelectIssue,
+            pushLog
           }, issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
             className: "text-xs text-muted-foreground",
             children: "No active child issues."
@@ -35803,7 +35832,8 @@ function EpicRow({
             children: group.closedChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
               issue,
               compact: true,
-              onSelectIssue
+              onSelectIssue,
+              pushLog
             }, issue.id, false, undefined, this))
           }, undefined, false, undefined, this)
         ]
@@ -35813,7 +35843,8 @@ function EpicRow({
 }
 function UngroupedIssues({
   issues,
-  onSelectIssue
+  onSelectIssue,
+  pushLog
 }) {
   const active = sortIssueViews(issues.filter((issue) => issue.status !== "closed"));
   const closed = sortIssueViews(issues.filter((issue) => issue.status === "closed"));
@@ -35839,7 +35870,8 @@ function UngroupedIssues({
             className: "grid gap-2 md:grid-cols-2",
             children: active.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
               issue,
-              onSelectIssue
+              onSelectIssue,
+              pushLog
             }, issue.id, false, undefined, this))
           }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
             className: "text-sm text-muted-foreground",
@@ -35850,7 +35882,8 @@ function UngroupedIssues({
             children: closed.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
               issue,
               compact: true,
-              onSelectIssue
+              onSelectIssue,
+              pushLog
             }, issue.id, false, undefined, this))
           }, undefined, false, undefined, this)
         ]
@@ -35861,19 +35894,31 @@ function UngroupedIssues({
 function IssueCard({
   issue,
   compact,
-  onSelectIssue
+  onSelectIssue,
+  pushLog
 }) {
   const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
-  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
-    type: "button",
-    className: `block w-full rounded border border-border/70 bg-card/40 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`,
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+    role: "button",
+    tabIndex: 0,
+    className: `block w-full cursor-pointer rounded border border-border/70 bg-card/40 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-3"} ${issue.status === "closed" ? "opacity-70" : ""}`,
     onClick: () => onSelectIssue(issue.id),
+    onKeyDown: (event) => {
+      if (event.key !== "Enter" && event.key !== " ")
+        return;
+      event.preventDefault();
+      onSelectIssue(issue.id);
+    },
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
         className: "flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
         children: [
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
             children: issue.id
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+            issueId: issue.id,
+            pushLog
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
             variant: statusBadgeVariant(issue.status),
@@ -35924,6 +35969,7 @@ function IssueDetailDialog({
   const [statusSaving, setStatusSaving] = import_react9.useState(false);
   const [statusError, setStatusError] = import_react9.useState("");
   const [statusMessage, setStatusMessage] = import_react9.useState("");
+  const [startWorkIssueId, setStartWorkIssueId] = import_react9.useState(null);
   const [descriptionEditing, setDescriptionEditing] = import_react9.useState(false);
   const [draftDescription, setDraftDescription] = import_react9.useState("");
   const [descriptionSaving, setDescriptionSaving] = import_react9.useState(false);
@@ -35973,6 +36019,23 @@ function IssueDetailDialog({
       pushLog?.(`Failed to update Roadmap issue ${issue.id}: ${message}`, "error");
     } finally {
       setStatusSaving(false);
+    }
+  };
+  const startWork = async (targetIssue) => {
+    if (!canStartWork(targetIssue))
+      return;
+    setStartWorkIssueId(targetIssue.id);
+    setStatusError("");
+    setStatusMessage("");
+    try {
+      await onUpdateStatus(targetIssue.id, "in_progress");
+      setStatusMessage("Status updated to in progress");
+    } catch (err) {
+      const message = err?.message || "Failed to start work";
+      setStatusError(`Failed to start work: ${message}`);
+      pushLog?.(`Failed to start work on Roadmap issue ${targetIssue.id}: ${message}`, "error");
+    } finally {
+      setStartWorkIssueId(null);
     }
   };
   const startDescriptionEdit = () => {
@@ -36032,6 +36095,10 @@ function IssueDetailDialog({
                 /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
                   children: issue.id
                 }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+                  issueId: issue.id,
+                  pushLog
+                }, undefined, false, undefined, this),
                 /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
                   variant: statusBadgeVariant(issue.status),
                   children: formatStatus(issue.status)
@@ -36049,10 +36116,23 @@ function IssueDetailDialog({
                 }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h3", {
-              className: "mt-2 text-xl font-semibold",
-              children: issue.title
-            }, undefined, false, undefined, this)
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+              className: "mt-2 flex flex-wrap items-start justify-between gap-3",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h3", {
+                  className: "text-xl font-semibold",
+                  children: issue.title
+                }, undefined, false, undefined, this),
+                canStartWork(issue) && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Button, {
+                  type: "button",
+                  variant: "default",
+                  className: "px-2 py-1 text-xs",
+                  disabled: startWorkIssueId === issue.id,
+                  onClick: () => startWork(issue),
+                  children: startWorkIssueId === issue.id ? "Starting…" : "Start work"
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
           ]
         }, undefined, true, undefined, this),
         /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
@@ -36221,21 +36301,26 @@ function IssueDetailDialog({
                   dependencies: blockers,
                   backIssueId: returnEpicId,
                   onSelectIssue,
-                  onClose
+                  onClose,
+                  pushLog
                 }, undefined, false, undefined, this),
                 /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(DependencyList, {
                   title: "Dependents",
                   dependencies: dependents,
                   backIssueId: returnEpicId,
                   onSelectIssue,
-                  onClose
+                  onClose,
+                  pushLog
                 }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
             isEpic && epicBuckets && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicTasksPanel, {
               buckets: epicBuckets,
               epicId: issue.id,
-              onSelectIssue
+              onSelectIssue,
+              onStartWork: startWork,
+              startWorkIssueId,
+              pushLog
             }, undefined, false, undefined, this)
           ]
         }, undefined, true, undefined, this)
@@ -36246,7 +36331,10 @@ function IssueDetailDialog({
 function EpicTasksPanel({
   buckets,
   epicId,
-  onSelectIssue
+  onSelectIssue,
+  onStartWork,
+  startWorkIssueId,
+  pushLog
 }) {
   const total = Object.values(buckets).reduce((sum, issues) => sum + issues.length, 0);
   const active = total - buckets.closed.length;
@@ -36295,27 +36383,40 @@ function EpicTasksPanel({
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
             title: "In progress",
             issues: buckets.inProgress,
-            onSelectIssue: (id) => onSelectIssue(id, epicId)
+            onSelectIssue: (id) => onSelectIssue(id, epicId),
+            onStartWork,
+            startWorkIssueId,
+            pushLog
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
             title: "Ready",
             issues: buckets.ready,
-            onSelectIssue: (id) => onSelectIssue(id, epicId)
+            onSelectIssue: (id) => onSelectIssue(id, epicId),
+            onStartWork,
+            startWorkIssueId,
+            pushLog
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
             title: "Blocked",
             issues: buckets.blocked,
-            onSelectIssue: (id) => onSelectIssue(id, epicId)
+            onSelectIssue: (id) => onSelectIssue(id, epicId),
+            onStartWork,
+            startWorkIssueId,
+            pushLog
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
             title: "Backlog",
             issues: buckets.backlog,
-            onSelectIssue: (id) => onSelectIssue(id, epicId)
+            onSelectIssue: (id) => onSelectIssue(id, epicId),
+            onStartWork,
+            startWorkIssueId,
+            pushLog
           }, undefined, false, undefined, this),
           !!buckets.closed.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
             title: "Closed",
             issues: buckets.closed,
             onSelectIssue: (id) => onSelectIssue(id, epicId),
+            pushLog,
             muted: true
           }, undefined, false, undefined, this)
         ]
@@ -36330,7 +36431,10 @@ function TaskBucketSection({
   title,
   issues,
   muted,
-  onSelectIssue
+  onSelectIssue,
+  onStartWork,
+  startWorkIssueId,
+  pushLog
 }) {
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("section", {
     className: muted ? "opacity-70" : undefined,
@@ -36350,11 +36454,25 @@ function TaskBucketSection({
       }, undefined, true, undefined, this),
       issues.length ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
         className: "space-y-2",
-        children: issues.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
-          issue,
-          compact: true,
-          onSelectIssue
-        }, issue.id, false, undefined, this))
+        children: issues.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+          className: "space-y-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
+              issue,
+              compact: true,
+              onSelectIssue,
+              pushLog
+            }, undefined, false, undefined, this),
+            onStartWork && canStartWork(issue) && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Button, {
+              type: "button",
+              variant: "secondary",
+              className: "px-2 py-1 text-xs",
+              disabled: startWorkIssueId === issue.id,
+              onClick: () => onStartWork(issue),
+              children: startWorkIssueId === issue.id ? "Starting…" : "Start work"
+            }, undefined, false, undefined, this)
+          ]
+        }, issue.id, true, undefined, this))
       }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
         className: "rounded border border-border/60 bg-background/30 p-2 text-xs text-muted-foreground",
         children: [
@@ -36371,7 +36489,8 @@ function DependencyList({
   dependencies,
   backIssueId,
   onSelectIssue,
-  onClose
+  onClose,
+  pushLog
 }) {
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     children: [
@@ -36381,10 +36500,19 @@ function DependencyList({
       }, undefined, false, undefined, this),
       dependencies.length ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
         className: "space-y-2",
-        children: dependencies.map((dependency) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
-          type: "button",
-          className: "block w-full rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60",
+        children: dependencies.map((dependency) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+          role: "button",
+          tabIndex: 0,
+          className: "block w-full cursor-pointer rounded border border-border bg-card/40 p-2 text-left text-sm hover:border-primary/60",
           onClick: () => {
+            onSelectIssue(dependency.id, backIssueId);
+            if (dependency.status === "unknown")
+              onClose();
+          },
+          onKeyDown: (event) => {
+            if (event.key !== "Enter" && event.key !== " ")
+              return;
+            event.preventDefault();
             onSelectIssue(dependency.id, backIssueId);
             if (dependency.status === "unknown")
               onClose();
@@ -36410,14 +36538,90 @@ function DependencyList({
               ]
             }, undefined, true, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-              className: "mt-1 text-xs text-muted-foreground",
-              children: dependency.id
-            }, undefined, false, undefined, this)
+              className: "mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+                  children: dependency.id
+                }, undefined, false, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+                  issueId: dependency.id,
+                  pushLog
+                }, undefined, false, undefined, this)
+              ]
+            }, undefined, true, undefined, this)
           ]
         }, dependency.id, true, undefined, this))
       }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
         className: "text-sm text-muted-foreground",
         children: "None."
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function CopyIssueIdButton({
+  issueId,
+  pushLog
+}) {
+  const [copyState, setCopyState] = import_react9.useState("idle");
+  import_react9.useEffect(() => {
+    if (copyState === "idle")
+      return;
+    const timeout = setTimeout(() => setCopyState("idle"), 1600);
+    return () => clearTimeout(timeout);
+  }, [copyState]);
+  const copyIssueId = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard unavailable");
+      }
+      await navigator.clipboard.writeText(issueId);
+      setCopyState("copied");
+    } catch (err) {
+      const message = err?.message || "Clipboard unavailable";
+      setCopyState("failed");
+      pushLog?.(`Failed to copy issue ID ${issueId}: ${message}`, "error");
+    }
+  };
+  const feedbackText = copyState === "copied" ? "Copied" : "Copy failed";
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+    className: "relative inline-flex items-center",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
+        type: "button",
+        "aria-label": `Copy issue ID ${issueId}`,
+        title: `Copy issue ID ${issueId}`,
+        className: `inline-flex h-5 w-5 items-center justify-center rounded border border-border/70 text-muted-foreground transition hover:border-primary/60 hover:text-primary ${copyState === "copied" ? "border-primary/60 text-primary" : ""} ${copyState === "failed" ? "border-destructive/60 text-destructive" : ""}`,
+        onClick: copyIssueId,
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("svg", {
+          "aria-hidden": "true",
+          viewBox: "0 0 24 24",
+          className: "h-3.5 w-3.5",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: "2",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("rect", {
+              x: "9",
+              y: "9",
+              width: "13",
+              height: "13",
+              rx: "2",
+              ry: "2"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("path", {
+              d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      copyState !== "idle" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+        role: "status",
+        className: `pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[0.65rem] font-medium text-primary-foreground shadow-lg animate-bounce ${copyState === "failed" ? "bg-destructive" : "bg-primary"}`,
+        children: feedbackText
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
@@ -36469,6 +36673,9 @@ function toEditableStatus(status) {
   if (status === "in_progress" || status === "closed")
     return status;
   return "open";
+}
+function canStartWork(issue) {
+  return issue.type !== "epic" && issue.status === "open";
 }
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : undefined;

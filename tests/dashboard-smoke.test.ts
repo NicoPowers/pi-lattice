@@ -393,7 +393,7 @@ describe("dashboard bundle smoke test", () => {
 			).toContain("Tasks in this epic");
 			const epicDialog = window.document.querySelector('[role="dialog"]');
 			const tracerButton = Array.from(
-				epicDialog?.getElementsByTagName("button") || [],
+				epicDialog?.querySelectorAll("button,[role='button']") || [],
 			).find((button) => button.textContent?.includes("Roadmap tracer 4"));
 			tracerButton?.dispatchEvent(
 				new window.MouseEvent("click", { bubbles: true }),
@@ -413,7 +413,7 @@ describe("dashboard bundle smoke test", () => {
 			const dependentButton = Array.from(
 				window.document
 					.querySelector('[role="dialog"]')
-					?.getElementsByTagName("button") || [],
+					?.querySelectorAll("button,[role='button']") || [],
 			).find((button) => button.textContent?.includes("Roadmap tracer 5"));
 			dependentButton?.dispatchEvent(
 				new window.MouseEvent("click", { bubbles: true }),

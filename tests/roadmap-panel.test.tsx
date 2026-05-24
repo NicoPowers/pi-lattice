@@ -52,9 +52,11 @@ async function flush(window: Window) {
 }
 
 function clickButton(window: Window, text: string) {
-	const button = Array.from(window.document.querySelectorAll("button")).find(
-		(button) => button.textContent?.includes(text),
-	) as HTMLButtonElement | undefined;
+	const button = Array.from(
+		window.document.querySelectorAll("button,[role='button']"),
+	).find((button) => button.textContent?.includes(text)) as
+		| HTMLElement
+		| undefined;
 	expect(button).toBeTruthy();
 	button!.click();
 }
@@ -79,6 +81,24 @@ function changeDescription(window: Window, description: string) {
 	textarea!.dispatchEvent(
 		new window.Event("input", { bubbles: true }) as unknown as Event,
 	);
+}
+
+function mockClipboard(
+	window: Window,
+	writeText: (text: string) => Promise<void>,
+) {
+	Object.defineProperty(window.navigator, "clipboard", {
+		configurable: true,
+		value: { writeText },
+	});
+}
+
+function clickCopyIssueId(window: Window, id: string) {
+	const button = window.document.querySelector(
+		`button[aria-label="Copy issue ID ${id}"]`,
+	) as HTMLButtonElement | null;
+	expect(button).toBeTruthy();
+	button!.click();
 }
 
 function overview(issues: RoadmapIssue[]): RoadmapOverview {
@@ -146,6 +166,83 @@ function issue(
 		blockedBy: partial.blockedBy || [],
 	};
 }
+
+describe("RoadmapPanel copy issue ID actions", () => {
+	it("copies exactly the task ID with the clipboard API", async () => {
+		const copied: string[] = [];
+		const initial = overview([issue({ id: "task-1", title: "Build task" })]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			mockClipboard(window, async (text) => {
+				copied.push(text);
+			});
+			clickCopyIssueId(window, "task-1");
+			await flush(window);
+
+			expect(copied).toEqual(["task-1"]);
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("does not open issue details when copying inside an issue card", async () => {
+		const initial = overview([issue({ id: "task-1", title: "Build task" })]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			mockClipboard(window, async () => {});
+			clickCopyIssueId(window, "task-1");
+			await flush(window);
+
+			expect(window.document.body.textContent).not.toContain("Issue Details");
+			expect(window.document.body.textContent).not.toContain("Issue status");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("shows copied feedback after a successful copy", async () => {
+		const initial = overview([issue({ id: "task-1", title: "Build task" })]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			mockClipboard(window, async () => {});
+			clickCopyIssueId(window, "task-1");
+			await flush(window);
+
+			expect(window.document.body.textContent).toContain("Copied");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("surfaces a visible and logged error when clipboard copy fails", async () => {
+		const logs: string[] = [];
+		const initial = overview([issue({ id: "task-1", title: "Build task" })]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+			(text) => logs.push(text),
+		);
+		try {
+			mockClipboard(window, async () => {
+				throw new Error("denied");
+			});
+			clickCopyIssueId(window, "task-1");
+			await flush(window);
+
+			expect(window.document.body.textContent).toContain("Copy failed");
+			expect(
+				logs.some((line) => line.includes("Failed to copy issue ID task-1")),
+			).toBe(true);
+		} finally {
+			await cleanup();
+		}
+	});
+});
 
 describe("RoadmapPanel status controls", () => {
 	it("changes a task from open to in progress and updates the displayed status", async () => {
@@ -254,6 +351,120 @@ describe("RoadmapPanel status controls", () => {
 		}
 	});
 });
+
+describe("RoadmapPanel start work actions", () => {
+	it("starts a ready epic task and moves it into the in progress bucket", async () => {
+		const requests: Array<{ url: string; method?: string; body?: any }> = [];
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
+			issue({ id: "task-1", title: "Build task", labels: ["feature"] }),
+		]);
+		const updated = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
+			issue({
+				id: "task-1",
+				title: "Build task",
+				status: "in_progress",
+				labels: ["feature"],
+			}),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async (input, init) => {
+				requests.push({
+					url: String(input),
+					method: init?.method,
+					body: init?.body ? JSON.parse(String(init.body)) : undefined,
+				});
+				return new Response(
+					JSON.stringify(init?.method === "PATCH" ? updated : initial),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				);
+			},
+		);
+		try {
+			clickButton(window, "Epic");
+			await flush(window);
+			clickButton(window, "Start work");
+			await flush(window);
+
+			expect(requests.at(-1)).toEqual({
+				url: "/api/roadmap/issues/task-1",
+				method: "PATCH",
+				body: { status: "in_progress" },
+			});
+			expect(window.document.body.textContent).toContain(
+				"Status updated to in progress",
+			);
+			expect(window.document.body.textContent).toContain("In progress");
+			const inProgressSection = Array.from(
+				window.document.querySelectorAll("section"),
+			).find((section) => section.textContent?.includes("In progress"));
+			expect(inProgressSection?.textContent).toContain("Build task");
+			expect(window.document.body.textContent).toContain("Epic Details");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("does not offer Start work for epics or already closed tasks", async () => {
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({ id: "task-1", title: "Closed task", status: "closed" }),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			clickButton(window, "Epic");
+			await flush(window);
+			expect(window.document.body.textContent).not.toContain("Start work");
+			clickButton(window, "Closed task");
+			await flush(window);
+			expect(window.document.body.textContent).not.toContain("Start work");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("keeps a task in its original bucket and surfaces an error when Start work fails", async () => {
+		const logs: string[] = [];
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
+			issue({ id: "task-1", title: "Build task", labels: ["feature"] }),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async (_input, init) =>
+				init?.method === "PATCH"
+					? new Response("Nope", { status: 500 })
+					: new Response(JSON.stringify(initial), { status: 200 }),
+			(text) => logs.push(text),
+		);
+		try {
+			clickButton(window, "Epic");
+			await flush(window);
+			clickButton(window, "Start work");
+			await flush(window);
+
+			expect(window.document.body.textContent).toContain(
+				"Failed to start work: Nope",
+			);
+			const readySection = Array.from(
+				window.document.querySelectorAll("section"),
+			).find((section) => section.textContent?.includes("Ready"));
+			expect(readySection?.textContent).toContain("Build task");
+			expect(
+				logs.some((line) =>
+					line.includes("Failed to start work on Roadmap issue task-1"),
+				),
+			).toBe(true);
+		} finally {
+			await cleanup();
+		}
+	});
+});
+
+// Assignee support is intentionally out of scope for Tracer 4 because the
+// dashboard does not yet expose a current-user source for assignment semantics.
 
 describe("RoadmapPanel description editing", () => {
 	it("saves multiline markdown with the exact PATCH body and renders the refreshed text", async () => {
