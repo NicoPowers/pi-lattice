@@ -18122,6 +18122,25 @@ var require_jsx_dev_runtime = __commonJS((exports, module) => {
 var import_react10 = __toESM(require_react(), 1);
 var import_client = __toESM(require_client(), 1);
 
+// web/shared/agent-state.ts
+function mergeAgentState(previous, next) {
+  const merged = { ...previous, ...next };
+  const status = merged.status;
+  const hasPendingSend = Object.hasOwn(next, "pendingSend");
+  const hasTurnDiagnostics = Object.hasOwn(next, "turnDiagnostics");
+  const pendingSend = hasPendingSend ? next.pendingSend : status === "idle" || status === "error" || status === "exited" ? undefined : previous?.pendingSend;
+  const setupPending = next.setupPending ?? (!!previous?.setupPending && !merged.runtimeTools && status !== "error" && status !== "exited");
+  const removalPending = next.removalPending ?? previous?.removalPending;
+  return {
+    ...merged,
+    pendingSend,
+    turnDiagnostics: hasTurnDiagnostics ? next.turnDiagnostics : pendingSend ? previous?.turnDiagnostics : undefined,
+    setupPending: removalPending ? false : setupPending,
+    removalPending,
+    removalStartedAt: next.removalStartedAt ?? previous?.removalStartedAt
+  };
+}
+
 // web/features/live-agents/LiveAgentsPanel.tsx
 var import_react2 = __toESM(require_react(), 1);
 
@@ -29848,7 +29867,7 @@ function previewMarkdown(agent) {
   }
   return "";
 }
-var LIVE_AGENT_CARD_CLASS = "min-h-[28rem]";
+var LIVE_AGENT_CARD_CLASS = "min-h-[36rem]";
 function isAgentSettingUp(agent) {
   return !!agent.setupPending && !agent.runtimeTools && agent.status !== "error" && agent.status !== "exited";
 }
@@ -29925,6 +29944,7 @@ function AgentsPanel({
   agents,
   stats: _stats,
   agentTypes = [],
+  loadingAgents = false,
   onInspect,
   onAgentKilled,
   onAgentSpawned,
@@ -29932,6 +29952,7 @@ function AgentsPanel({
   pushLog
 }) {
   const entries = Object.entries(agents);
+  const showLoadingAgents = loadingAgents && entries.length === 0;
   const spawnableTypes = agentTypes.filter((type) => type.agentClass !== "orchestrator");
   return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Card, {
     className: "min-h-[70vh]",
@@ -29952,6 +29973,7 @@ function AgentsPanel({
               onAgentSpawnFailed,
               pushLog
             }, undefined, false, undefined, this),
+            showLoadingAgents && /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(LiveAgentsLoadingCard, {}, undefined, false, undefined, this),
             entries.map(([name2, agent]) => /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(AgentCard, {
               name: name2,
               agent,
@@ -29964,6 +29986,45 @@ function AgentsPanel({
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
+}
+function LiveAgentsLoadingCard() {
+  return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+    className: `${LIVE_AGENT_CARD_CLASS} rounded-md border border-border bg-card/40 p-3`,
+    "data-live-agent-card": "true",
+    "data-testid": "live-agents-loading-card",
+    "aria-label": "Restoring live agents",
+    children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+      className: "flex h-full min-h-48 flex-col justify-center gap-4",
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+              className: "text-sm font-semibold",
+              children: "Restoring live agents…"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+              className: "mt-1 text-xs text-muted-foreground",
+              children: "Loading active agent state and recent preview history."
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
+          className: "space-y-2 rounded-md bg-background p-3",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+              className: "h-4 w-44"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+              className: "h-3 w-full"
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(SkeletonLine, {
+              className: "h-3 w-5/6"
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      ]
+    }, undefined, true, undefined, this)
+  }, undefined, false, undefined, this);
 }
 function SpawnAgentForm({
   agentTypes,
@@ -30367,7 +30428,8 @@ function AgentCard({
               ]
             }, undefined, true, undefined, this),
             /* @__PURE__ */ jsx_dev_runtime6.jsxDEV("div", {
-              className: "prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6",
+              className: "prose prose-invert h-72 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6",
+              "data-testid": "agent-preview-pane",
               children: preview ? /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Markdown, {
                 remarkPlugins: [remarkGfm],
                 children: preview
@@ -36752,21 +36814,10 @@ var tabs = [
   { id: "hierarchy", label: "Hierarchy" },
   { id: "log", label: "Event Log" }
 ];
-function mergeAgentState(previous3, next) {
-  const merged = { ...previous3, ...next };
-  const status = merged.status;
-  const setupPending = next.setupPending ?? (!!previous3?.setupPending && !merged.runtimeTools && status !== "error" && status !== "exited");
-  const removalPending = next.removalPending ?? previous3?.removalPending;
-  return {
-    ...merged,
-    setupPending: removalPending ? false : setupPending,
-    removalPending,
-    removalStartedAt: next.removalStartedAt ?? previous3?.removalStartedAt
-  };
-}
 function App() {
   const [activeTab, setActiveTab] = import_react10.useState("agents");
   const [connected, setConnected] = import_react10.useState(false);
+  const [agentsHydrated, setAgentsHydrated] = import_react10.useState(false);
   const [agents, setAgents] = import_react10.useState({});
   const [agentStats, setAgentStats] = import_react10.useState({});
   const [logs, setLogs] = import_react10.useState([]);
@@ -36859,6 +36910,7 @@ function App() {
         }
         return next;
       });
+      setAgentsHydrated(true);
     } catch {}
   }, []);
   const scheduleAgentRemoval = import_react10.useCallback((name2) => {
@@ -36929,6 +36981,7 @@ function App() {
           k,
           mergeAgentState(prev[k], v)
         ])));
+        setAgentsHydrated(true);
         pushLog(`Synced ${Object.keys(ev.data.agents || {}).length} agents`);
         break;
       case "agent-spawned":
@@ -37194,6 +37247,7 @@ function App() {
             agents,
             stats: agentStats,
             agentTypes: types2,
+            loadingAgents: !agentsHydrated && Object.keys(agents).length === 0,
             onInspect: inspect,
             onAgentSpawned: (agent) => setAgents((prev) => ({
               ...prev,

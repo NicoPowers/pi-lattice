@@ -13,6 +13,7 @@ import type {
 	LogLine,
 	StatsEntry,
 } from "./shared/dashboard-types.js";
+import { mergeAgentState } from "./shared/agent-state.js";
 import {
 	AgentsPanel,
 	HierarchyPanel,
@@ -67,30 +68,10 @@ const tabs: Array<{ id: Tab; label: string }> = [
 	{ id: "log", label: "Event Log" },
 ];
 
-function mergeAgentState(
-	previous: AgentState | undefined,
-	next: AgentState,
-): AgentState {
-	const merged = { ...previous, ...next };
-	const status = merged.status;
-	const setupPending =
-		next.setupPending ??
-		(!!previous?.setupPending &&
-			!merged.runtimeTools &&
-			status !== "error" &&
-			status !== "exited");
-	const removalPending = next.removalPending ?? previous?.removalPending;
-	return {
-		...merged,
-		setupPending: removalPending ? false : setupPending,
-		removalPending,
-		removalStartedAt: next.removalStartedAt ?? previous?.removalStartedAt,
-	};
-}
-
 function App() {
 	const [activeTab, setActiveTab] = useState<Tab>("agents");
 	const [connected, setConnected] = useState(false);
+	const [agentsHydrated, setAgentsHydrated] = useState(false);
 	const [agents, setAgents] = useState<Record<string, AgentState>>({});
 	const [agentStats, setAgentStats] = useState<Record<string, StatsEntry>>({});
 	const [logs, setLogs] = useState<LogLine[]>([]);
@@ -209,6 +190,7 @@ function App() {
 				}
 				return next;
 			});
+			setAgentsHydrated(true);
 		} catch {
 			// live agent refresh is best-effort; SSE remains primary
 		}
@@ -288,6 +270,7 @@ function App() {
 							]),
 						),
 					);
+					setAgentsHydrated(true);
 					pushLog(`Synced ${Object.keys(ev.data.agents || {}).length} agents`);
 					break;
 				case "agent-spawned":
@@ -553,6 +536,7 @@ function App() {
 						agents={agents}
 						stats={agentStats}
 						agentTypes={types}
+						loadingAgents={!agentsHydrated && Object.keys(agents).length === 0}
 						onInspect={inspect}
 						onAgentSpawned={(agent) =>
 							setAgents((prev) => ({

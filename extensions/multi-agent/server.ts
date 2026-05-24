@@ -109,6 +109,14 @@ export function broadcast(event: { type: string; data: any }) {
 
 // ── Helpers ──
 
+function latestAgentPreviewText(agent: Agent): string | undefined {
+	const lastAssistant = [...agent.history]
+		.reverse()
+		.find((entry) => entry.role === "assistant" && entry.text.trim());
+	const text = agent.accumulatedText || lastAssistant?.text || "";
+	return text.trim() ? text : undefined;
+}
+
 function serializeAgent(agent: Agent) {
 	agent.runtimeTools = readRuntimeToolSnapshot(agent.worktreePath);
 	logRuntimeToolConflicts(agent.id, agent.runtimeTools);
@@ -130,6 +138,7 @@ function serializeAgent(agent: Agent) {
 		runtimeTools: agent.runtimeTools,
 		pendingSend: agent.pendingSend,
 		turnDiagnostics: timeline.metadata.turnDiagnostics,
+		text: latestAgentPreviewText(agent),
 	};
 }
 

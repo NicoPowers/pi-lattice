@@ -53,7 +53,7 @@ function previewMarkdown(agent: AgentState): string {
 	return "";
 }
 
-const LIVE_AGENT_CARD_CLASS = "min-h-[28rem]";
+const LIVE_AGENT_CARD_CLASS = "min-h-[36rem]";
 
 function isAgentSettingUp(agent: AgentState): boolean {
 	return (
@@ -99,6 +99,7 @@ export function AgentsPanel({
 	agents,
 	stats: _stats,
 	agentTypes = [],
+	loadingAgents = false,
 	onInspect,
 	onAgentKilled,
 	onAgentSpawned,
@@ -108,6 +109,7 @@ export function AgentsPanel({
 	agents: Record<string, AgentState>;
 	stats: Record<string, StatsEntry>;
 	agentTypes?: AgentTypeInfo[];
+	loadingAgents?: boolean;
 	onInspect: (name: string) => void;
 	onAgentKilled?: (name: string) => void;
 	onAgentSpawned?: (agent: AgentState) => void;
@@ -115,6 +117,7 @@ export function AgentsPanel({
 	pushLog: (text: string, level?: LogLine["level"]) => void;
 }) {
 	const entries = Object.entries(agents);
+	const showLoadingAgents = loadingAgents && entries.length === 0;
 	const spawnableTypes = agentTypes.filter(
 		(type) => type.agentClass !== "orchestrator",
 	);
@@ -134,6 +137,7 @@ export function AgentsPanel({
 						onAgentSpawnFailed={onAgentSpawnFailed}
 						pushLog={pushLog}
 					/>
+					{showLoadingAgents && <LiveAgentsLoadingCard />}
 					{entries.map(([name, agent]) => (
 						<AgentCard
 							key={name}
@@ -147,6 +151,31 @@ export function AgentsPanel({
 				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+function LiveAgentsLoadingCard() {
+	return (
+		<div
+			className={`${LIVE_AGENT_CARD_CLASS} rounded-md border border-border bg-card/40 p-3`}
+			data-live-agent-card="true"
+			data-testid="live-agents-loading-card"
+			aria-label="Restoring live agents"
+		>
+			<div className="flex h-full min-h-48 flex-col justify-center gap-4">
+				<div>
+					<div className="text-sm font-semibold">Restoring live agents…</div>
+					<div className="mt-1 text-xs text-muted-foreground">
+						Loading active agent state and recent preview history.
+					</div>
+				</div>
+				<div className="space-y-2 rounded-md bg-background p-3">
+					<SkeletonLine className="h-4 w-44" />
+					<SkeletonLine className="h-3 w-full" />
+					<SkeletonLine className="h-3 w-5/6" />
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -512,7 +541,10 @@ function AgentCard({
 								</Badge>
 							)}
 						</div>
-						<div className="prose prose-invert max-h-72 min-h-28 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6">
+						<div
+							className="prose prose-invert h-72 max-w-none overflow-auto rounded-md bg-background p-3 text-sm leading-6"
+							data-testid="agent-preview-pane"
+						>
 							{preview ? (
 								<ReactMarkdown remarkPlugins={[remarkGfm]}>
 									{preview}

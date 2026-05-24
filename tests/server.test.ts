@@ -206,6 +206,58 @@ describe("agent timeline API", () => {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
 	});
+
+	it("hydrates live agent list previews from the latest assistant response", async () => {
+		const { startServer } = await import("../extensions/multi-agent/server.js");
+		const { agents } = await import("../extensions/multi-agent/state.js");
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-agent-list-api-"));
+		const worktree = path.join(tmpDir, "worktree");
+		fs.mkdirSync(path.join(worktree, ".pi"), { recursive: true });
+		agents.set("lead", {
+			id: "lead",
+			proc: { killed: false } as any,
+			stdin: {} as any,
+			status: "idle",
+			accumulatedText: "",
+			history: [
+				{ role: "user", text: "question" },
+				{ role: "assistant", text: "persisted answer" },
+			],
+			events: [],
+			buffer: "",
+			worktreePath: worktree,
+			children: [],
+		});
+		const handle = await startServer({
+			repoCwd: tmpDir,
+			spawnAgent: async () => ({
+				agent: undefined as any,
+				error: "disabled in tests",
+			}),
+			sendToAgent: async () => {},
+			removeWorktree: async () => {},
+			discoverDefinitions: () => [],
+			getDefinition: () => undefined,
+			discoverExtensions: () => [],
+		});
+
+		try {
+			const res = await fetch(`${handle.url}/api/agents`);
+			expect(res.status).toBe(200);
+			const body = await res.json();
+			expect(body).toContainEqual(
+				expect.objectContaining({
+					name: "lead",
+					status: "idle",
+					text: "persisted answer",
+				}),
+			);
+		} finally {
+			handle.stop();
+			agents.clear();
+			fs.rmSync(tmpDir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("roadmap API", () => {

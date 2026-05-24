@@ -227,9 +227,9 @@ describe("Live Agents dashboard", () => {
 				grid.querySelectorAll('[data-live-agent-card="true"]'),
 			);
 			expect(cards).toHaveLength(2);
-			expect(cards.every((card) => card.className.includes("min-h-["))).toBe(
-				true,
-			);
+			expect(
+				cards.every((card) => card.className.includes("min-h-[36rem]")),
+			).toBe(true);
 			expect(
 				cards.some(
 					(card) =>
@@ -524,6 +524,65 @@ describe("Live Agents dashboard", () => {
 		}
 	});
 
+	it("shows a completed assistant response instead of stale waiting copy", async () => {
+		const { window, cleanup } = await render(
+			<AgentsPanel
+				agents={{
+					lead: {
+						name: "lead",
+						status: "idle",
+						definition: "lead",
+						children: [],
+						turns: 1,
+						worktree: "/tmp/pi-worktree-lead",
+						text: "The answer is ready.",
+						pendingSend: {
+							message: "Can you answer?",
+							startedAt: Date.now(),
+							timeoutMs: 300_000,
+							status: "waiting",
+						},
+					},
+				}}
+				stats={{}}
+				onInspect={() => {}}
+				pushLog={() => {}}
+			/>,
+		);
+		try {
+			const text = window.document.body.textContent || "";
+			expect(text).toContain("The answer is ready.");
+			expect(text).not.toContain("waiting for response");
+			expect(text).not.toContain("You: Can you answer?");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("shows a graceful restoring state while live agents are hydrating", async () => {
+		const { window, cleanup } = await render(
+			<AgentsPanel
+				agents={{}}
+				stats={{}}
+				loadingAgents
+				onInspect={() => {}}
+				pushLog={() => {}}
+			/>,
+		);
+		try {
+			const text = window.document.body.textContent || "";
+			expect(text).toContain("Restoring live agents");
+			expect(text).not.toContain("No agents yet.");
+			expect(
+				window.document.querySelector(
+					'[data-testid="live-agents-loading-card"]',
+				),
+			).toBeTruthy();
+		} finally {
+			await cleanup();
+		}
+	});
+
 	it("highlights agents with stuck pending turns", async () => {
 		const { window, cleanup } = await render(
 			<AgentsPanel
@@ -595,6 +654,42 @@ describe("Live Agents dashboard", () => {
 			expect(window.document.querySelector("strong")?.textContent).toBe(
 				"Ready",
 			);
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("keeps the agent preview pane at a fixed height for long responses", async () => {
+		const longText = Array.from(
+			{ length: 80 },
+			(_, index) => `Line ${index + 1}`,
+		).join("\n");
+		const { window, cleanup } = await render(
+			<AgentsPanel
+				agents={{
+					lead: {
+						name: "lead",
+						status: "idle",
+						definition: "lead",
+						children: [],
+						turns: 1,
+						worktree: "/tmp/pi-worktree-lead",
+						text: longText,
+					},
+				}}
+				stats={{}}
+				onInspect={() => {}}
+				pushLog={() => {}}
+			/>,
+		);
+		try {
+			const preview = window.document.querySelector(
+				'[data-testid="agent-preview-pane"]',
+			);
+			expect(preview).toBeTruthy();
+			expect(preview!.className).toContain("h-72");
+			expect(preview!.className).toContain("overflow-auto");
+			expect(preview!.className).not.toContain("min-h-28");
 		} finally {
 			await cleanup();
 		}
