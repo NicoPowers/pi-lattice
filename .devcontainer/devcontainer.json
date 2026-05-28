@@ -10,10 +10,10 @@
   "mounts": [
     "source=pi-lattice-home,target=/home/node/.pi,type=volume",
     "source=pi-lattice-bun-cache,target=/home/node/.bun/install/cache,type=volume",
-    "source=/tmp/pi-lattice-ssh-agent.sock,target=/ssh-agent,type=bind"
+    "source=/tmp/pi-lattice-ssh-agent,target=/tmp/pi-lattice-ssh-agent,type=bind"
   ],
   "remoteEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
+    "SSH_AUTH_SOCK": "/tmp/pi-lattice-ssh-agent/agent.sock"
   },
   "forwardPorts": [18765],
   "postCreateCommand": "bash .devcontainer/dev-setup.sh",

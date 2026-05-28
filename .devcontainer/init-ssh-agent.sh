@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOCKET="/tmp/pi-lattice-ssh-agent.sock"
+SOCKET_DIR="/tmp/pi-lattice-ssh-agent"
+SOCKET="$SOCKET_DIR/agent.sock"
 ENV_FILE="/tmp/pi-lattice-ssh-agent.env"
+
+cleanup_agent_files() {
+	if [ -d "$SOCKET" ]; then
+		rmdir "$SOCKET"
+	else
+		rm -f "$SOCKET"
+	fi
+
+	rm -f "$ENV_FILE"
+}
+
+mkdir -p "$SOCKET_DIR"
 
 agent_usable() {
 	SSH_AUTH_SOCK="$SOCKET" ssh-add -l >/dev/null 2>&1
@@ -17,7 +30,7 @@ agent_running() {
 }
 
 if ! agent_running; then
-	rm -f "$SOCKET" "$ENV_FILE"
+	cleanup_agent_files
 	ssh-agent -a "$SOCKET" >"$ENV_FILE"
 fi
 

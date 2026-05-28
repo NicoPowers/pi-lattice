@@ -23,6 +23,13 @@
   "author": "",
   "license": "MIT",
   "type": "module",
+  "_dependencyNotes": {
+    "dependencies": "Packages Pi Lattice needs when installed or run.",
+    "devDependencies": "Tools and types for local development, tests, and builds.",
+    "peerDependencies": "Runtime packages the host Pi installation must provide.",
+    "bundledDependencies": "Dependency packages included with the distributed Pi package.",
+    "trustedDependencies": "Bun may run lifecycle scripts for these native/scripted packages."
+  },
   "scripts": {
     "test": "bun test --timeout 15000",
     "lint": "bunx tsc --noEmit --skipLibCheck",

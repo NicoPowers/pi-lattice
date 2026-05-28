@@ -3,7 +3,8 @@ FROM node:22-bookworm
 ARG USERNAME=node
 
 ENV BUN_INSTALL=/home/${USERNAME}/.bun
-ENV PATH=/home/${USERNAME}/.bun/bin:${PATH}
+ENV NPM_CONFIG_PREFIX=/home/${USERNAME}/.npm-global
+ENV PATH=/home/${USERNAME}/.bun/bin:/home/${USERNAME}/.npm-global/bin:${PATH}
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -27,9 +28,10 @@ RUN curl -fsSL https://bun.sh/install | bash
 
 USER root
 RUN mkdir -p /home/${USERNAME}/.pi \
-  && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.pi
-
-RUN npm install -g @earendil-works/pi-coding-agent @os-eco/mulch-cli@0.10.1 @os-eco/seeds-cli@0.4.7
+  /home/${USERNAME}/.npm-global \
+  && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.pi /home/${USERNAME}/.npm-global
 
 USER ${USERNAME}
+RUN npm install -g @earendil-works/pi-coding-agent @os-eco/mulch-cli@0.10.1 @os-eco/seeds-cli@0.4.7
+
 WORKDIR /workspaces/pi-lattice

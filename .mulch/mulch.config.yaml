@@ -5,6 +5,7 @@ domains:
   agents: {}
   skills: {}
   testing: {}
+  devcontainer: {}
 governance:
   max_entries: 100
   warn_entries: 150
