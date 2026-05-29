@@ -29,9 +29,18 @@ RUN curl -fsSL https://bun.sh/install | bash
 USER root
 RUN mkdir -p /home/${USERNAME}/.pi \
   /home/${USERNAME}/.npm-global \
-  && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.pi /home/${USERNAME}/.npm-global
+  /home/${USERNAME}/.bun/install/cache \
+  && chown -R ${USERNAME}:${USERNAME} \
+    /home/${USERNAME}/.pi \
+    /home/${USERNAME}/.npm-global \
+    /home/${USERNAME}/.bun
 
 USER ${USERNAME}
 RUN npm install -g @earendil-works/pi-coding-agent @os-eco/mulch-cli@0.10.1 @os-eco/seeds-cli@0.4.7
+
+USER root
+COPY .devcontainer/devcontainer-entrypoint.sh /usr/local/bin/pi-lattice-devcontainer-entrypoint
+RUN chmod +x /usr/local/bin/pi-lattice-devcontainer-entrypoint
+ENTRYPOINT ["/usr/local/bin/pi-lattice-devcontainer-entrypoint"]
 
 WORKDIR /workspaces/pi-lattice

@@ -72,7 +72,7 @@
   "dependencies": {
     "@os-eco/mulch-cli": "0.10.1",
     "@os-eco/seeds-cli": "0.4.7",
-    "context-mode": "1.0.146",
+    "context-mode": "1.0.151",
     "pi-cursor-sdk": "0.1.16",
     "pi-lens": "3.8.45",
     "pi-web-access": "0.10.7",

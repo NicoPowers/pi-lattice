@@ -6,6 +6,9 @@
   },
   "workspaceFolder": "/workspaces/pi-lattice",
   "remoteUser": "node",
+  "containerEnv": {
+    "DEVCONTAINER_USERNAME": "node"
+  },
   "initializeCommand": "bash .devcontainer/init-ssh-agent.sh",
   "mounts": [
     "source=pi-lattice-home,target=/home/node/.pi,type=volume",

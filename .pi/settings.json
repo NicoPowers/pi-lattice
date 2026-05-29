@@ -1,4 +1,11 @@
 {
+  "retry": {
+    "provider": {
+      "timeoutMs": 3600000,
+      "maxRetries": 0,
+      "maxRetryDelayMs": 60000
+    }
+  },
   "piLattice": {
     "showPackageExamples": false,
     "libraries": [
