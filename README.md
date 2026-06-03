@@ -142,6 +142,12 @@ The dashboard can currently:
 
 The dashboard is a static React + TypeScript + Tailwind bundle served by the extension HTTP server; no runtime dashboard dev server is required.
 
+### Spawned-agent sessions and diagnostics
+
+Pi Lattice launches spawned RPC agents with explicit native Pi session IDs such as `pi-lattice.<run>.<agent>`. Those sessions are resumable/debuggable through Pi's native session machinery, and the dashboard/API surfaces native session metadata when available (`sessionId`, `sessionFile`, and `sessionName`). Pi Lattice also writes redacted operational timelines under `.pi/pi-lattice/sessions/<run>/agents/<agent>/timeline.json` for recently active agents.
+
+For internal maintenance calls to child agents, Pi Lattice uses Pi RPC bash with `excludeFromContext` enabled by default so diagnostic shell output does not pollute the child model context unless a caller explicitly opts in. User-facing retries should prefer the dashboard/Live Agents controls: inspect the agent timeline/session metadata, retry or send a new prompt only when the agent is idle/safe, and start a replacement agent if the child process has exited. Terminal editing improvements are upstream Pi UX and are not implemented by Pi Lattice.
+
 ## Terminal commands
 
 ```text

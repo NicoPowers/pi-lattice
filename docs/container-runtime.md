@@ -94,7 +94,21 @@ Operational handoff artifacts for spawned-agent continuity live under the app-ow
 
 These files are working-session context bundles for leads, scouts, researchers, and builders. They are distinct from Seeds issue state and Mulch durable knowledge: agents may use them to pass operational context, and the root orchestrator can later promote selected outcomes into Seeds or Mulch.
 
-The current runtime standardizes the path skeleton, carries `issueId`/`artifactPath` metadata on spawned agents when an issue id is supplied, and injects lightweight role-specific artifact guidance into spawned agents. Full packet gates and required artifact submission belong to the later Orchestration Protocol Mode work.
+The current runtime standardizes the path skeleton, carries `issueId`/`artifactPath` metadata on spawned agents when an issue id is supplied, and injects lightweight role-specific artifact guidance into spawned agents. Full packet gates and required artifact submission belong to future workflow policy work.
+
+## Spawned-agent Pi sessions
+
+Spawned RPC agents are launched with deterministic native Pi session IDs in the form `pi-lattice.<run>.<agent>` rather than `--no-session`. This gives each child agent a resumable/debuggable Pi transcript while keeping IDs stable enough for dashboard diagnostics and tests.
+
+Pi Lattice records native session metadata when Pi reports it (`sessionId`, `sessionFile`, and `sessionName`) and exposes that metadata through the dashboard agent APIs and timelines. Operational debug snapshots are also written under:
+
+```text
+.pi/pi-lattice/sessions/<run>/agents/<agent>/timeline.json
+```
+
+These snapshots are redacted runtime diagnostics, not Seeds tracker state and not Mulch durable knowledge. Internal maintenance bash calls sent to child RPC agents default to Pi's `excludeFromContext` behavior so diagnostic command output does not enter the child model context unless explicitly requested.
+
+If a child command fails or a process exits, inspect the dashboard timeline/native session metadata first. Retry only when the agent is idle and the operation is safe to repeat; if the child process has exited, start a replacement agent instead of expecting the old process to resume. Terminal editing improvements are upstream Pi behavior and do not require Pi Lattice-specific code.
 
 ## Notes
 

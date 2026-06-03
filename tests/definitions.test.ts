@@ -103,7 +103,9 @@ describe("definition discovery", () => {
 		const { discoverDefinitions } = await import(
 			"../extensions/multi-agent/definitions.js"
 		);
-		const { LATTICE_LIBRARY_SCHEMA } = await import("../extensions/multi-agent/lattice-library.js");
+		const { LATTICE_LIBRARY_SCHEMA } = await import(
+			"../extensions/multi-agent/lattice-library.js"
+		);
 
 		const libraryRoot = path.join(tmpDir, "team-library");
 		fs.mkdirSync(path.join(libraryRoot, "agents"), { recursive: true });
@@ -215,7 +217,9 @@ describe("definition saving", () => {
 		const { saveAgentDefinition, discoverDefinitions } = await import(
 			"../extensions/multi-agent/definitions.js"
 		);
-		const { LATTICE_LIBRARY_SCHEMA } = await import("../extensions/multi-agent/lattice-library.js");
+		const { LATTICE_LIBRARY_SCHEMA } = await import(
+			"../extensions/multi-agent/lattice-library.js"
+		);
 
 		const libraryRoot = path.join(tmpDir, "team-library");
 		fs.mkdirSync(path.join(libraryRoot, "agents"), { recursive: true });
