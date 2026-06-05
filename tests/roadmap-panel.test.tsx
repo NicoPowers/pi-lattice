@@ -357,7 +357,12 @@ describe("RoadmapPanel start work actions", () => {
 		const requests: Array<{ url: string; method?: string; body?: any }> = [];
 		const initial = overview([
 			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
-			issue({ id: "task-1", title: "Build task", labels: ["feature"] }),
+			issue({
+				id: "task-1",
+				title: "Build task",
+				labels: ["feature"],
+				description: "Part of epic-1.",
+			}),
 		]);
 		const updated = overview([
 			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
@@ -366,6 +371,7 @@ describe("RoadmapPanel start work actions", () => {
 				title: "Build task",
 				status: "in_progress",
 				labels: ["feature"],
+				description: "Part of epic-1.",
 			}),
 		]);
 		const { window, cleanup } = await renderRoadmapPanel(
@@ -409,7 +415,12 @@ describe("RoadmapPanel start work actions", () => {
 	it("does not offer Start work for epics or already closed tasks", async () => {
 		const initial = overview([
 			issue({ id: "epic-1", title: "Epic", type: "epic" }),
-			issue({ id: "task-1", title: "Closed task", status: "closed" }),
+			issue({
+				id: "task-1",
+				title: "Closed task",
+				status: "closed",
+				description: "Part of epic-1.",
+			}),
 		]);
 		const { window, cleanup } = await renderRoadmapPanel(
 			async () => new Response(JSON.stringify(initial), { status: 200 }),
@@ -430,7 +441,12 @@ describe("RoadmapPanel start work actions", () => {
 		const logs: string[] = [];
 		const initial = overview([
 			issue({ id: "epic-1", title: "Epic", type: "epic", labels: ["feature"] }),
-			issue({ id: "task-1", title: "Build task", labels: ["feature"] }),
+			issue({
+				id: "task-1",
+				title: "Build task",
+				labels: ["feature"],
+				description: "Part of epic-1.",
+			}),
 		]);
 		const { window, cleanup } = await renderRoadmapPanel(
 			async (_input, init) =>

@@ -35385,45 +35385,19 @@ var import_react9 = __toESM(require_react(), 1);
 // web/features/roadmap/roadmap-view-model.ts
 function buildRoadmapHierarchy(overview) {
   const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
-  const byId = new Map(issueViews.map((issue) => [issue.id, issue]));
   const epics = issueViews.filter((issue) => issue.type === "epic");
   const assigned = new Set;
   const epicGroups = epics.map((epic) => {
     assigned.add(epic.id);
-    const childIds = new Set;
-    for (const dependent of overview.dependencyMap.dependents[epic.id] || [])
-      childIds.add(dependent.id);
-    for (const blocker of overview.dependencyMap.blockers[epic.id] || [])
-      childIds.add(blocker.id);
-    for (const blockedId of epic.blocks)
-      childIds.add(blockedId);
-    for (const blockerId of epic.blockedBy)
-      childIds.add(blockerId);
-    const children = Array.from(childIds).map((id) => byId.get(id)).filter((issue) => !!issue && issue.id !== epic.id && issue.type !== "epic");
+    const children = issueViews.filter((issue) => issue.id !== epic.id && issue.type !== "epic" && hasExplicitEpicMembership(issue, epic));
     for (const child of children)
       assigned.add(child.id);
     return {
       epic,
-      activeChildren: children.filter((issue) => issue.status !== "closed"),
-      closedChildren: children.filter((issue) => issue.status === "closed")
+      activeChildren: sortIssueViews(children.filter((issue) => issue.status !== "closed")),
+      closedChildren: sortIssueViews(children.filter((issue) => issue.status === "closed"))
     };
   });
-  for (const issue of issueViews) {
-    if (assigned.has(issue.id) || issue.type === "epic")
-      continue;
-    const group = bestInferredEpicGroup(issue, epicGroups);
-    if (!group)
-      continue;
-    assigned.add(issue.id);
-    if (issue.status === "closed")
-      group.closedChildren.push(issue);
-    else
-      group.activeChildren.push(issue);
-  }
-  for (const group of epicGroups) {
-    group.activeChildren = sortIssueViews(group.activeChildren);
-    group.closedChildren = sortIssueViews(group.closedChildren);
-  }
   const ungrouped = sortIssueViews(issueViews.filter((issue) => !assigned.has(issue.id)));
   return { epics: sortEpicGroups(epicGroups), ungrouped };
 }
@@ -35440,37 +35414,13 @@ function toIssueView(issue, overview) {
 function sortEpicGroups(groups) {
   return [...groups].sort((a, b) => compareIssues(a.epic, b.epic));
 }
-function bestInferredEpicGroup(issue, groups) {
-  let best;
-  for (const group of groups) {
-    if (group.epic.status === "closed" && issue.status !== "closed")
-      continue;
-    const score = epicAffinityScore(issue, group.epic);
-    if (score <= 0)
-      continue;
-    if (!best || score > best.score || score === best.score && compareIssues(group.epic, best.group.epic) < 0)
-      best = { group, score };
-  }
-  return best?.group;
+function hasExplicitEpicMembership(issue, epic) {
+  const description = issue.description || "";
+  const pattern = new RegExp(`\\bpart\\s+of\\s+${escapeRegExp(epic.id)}\\b`, "i");
+  return pattern.test(description);
 }
-function epicAffinityScore(issue, epic) {
-  const issueLabels = distinctiveLabels(issue.labels);
-  const epicLabels = distinctiveLabels(epic.labels);
-  const sharedLabels = issueLabels.filter((label) => epicLabels.includes(label)).length;
-  if (sharedLabels > 0)
-    return sharedLabels * 10;
-  const issueTokens = titleTokens(issue.title);
-  const epicTokens = titleTokens(epic.title);
-  const sharedTokens = issueTokens.filter((token) => epicTokens.includes(token)).length;
-  return sharedTokens >= 2 ? sharedTokens : 0;
-}
-function distinctiveLabels(labels) {
-  const generic = new Set(["epic", "tracer", "dashboard", "frontend", "backend", "ux", "docs", "tests", "architecture", "dependencies", "next-up"]);
-  return labels.map((label) => label.toLowerCase()).filter((label) => !generic.has(label));
-}
-function titleTokens(title) {
-  const generic = new Set(["epic", "tracer", "add", "read", "only", "with", "and", "the", "for"]);
-  return title.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length >= 4 && !generic.has(token));
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function sortIssueViews(issues) {
   return [...issues].sort(compareIssues);
