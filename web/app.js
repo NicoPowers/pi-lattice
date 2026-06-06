@@ -35421,7 +35421,6 @@ var EPIC_BOARD_EXCLUDED_V1_CAPABILITIES = [
   "drag_drop_mutation",
   "agent_spawn_or_handoff"
 ];
-var EPIC_DEPENDENCY_TREE_RECURSION_DEPTH = 1;
 function buildRoadmapHierarchy(overview) {
   const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
   const epics = issueViews.filter((issue) => issue.type === "epic");
@@ -35491,44 +35490,6 @@ function buildRoadmapEpicBoard(group, overview) {
 function buildRoadmapEpicBoardByEpicId(overview, epicId) {
   const group = buildRoadmapHierarchy(overview).epics.find((item) => item.epic.id === epicId);
   return group ? buildRoadmapEpicBoard(group, overview) : undefined;
-}
-function buildRoadmapEpicDependencyTree(board, overview) {
-  const memberIds = board.columns.flatMap((column) => column.cards.map((card) => card.issue.id));
-  const memberIdSet = new Set(memberIds);
-  const groups = board.columns.flatMap((column) => column.cards).map((card) => {
-    const blockedCard = toDependencyNode(card.issue, overview, memberIdSet, new Set([card.issue.id]), "dependents", EPIC_DEPENDENCY_TREE_RECURSION_DEPTH);
-    const blockers = (overview.dependencyMap.blockers[card.issue.id] || []).map((blocker) => toDependencyNode(blocker, overview, memberIdSet, new Set([card.issue.id, blocker.id]), "blockers", EPIC_DEPENDENCY_TREE_RECURSION_DEPTH));
-    return { blockedCard, blockers };
-  }).filter((group) => group.blockers.length > 0);
-  return {
-    epic: board.epic,
-    memberIds,
-    groups
-  };
-}
-function toDependencyNode(dependency, overview, memberIds, visited, direction, remainingDepth) {
-  const issue = overview.issues.find((item) => item.id === dependency.id);
-  const status = issue?.status || dependency.status || "unknown";
-  return {
-    issueId: dependency.id,
-    title: issue?.title || dependency.title,
-    status,
-    type: issue?.type || dependency.type,
-    priority: issue?.priority ?? dependency.priority,
-    membership: memberIds.has(dependency.id) ? "member" : "external",
-    resolved: status === "closed",
-    blockers: direction === "blockers" ? childDependencyNodes(overview.dependencyMap.blockers[dependency.id] || [], overview, memberIds, visited, direction, remainingDepth) : [],
-    dependents: direction === "dependents" ? childDependencyNodes(overview.dependencyMap.dependents[dependency.id] || [], overview, memberIds, visited, direction, remainingDepth) : []
-  };
-}
-function childDependencyNodes(dependencies, overview, memberIds, visited, direction, remainingDepth) {
-  if (remainingDepth <= 0)
-    return [];
-  return dependencies.filter((dependency) => !visited.has(dependency.id)).map((dependency) => {
-    const nextVisited = new Set(visited);
-    nextVisited.add(dependency.id);
-    return toDependencyNode(dependency, overview, memberIds, nextVisited, direction, remainingDepth - 1);
-  });
 }
 function classifyEpicBoardCard(issue, overview, epicId) {
   if (issue.status === "closed")
@@ -35685,10 +35646,11 @@ function RoadmapPanel({ pushLog }) {
     setDetailBackIssueId(null);
   };
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Card, {
-    className: "min-h-[70vh]",
+    className: "flex h-full min-h-0 flex-col overflow-hidden",
+    "aria-label": "Project Roadmap panel",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardHeader, {
-        className: "border-b border-border",
+        className: "shrink-0 border-b border-border",
         children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
           className: "flex flex-wrap items-start justify-between gap-3",
           children: [
@@ -35714,7 +35676,8 @@ function RoadmapPanel({ pushLog }) {
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardContent, {
-        className: "space-y-4 pt-4",
+        className: `${selectedEpicBoard ? "flex overflow-hidden" : "overflow-auto"} min-h-0 flex-1 flex-col gap-4 pt-4`,
+        "aria-label": "Roadmap content",
         children: [
           loading && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
             className: "rounded-md border border-border bg-card/50 p-4 text-sm text-muted-foreground",
@@ -35726,7 +35689,6 @@ function RoadmapPanel({ pushLog }) {
           }, undefined, false, undefined, this),
           !loading && !error && overview && selectedEpicBoard && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicBoardDashboardView, {
             board: selectedEpicBoard,
-            overview,
             onBack: closeEpicBoard,
             onSelectIssue: (id) => selectIssue(id, selectedEpicBoard.epic.id),
             pushLog
@@ -35849,7 +35811,6 @@ function RoadmapSummary({
 }
 function EpicBoardDashboardView({
   board,
-  overview,
   onBack,
   onSelectIssue,
   pushLog
@@ -35858,11 +35819,11 @@ function EpicBoardDashboardView({
   const doneCount = board.columns.find((column) => column.id === "done")?.cards.length || 0;
   const blockedCount = board.columns.find((column) => column.id === "blocked")?.cards.length || 0;
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-    className: "space-y-4",
+    className: "flex h-full min-h-0 flex-col gap-4",
     "aria-label": "Full-width Epic Board view",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "rounded-lg border border-primary/40 bg-primary/5 p-4",
+        className: "shrink-0 rounded-lg border border-primary/40 bg-primary/5 p-4",
         children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
           className: "flex flex-wrap items-start justify-between gap-3",
           children: [
@@ -35934,7 +35895,6 @@ function EpicBoardDashboardView({
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanBoard, {
         board,
-        overview,
         onSelectIssue,
         pushLog
       }, undefined, false, undefined, this)
@@ -36724,22 +36684,20 @@ function IssueDetailDialog({
 }
 function EpicKanbanBoard({
   board,
-  overview,
   onSelectIssue,
   pushLog,
   compact
 }) {
   const activeCount = board.columns.filter((column) => column.id !== "done").reduce((sum, column) => sum + column.cards.length, 0);
   const doneCount = board.columns.find((column) => column.id === "done")?.cards.length || 0;
-  const dependencyTree = import_react9.useMemo(() => buildRoadmapEpicDependencyTree(board, overview), [board, overview]);
-  const boardFrameClass = compact ? "rounded-lg border border-border bg-card/30 p-2" : "rounded-lg";
-  const columnViewportClass = compact ? "flex max-h-[28rem] gap-3 overflow-x-auto pb-1" : "flex max-h-[calc(100vh-20rem)] min-h-[28rem] gap-4 overflow-x-auto pb-3";
+  const boardFrameClass = compact ? "rounded-lg border border-border bg-card/30 p-2" : "flex min-h-0 flex-1 flex-col rounded-lg";
+  const columnViewportClass = compact ? "grid h-[28rem] min-h-0 grid-cols-2 gap-3 pb-1 md:grid-cols-3 xl:grid-cols-6" : "grid min-h-0 flex-1 grid-cols-1 gap-4 pb-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6";
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     className: boardFrameClass,
     "aria-label": "Epic Kanban board",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "mb-3 flex flex-wrap items-center justify-between gap-2",
+        className: "mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2",
         children: [
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
             children: [
@@ -36781,25 +36739,16 @@ function EpicKanbanBoard({
           }, undefined, true, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      board.memberCount ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(jsx_dev_runtime14.Fragment, {
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-            className: columnViewportClass,
-            "aria-label": "Epic board columns",
-            children: board.columns.map((column) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanColumn, {
-              column,
-              onSelectIssue,
-              pushLog,
-              compact
-            }, column.id, false, undefined, this))
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyTreeMap, {
-            tree: dependencyTree,
-            onSelectIssue,
-            compact
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
+      board.memberCount ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: columnViewportClass,
+        "aria-label": "Epic board columns",
+        children: board.columns.map((column) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanColumn, {
+          column,
+          onSelectIssue,
+          pushLog,
+          compact
+        }, column.id, false, undefined, this))
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
         className: "text-sm text-muted-foreground",
         children: "No tasks are currently associated with this epic."
       }, undefined, false, undefined, this)
@@ -36814,7 +36763,7 @@ function EpicKanbanColumn({
 }) {
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("section", {
     "aria-label": `${column.title} column`,
-    className: `flex shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48 min-w-[12.5rem]" : "w-64 min-w-[15rem] xl:flex-1"}`,
+    className: "flex min-h-0 min-w-0 flex-col rounded border border-border/70 bg-background/30",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
         className: "border-b border-border/70 px-2 py-2",
@@ -36833,7 +36782,8 @@ function EpicKanbanColumn({
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "flex-1 space-y-2 overflow-y-auto p-2",
+        className: "min-h-0 flex-1 space-y-2 overflow-y-auto p-2",
+        "aria-label": `${column.title} cards`,
         children: column.cards.length ? column.cards.map((card) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicBoardCard, {
           card,
           onSelectIssue,
@@ -36942,223 +36892,6 @@ function EpicBoardCard({
       }, undefined, true, undefined, this)
     ]
   }, undefined, true, undefined, this);
-}
-function EpicDependencyTreeMap({
-  tree,
-  onSelectIssue,
-  compact
-}) {
-  const [collapsedGroups, setCollapsedGroups] = import_react9.useState(new Set);
-  const [collapsedNodes, setCollapsedNodes] = import_react9.useState(new Set);
-  if (!tree.groups.length)
-    return null;
-  const toggleGroup = (issueId) => {
-    setCollapsedGroups((prev) => toggleSetValue(prev, issueId));
-  };
-  const toggleNode = (issueId) => {
-    setCollapsedNodes((prev) => toggleSetValue(prev, issueId));
-  };
-  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-    className: "mt-4 rounded border border-border/70 bg-background/30 p-3",
-    "aria-label": "Epic dependency tree map",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "mb-3 flex flex-wrap items-center justify-between gap-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h5", {
-                className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-                children: "Dependency tree"
-              }, undefined, false, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
-                className: "mt-1 text-[0.7rem] text-muted-foreground",
-                children: "Read-only blocker map grouped by blocked card. Collapse branches to drill into large epics."
-              }, undefined, false, undefined, this)
-            ]
-          }, undefined, true, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
-            variant: "outline",
-            children: [
-              tree.groups.length,
-              " blocked cards"
-            ]
-          }, undefined, true, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: `space-y-3 ${compact ? "text-[0.7rem]" : "text-xs"}`,
-        children: tree.groups.map((group) => {
-          const collapsed = collapsedGroups.has(group.blockedCard.issueId);
-          return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-            className: "rounded border border-border/60 bg-card/30 p-2",
-            children: [
-              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-                className: "flex flex-wrap items-center justify-between gap-2",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyNodeButton, {
-                    node: group.blockedCard,
-                    onSelectIssue,
-                    labelPrefix: "Blocked card"
-                  }, undefined, false, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Button, {
-                    type: "button",
-                    variant: "secondary",
-                    className: "px-2 py-1 text-xs",
-                    onClick: () => toggleGroup(group.blockedCard.issueId),
-                    children: [
-                      collapsed ? "Expand" : "Collapse",
-                      " ",
-                      group.blockedCard.issueId,
-                      " dependencies"
-                    ]
-                  }, undefined, true, undefined, this)
-                ]
-              }, undefined, true, undefined, this),
-              !collapsed && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-                className: "mt-2 space-y-2 border-l border-border/70 pl-3",
-                children: [
-                  /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyBranch, {
-                    label: "Blocked by",
-                    nodes: group.blockers,
-                    onSelectIssue,
-                    collapsedNodes,
-                    onToggleNode: toggleNode
-                  }, undefined, false, undefined, this),
-                  /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyBranch, {
-                    label: "Dependents",
-                    nodes: group.blockedCard.dependents,
-                    onSelectIssue,
-                    collapsedNodes,
-                    onToggleNode: toggleNode
-                  }, undefined, false, undefined, this)
-                ]
-              }, undefined, true, undefined, this)
-            ]
-          }, group.blockedCard.issueId, true, undefined, this);
-        })
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function EpicDependencyBranch({
-  label,
-  nodes,
-  onSelectIssue,
-  collapsedNodes,
-  onToggleNode
-}) {
-  if (!nodes.length)
-    return null;
-  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground",
-        children: label
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "space-y-1",
-        children: nodes.map((node2) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyTreeNode, {
-          node: node2,
-          onSelectIssue,
-          collapsedNodes,
-          onToggleNode
-        }, `${label}-${node2.issueId}`, false, undefined, this))
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function EpicDependencyTreeNode({
-  node: node2,
-  onSelectIssue,
-  collapsedNodes,
-  onToggleNode
-}) {
-  const children = [...node2.blockers, ...node2.dependents];
-  const collapsed = collapsedNodes.has(node2.issueId);
-  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-    className: "border-l border-border/60 pl-3",
-    children: [
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "flex flex-wrap items-center gap-2",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
-            className: "text-muted-foreground",
-            children: "↳"
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyNodeButton, {
-            node: node2,
-            onSelectIssue
-          }, undefined, false, undefined, this),
-          !!children.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
-            type: "button",
-            className: "text-[0.65rem] text-muted-foreground hover:text-primary",
-            onClick: () => onToggleNode(node2.issueId),
-            children: collapsed ? "▸" : "▾"
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this),
-      !!children.length && !collapsed && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "mt-1 space-y-1",
-        children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyBranch, {
-            label: "Blocked by",
-            nodes: node2.blockers,
-            onSelectIssue,
-            collapsedNodes,
-            onToggleNode
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencyBranch, {
-            label: "Dependents",
-            nodes: node2.dependents,
-            onSelectIssue,
-            collapsedNodes,
-            onToggleNode
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function EpicDependencyNodeButton({
-  node: node2,
-  onSelectIssue,
-  labelPrefix
-}) {
-  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
-    type: "button",
-    className: "inline-flex items-center gap-1 rounded border border-border/70 bg-background/40 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary",
-    onClick: () => onSelectIssue(node2.issueId),
-    children: [
-      labelPrefix && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
-        className: "text-muted-foreground",
-        children: labelPrefix
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
-        children: node2.title || node2.issueId
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
-        variant: statusBadgeVariant(node2.status),
-        children: formatStatus(node2.status)
-      }, undefined, false, undefined, this),
-      node2.membership === "external" && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
-        variant: "outline",
-        children: "outside epic"
-      }, undefined, false, undefined, this),
-      node2.resolved && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
-        variant: "success",
-        children: "resolved"
-      }, undefined, false, undefined, this)
-    ]
-  }, undefined, true, undefined, this);
-}
-function toggleSetValue(values2, value) {
-  const next = new Set(values2);
-  if (next.has(value))
-    next.delete(value);
-  else
-    next.add(value);
-  return next;
 }
 function DependencyList({
   title,
@@ -37827,11 +37560,8 @@ function App() {
             onAgentKilled: scheduleAgentRemoval,
             pushLog
           }, undefined, false, undefined, this),
-          activeTab === "roadmap" && /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(PageFrame, {
-            mode: "wide",
-            children: /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(RoadmapPanel, {
-              pushLog
-            }, undefined, false, undefined, this)
+          activeTab === "roadmap" && /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(RoadmapPanel, {
+            pushLog
           }, undefined, false, undefined, this),
           activeTab === "types" && /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(PageFrame, {
             mode: "centered",

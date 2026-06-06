@@ -555,11 +555,7 @@ function App() {
 						pushLog={pushLog}
 					/>
 				)}
-				{activeTab === "roadmap" && (
-					<PageFrame mode="wide">
-						<RoadmapPanel pushLog={pushLog} />
-					</PageFrame>
-				)}
+				{activeTab === "roadmap" && <RoadmapPanel pushLog={pushLog} />}
 				{activeTab === "types" && (
 					<PageFrame mode="centered">
 						<AgentTypesPanel

@@ -11,13 +11,11 @@ import {
 import { Dialog } from "../../components/ui/dialog.js";
 import {
 	buildRoadmapEpicBoardByEpicId,
-	buildRoadmapEpicDependencyTree,
 	buildRoadmapHierarchy,
 	sortIssueViews,
 	splitEpicGroups,
 	type RoadmapEpicBoard,
 	type RoadmapEpicBoardCard,
-	type RoadmapEpicDependencyNode,
 	type RoadmapEpicGroup,
 	type RoadmapHierarchy,
 	type RoadmapIssueView,
@@ -142,8 +140,11 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 	};
 
 	return (
-		<Card className="min-h-[70vh]">
-			<CardHeader className="border-b border-border">
+		<Card
+			className="flex h-full min-h-0 flex-col overflow-hidden"
+			aria-label="Project Roadmap panel"
+		>
+			<CardHeader className="shrink-0 border-b border-border">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div>
 						<CardTitle>Project Roadmap</CardTitle>
@@ -162,7 +163,10 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 					</Button>
 				</div>
 			</CardHeader>
-			<CardContent className="space-y-4 pt-4">
+			<CardContent
+				className={`${selectedEpicBoard ? "flex overflow-hidden" : "overflow-auto"} min-h-0 flex-1 flex-col gap-4 pt-4`}
+				aria-label="Roadmap content"
+			>
 				{loading && (
 					<div className="rounded-md border border-border bg-card/50 p-4 text-sm text-muted-foreground">
 						Loading roadmap…
@@ -176,7 +180,6 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 				{!loading && !error && overview && selectedEpicBoard && (
 					<EpicBoardDashboardView
 						board={selectedEpicBoard}
-						overview={overview}
 						onBack={closeEpicBoard}
 						onSelectIssue={(id) => selectIssue(id, selectedEpicBoard.epic.id)}
 						pushLog={pushLog}
@@ -284,13 +287,11 @@ function RoadmapSummary({
 // start-work, agent spawn, and handoff controls stay out of this planning view.
 function EpicBoardDashboardView({
 	board,
-	overview,
 	onBack,
 	onSelectIssue,
 	pushLog,
 }: {
 	board: RoadmapEpicBoard;
-	overview: RoadmapOverview;
 	onBack: () => void;
 	onSelectIssue: (id: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
@@ -304,8 +305,11 @@ function EpicBoardDashboardView({
 		board.columns.find((column) => column.id === "blocked")?.cards.length || 0;
 
 	return (
-		<div className="space-y-4" aria-label="Full-width Epic Board view">
-			<div className="rounded-lg border border-primary/40 bg-primary/5 p-4">
+		<div
+			className="flex h-full min-h-0 flex-col gap-4"
+			aria-label="Full-width Epic Board view"
+		>
+			<div className="shrink-0 rounded-lg border border-primary/40 bg-primary/5 p-4">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
 						<div className="text-xs font-semibold uppercase tracking-wide text-primary">
@@ -337,7 +341,6 @@ function EpicBoardDashboardView({
 			</div>
 			<EpicKanbanBoard
 				board={board}
-				overview={overview}
 				onSelectIssue={onSelectIssue}
 				pushLog={pushLog}
 			/>
@@ -1037,13 +1040,11 @@ function IssueDetailDialog({
 
 function EpicKanbanBoard({
 	board,
-	overview,
 	onSelectIssue,
 	pushLog,
 	compact,
 }: {
 	board: RoadmapEpicBoard;
-	overview: RoadmapOverview;
 	onSelectIssue: (id: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 	compact?: boolean;
@@ -1053,21 +1054,16 @@ function EpicKanbanBoard({
 		.reduce((sum, column) => sum + column.cards.length, 0);
 	const doneCount =
 		board.columns.find((column) => column.id === "done")?.cards.length || 0;
-	const dependencyTree = useMemo(
-		() => buildRoadmapEpicDependencyTree(board, overview),
-		[board, overview],
-	);
-
 	const boardFrameClass = compact
 		? "rounded-lg border border-border bg-card/30 p-2"
-		: "rounded-lg";
+		: "flex min-h-0 flex-1 flex-col rounded-lg";
 	const columnViewportClass = compact
-		? "flex max-h-[28rem] gap-3 overflow-x-auto pb-1"
-		: "flex max-h-[calc(100vh-20rem)] min-h-[28rem] gap-4 overflow-x-auto pb-3";
+		? "grid h-[28rem] min-h-0 grid-cols-2 gap-3 pb-1 md:grid-cols-3 xl:grid-cols-6"
+		: "grid min-h-0 flex-1 grid-cols-1 gap-4 pb-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6";
 
 	return (
 		<div className={boardFrameClass} aria-label="Epic Kanban board">
-			<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+			<div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
 				<div>
 					<h4 className="text-sm font-semibold">Epic board</h4>
 					<p className="mt-1 text-xs text-muted-foreground">
@@ -1081,24 +1077,17 @@ function EpicKanbanBoard({
 				</div>
 			</div>
 			{board.memberCount ? (
-				<>
-					<div className={columnViewportClass} aria-label="Epic board columns">
-						{board.columns.map((column) => (
-							<EpicKanbanColumn
-								key={column.id}
-								column={column}
-								onSelectIssue={onSelectIssue}
-								pushLog={pushLog}
-								compact={compact}
-							/>
-						))}
-					</div>
-					<EpicDependencyTreeMap
-						tree={dependencyTree}
-						onSelectIssue={onSelectIssue}
-						compact={compact}
-					/>
-				</>
+				<div className={columnViewportClass} aria-label="Epic board columns">
+					{board.columns.map((column) => (
+						<EpicKanbanColumn
+							key={column.id}
+							column={column}
+							onSelectIssue={onSelectIssue}
+							pushLog={pushLog}
+							compact={compact}
+						/>
+					))}
+				</div>
 			) : (
 				<p className="text-sm text-muted-foreground">
 					No tasks are currently associated with this epic.
@@ -1122,7 +1111,7 @@ function EpicKanbanColumn({
 	return (
 		<section
 			aria-label={`${column.title} column`}
-			className={`flex shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48 min-w-[12.5rem]" : "w-64 min-w-[15rem] xl:flex-1"}`}
+			className="flex min-h-0 min-w-0 flex-col rounded border border-border/70 bg-background/30"
 		>
 			<div className="border-b border-border/70 px-2 py-2">
 				<div className="flex items-center gap-2">
@@ -1132,7 +1121,10 @@ function EpicKanbanColumn({
 					<Badge variant="outline">{column.cards.length}</Badge>
 				</div>
 			</div>
-			<div className="flex-1 space-y-2 overflow-y-auto p-2">
+			<div
+				className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2"
+				aria-label={`${column.title} cards`}
+			>
 				{column.cards.length ? (
 					column.cards.map((card) => (
 						<EpicBoardCard
@@ -1221,216 +1213,6 @@ function EpicBoardCard({
 			)}
 		</div>
 	);
-}
-
-function EpicDependencyTreeMap({
-	tree,
-	onSelectIssue,
-	compact,
-}: {
-	tree: ReturnType<typeof buildRoadmapEpicDependencyTree>;
-	onSelectIssue: (id: string) => void;
-	compact?: boolean;
-}) {
-	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-		new Set(),
-	);
-	const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
-	if (!tree.groups.length) return null;
-
-	const toggleGroup = (issueId: string) => {
-		setCollapsedGroups((prev) => toggleSetValue(prev, issueId));
-	};
-	const toggleNode = (issueId: string) => {
-		setCollapsedNodes((prev) => toggleSetValue(prev, issueId));
-	};
-
-	return (
-		<div
-			className="mt-4 rounded border border-border/70 bg-background/30 p-3"
-			aria-label="Epic dependency tree map"
-		>
-			<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-				<div>
-					<h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Dependency tree
-					</h5>
-					<p className="mt-1 text-[0.7rem] text-muted-foreground">
-						Read-only blocker map grouped by blocked card. Collapse branches to
-						drill into large epics.
-					</p>
-				</div>
-				<Badge variant="outline">{tree.groups.length} blocked cards</Badge>
-			</div>
-			<div className={`space-y-3 ${compact ? "text-[0.7rem]" : "text-xs"}`}>
-				{tree.groups.map((group) => {
-					const collapsed = collapsedGroups.has(group.blockedCard.issueId);
-					return (
-						<div
-							key={group.blockedCard.issueId}
-							className="rounded border border-border/60 bg-card/30 p-2"
-						>
-							<div className="flex flex-wrap items-center justify-between gap-2">
-								<EpicDependencyNodeButton
-									node={group.blockedCard}
-									onSelectIssue={onSelectIssue}
-									labelPrefix="Blocked card"
-								/>
-								<Button
-									type="button"
-									variant="secondary"
-									className="px-2 py-1 text-xs"
-									onClick={() => toggleGroup(group.blockedCard.issueId)}
-								>
-									{collapsed ? "Expand" : "Collapse"}{" "}
-									{group.blockedCard.issueId} dependencies
-								</Button>
-							</div>
-							{!collapsed && (
-								<div className="mt-2 space-y-2 border-l border-border/70 pl-3">
-									<EpicDependencyBranch
-										label="Blocked by"
-										nodes={group.blockers}
-										onSelectIssue={onSelectIssue}
-										collapsedNodes={collapsedNodes}
-										onToggleNode={toggleNode}
-									/>
-									<EpicDependencyBranch
-										label="Dependents"
-										nodes={group.blockedCard.dependents}
-										onSelectIssue={onSelectIssue}
-										collapsedNodes={collapsedNodes}
-										onToggleNode={toggleNode}
-									/>
-								</div>
-							)}
-						</div>
-					);
-				})}
-			</div>
-		</div>
-	);
-}
-
-function EpicDependencyBranch({
-	label,
-	nodes,
-	onSelectIssue,
-	collapsedNodes,
-	onToggleNode,
-}: {
-	label: string;
-	nodes: RoadmapEpicDependencyNode[];
-	onSelectIssue: (id: string) => void;
-	collapsedNodes: Set<string>;
-	onToggleNode: (issueId: string) => void;
-}) {
-	if (!nodes.length) return null;
-	return (
-		<div>
-			<div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-				{label}
-			</div>
-			<div className="space-y-1">
-				{nodes.map((node) => (
-					<EpicDependencyTreeNode
-						key={`${label}-${node.issueId}`}
-						node={node}
-						onSelectIssue={onSelectIssue}
-						collapsedNodes={collapsedNodes}
-						onToggleNode={onToggleNode}
-					/>
-				))}
-			</div>
-		</div>
-	);
-}
-
-function EpicDependencyTreeNode({
-	node,
-	onSelectIssue,
-	collapsedNodes,
-	onToggleNode,
-}: {
-	node: RoadmapEpicDependencyNode;
-	onSelectIssue: (id: string) => void;
-	collapsedNodes: Set<string>;
-	onToggleNode: (issueId: string) => void;
-}) {
-	const children = [...node.blockers, ...node.dependents];
-	const collapsed = collapsedNodes.has(node.issueId);
-	return (
-		<div className="border-l border-border/60 pl-3">
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="text-muted-foreground">↳</span>
-				<EpicDependencyNodeButton node={node} onSelectIssue={onSelectIssue} />
-				{!!children.length && (
-					<button
-						type="button"
-						className="text-[0.65rem] text-muted-foreground hover:text-primary"
-						onClick={() => onToggleNode(node.issueId)}
-					>
-						{collapsed ? "▸" : "▾"}
-					</button>
-				)}
-			</div>
-			{!!children.length && !collapsed && (
-				<div className="mt-1 space-y-1">
-					<EpicDependencyBranch
-						label="Blocked by"
-						nodes={node.blockers}
-						onSelectIssue={onSelectIssue}
-						collapsedNodes={collapsedNodes}
-						onToggleNode={onToggleNode}
-					/>
-					<EpicDependencyBranch
-						label="Dependents"
-						nodes={node.dependents}
-						onSelectIssue={onSelectIssue}
-						collapsedNodes={collapsedNodes}
-						onToggleNode={onToggleNode}
-					/>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function EpicDependencyNodeButton({
-	node,
-	onSelectIssue,
-	labelPrefix,
-}: {
-	node: RoadmapEpicDependencyNode;
-	onSelectIssue: (id: string) => void;
-	labelPrefix?: string;
-}) {
-	return (
-		<button
-			type="button"
-			className="inline-flex items-center gap-1 rounded border border-border/70 bg-background/40 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary"
-			onClick={() => onSelectIssue(node.issueId)}
-		>
-			{labelPrefix && (
-				<span className="text-muted-foreground">{labelPrefix}</span>
-			)}
-			<span>{node.title || node.issueId}</span>
-			<Badge variant={statusBadgeVariant(node.status)}>
-				{formatStatus(node.status)}
-			</Badge>
-			{node.membership === "external" && (
-				<Badge variant="outline">outside epic</Badge>
-			)}
-			{node.resolved && <Badge variant="success">resolved</Badge>}
-		</button>
-	);
-}
-
-function toggleSetValue<T>(values: Set<T>, value: T): Set<T> {
-	const next = new Set(values);
-	if (next.has(value)) next.delete(value);
-	else next.add(value);
-	return next;
 }
 
 function DependencyList({

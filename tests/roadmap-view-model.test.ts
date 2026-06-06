@@ -4,7 +4,6 @@ import {
 	EPIC_BOARD_EXCLUDED_V1_CAPABILITIES,
 	buildRoadmapEpicBoard,
 	buildRoadmapEpicBoardByEpicId,
-	buildRoadmapEpicDependencyTree,
 	buildRoadmapHierarchy,
 	bucketEpicTasks,
 	classifyEpicBoardCard,
@@ -488,130 +487,6 @@ describe("roadmap hierarchy view model", () => {
 		expect(buckets.inProgress.map((item) => item.id)).toEqual([
 			"doing-focus",
 			"doing",
-		]);
-	});
-
-	it("builds dependency trees grouped by blocked epic card with external and resolved markers", () => {
-		const overview = roadmapOverview([
-			issue({ id: "epic", title: "Epic", type: "epic" }),
-			issue({
-				id: "blocked",
-				title: "Blocked child",
-				description: "Part of epic.",
-				blockedBy: ["internal-blocker", "external-blocker", "done-blocker"],
-			}),
-			issue({
-				id: "internal-blocker",
-				title: "Internal blocker",
-				description: "Part of epic.",
-			}),
-			issue({ id: "external-blocker", title: "External blocker" }),
-			issue({
-				id: "done-blocker",
-				title: "Done blocker",
-				status: "closed",
-			}),
-		]);
-		const board = buildRoadmapEpicBoardByEpicId(overview, "epic")!;
-
-		const tree = buildRoadmapEpicDependencyTree(board, overview);
-
-		expect(tree.groups).toHaveLength(1);
-		expect(tree.groups[0].blockedCard.issueId).toBe("blocked");
-		expect(tree.groups[0].blockedCard.membership).toBe("member");
-		expect(
-			tree.groups[0].blockers.map((node) => [
-				node.issueId,
-				node.membership,
-				node.resolved,
-			]),
-		).toEqual([
-			["internal-blocker", "member", false],
-			["external-blocker", "external", false],
-			["done-blocker", "external", true],
-		]);
-	});
-
-	it("keeps dependency trees bounded for dense dependency graphs", () => {
-		const tasks = Array.from({ length: 12 }, (_, index) =>
-			issue({
-				id: `task-${index}`,
-				title: `Task ${index}`,
-				description: "Part of epic.",
-				blockedBy: Array.from(
-					{ length: index },
-					(_unused, blockerIndex) => `task-${blockerIndex}`,
-				),
-			}),
-		);
-		const overview = roadmapOverview([
-			issue({ id: "epic", title: "Epic", type: "epic" }),
-			...tasks,
-		]);
-		const board = buildRoadmapEpicBoardByEpicId(overview, "epic")!;
-
-		const tree = buildRoadmapEpicDependencyTree(board, overview);
-		const countNode = (
-			node: (typeof tree.groups)[number]["blockedCard"],
-		): number =>
-			1 +
-			node.blockers.reduce((sum, child) => sum + countNode(child), 0) +
-			node.dependents.reduce((sum, child) => sum + countNode(child), 0);
-		const nodeCount = tree.groups.reduce(
-			(sum, group) =>
-				sum +
-				countNode(group.blockedCard) +
-				group.blockers.reduce(
-					(blockerSum, blocker) => blockerSum + countNode(blocker),
-					0,
-				),
-			0,
-		);
-
-		expect(nodeCount).toBeLessThan(500);
-	});
-
-	it("nests available blocker/dependent nodes without treating dependency-only links as epic members", () => {
-		const overview = roadmapOverview([
-			issue({ id: "epic", title: "Epic", type: "epic" }),
-			issue({
-				id: "blocked",
-				title: "Blocked child",
-				description: "Part of epic.",
-				blockedBy: ["blocker"],
-				blocks: ["external-dependent"],
-			}),
-			issue({
-				id: "blocker",
-				title: "Nested blocker",
-				description: "Part of epic.",
-				blockedBy: ["upstream"],
-			}),
-			issue({ id: "upstream", title: "Upstream external" }),
-			issue({
-				id: "external-dependent",
-				title: "External dependent",
-				blockedBy: ["blocked"],
-			}),
-		]);
-		const board = buildRoadmapEpicBoardByEpicId(overview, "epic")!;
-
-		const tree = buildRoadmapEpicDependencyTree(board, overview);
-
-		expect(
-			board.columns
-				.flatMap((column) => column.cards)
-				.map((card) => card.issue.id),
-		).not.toContain("external-dependent");
-		expect(tree.groups[0].blockers[0].blockers[0]).toMatchObject({
-			issueId: "upstream",
-			membership: "external",
-		});
-		expect(tree.groups[0].blockedCard.dependents).toEqual([
-			expect.objectContaining({
-				issueId: "external-dependent",
-				membership: "external",
-			}),
 		]);
 	});
 
