@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+	EPIC_BOARD_EXCLUDED_V1_CAPABILITIES,
 	buildRoadmapHierarchy,
 	bucketEpicTasks,
+	classifyEpicBoardCard,
+	getEpicBoardCardMetadata,
 	splitEpicGroups,
 } from "../web/features/roadmap/roadmap-view-model.js";
 import type { RoadmapOverview } from "../web/types.js";
@@ -242,6 +245,98 @@ describe("roadmap hierarchy view model", () => {
 		expect(buckets.blocked.map((item) => item.id)).toEqual(["blocked"]);
 		expect(buckets.backlog.map((item) => item.id)).toEqual(["later"]);
 		expect(buckets.closed.map((item) => item.id)).toEqual(["done"]);
+	});
+
+	it("classifies epic board cards with explicit v1 precedence and focus metadata", () => {
+		const overview = roadmapOverview(
+			[
+				issue({ id: "epic", title: "Epic", type: "epic" }),
+				issue({ id: "blocker", title: "Blocker", blocks: ["blocked-focus"] }),
+				issue({
+					id: "closed-focus",
+					title: "Closed focus",
+					status: "closed",
+					description: "Part of epic.",
+					extensions: {
+						piLattice: {
+							roadmap: {
+								epicBoards: { epic: { currentFocus: true, order: 20 } },
+							},
+						},
+					},
+				}),
+				issue({
+					id: "blocked-focus",
+					title: "Blocked focus",
+					blockedBy: ["blocker"],
+					description: "Part of epic.",
+					extensions: {
+						piLattice: {
+							roadmap: {
+								epicBoards: { epic: { currentFocus: true, order: 10 } },
+							},
+						},
+					},
+				}),
+				issue({
+					id: "doing-focus",
+					title: "Doing focus",
+					status: "in_progress",
+					description: "Part of epic.",
+					extensions: {
+						piLattice: {
+							roadmap: {
+								epicBoards: { epic: { currentFocus: true, order: 5 } },
+							},
+						},
+					},
+				}),
+				issue({
+					id: "doing",
+					title: "Doing",
+					status: "in_progress",
+					description: "Part of epic.",
+				}),
+				issue({ id: "ready", title: "Ready", description: "Part of epic." }),
+			],
+			{ ready: ["ready"], nextUp: ["ready"] },
+		);
+		const hierarchy = buildRoadmapHierarchy(overview);
+		const byId = new Map(
+			[
+				...hierarchy.epics[0].activeChildren,
+				...hierarchy.epics[0].closedChildren,
+			].map((item) => [item.id, item]),
+		);
+
+		expect(
+			classifyEpicBoardCard(byId.get("closed-focus")!, overview, "epic"),
+		).toBe("done");
+		expect(
+			classifyEpicBoardCard(byId.get("blocked-focus")!, overview, "epic"),
+		).toBe("blocked");
+		expect(
+			classifyEpicBoardCard(byId.get("doing-focus")!, overview, "epic"),
+		).toBe("current_focus");
+		expect(classifyEpicBoardCard(byId.get("doing")!, overview, "epic")).toBe(
+			"in_progress",
+		);
+		expect(classifyEpicBoardCard(byId.get("ready")!, overview, "epic")).toBe(
+			"ready",
+		);
+		expect(getEpicBoardCardMetadata(byId.get("doing-focus")!, "epic")).toEqual({
+			currentFocus: true,
+			manualOrder: 5,
+		});
+	});
+
+	it("documents mutation and orchestration behaviors excluded from the v1 epic board", () => {
+		expect(EPIC_BOARD_EXCLUDED_V1_CAPABILITIES).toEqual([
+			"review_validate_column",
+			"roadmap_start_work",
+			"drag_drop_mutation",
+			"agent_spawn_or_handoff",
+		]);
 	});
 
 	it("splits active and closed epics for the simplified roadmap view", () => {

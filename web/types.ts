@@ -212,6 +212,7 @@ export interface RoadmapIssue {
 	closeReason?: string;
 	blocks: string[];
 	blockedBy: string[];
+	extensions?: Record<string, unknown>;
 }
 
 export interface RoadmapDependency {

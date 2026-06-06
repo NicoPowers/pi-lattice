@@ -185,6 +185,26 @@ describe("roadmap overview", () => {
 		]);
 	});
 
+	it("preserves Seeds extension metadata for Roadmap view models", () => {
+		const overview = buildRoadmapOverviewFromIssues([
+			issue({
+				id: "focus",
+				title: "Focus",
+				extensions: {
+					piLattice: {
+						roadmap: { epicBoards: { epic: { currentFocus: true, order: 1 } } },
+					},
+				},
+			}),
+		]);
+
+		expect(overview.issues[0].extensions).toEqual({
+			piLattice: {
+				roadmap: { epicBoards: { epic: { currentFocus: true, order: 1 } } },
+			},
+		});
+	});
+
 	it("reads .seeds/issues.jsonl in read-only mode from the repository", () => {
 		const repo = fs.mkdtempSync(path.join(os.tmpdir(), "pi-roadmap-"));
 		try {

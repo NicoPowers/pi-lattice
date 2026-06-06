@@ -19,6 +19,7 @@ export interface RoadmapIssue {
 	closeReason?: string;
 	blocks: string[];
 	blockedBy: string[];
+	extensions?: Record<string, unknown>;
 }
 
 export interface RoadmapDependency {
@@ -383,6 +384,7 @@ function normalizeIssue(raw: unknown): RoadmapIssue | undefined {
 		closeReason: asString(input.closeReason) || undefined,
 		blocks: asStringArray(input.blocks),
 		blockedBy: asStringArray(input.blockedBy),
+		extensions: asRecord(input.extensions),
 	};
 }
 
@@ -446,4 +448,10 @@ function asStringArray(value: unknown): string[] {
 			),
 		),
 	];
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value))
+		return undefined;
+	return value as Record<string, unknown>;
 }

@@ -21,6 +21,19 @@ export interface RoadmapHierarchy {
 	ungrouped: RoadmapIssueView[];
 }
 
+export type RoadmapEpicBoardColumn =
+	| "backlog"
+	| "ready"
+	| "current_focus"
+	| "in_progress"
+	| "blocked"
+	| "done";
+
+export interface RoadmapEpicBoardCardMetadata {
+	currentFocus: boolean;
+	manualOrder?: number;
+}
+
 export interface RoadmapTaskBuckets {
 	inProgress: RoadmapIssueView[];
 	ready: RoadmapIssueView[];
@@ -28,6 +41,53 @@ export interface RoadmapTaskBuckets {
 	backlog: RoadmapIssueView[];
 	closed: RoadmapIssueView[];
 }
+
+export const EPIC_BOARD_COLUMNS: ReadonlyArray<{
+	id: RoadmapEpicBoardColumn;
+	title: string;
+	description: string;
+}> = [
+	{
+		id: "backlog",
+		title: "Backlog / Open",
+		description:
+			"Open epic children that are not blocked, not current focus, not in progress, and not highlighted as ready.",
+	},
+	{
+		id: "ready",
+		title: "Ready",
+		description:
+			"Open epic children with no unresolved hard blockers that the Seeds provider marks actionable.",
+	},
+	{
+		id: "current_focus",
+		title: "Current Focus",
+		description:
+			"Open or in-progress epic children marked as the operator/agent focus through Seeds extension metadata.",
+	},
+	{
+		id: "in_progress",
+		title: "In Progress",
+		description: "Epic children with Seeds status in_progress.",
+	},
+	{
+		id: "blocked",
+		title: "Blocked",
+		description: "Non-closed epic children with unresolved hard blockers.",
+	},
+	{
+		id: "done",
+		title: "Done",
+		description: "Closed epic children.",
+	},
+];
+
+export const EPIC_BOARD_EXCLUDED_V1_CAPABILITIES = [
+	"review_validate_column",
+	"roadmap_start_work",
+	"drag_drop_mutation",
+	"agent_spawn_or_handoff",
+] as const;
 
 export interface SplitEpicGroups {
 	active: RoadmapEpicGroup[];
@@ -131,23 +191,85 @@ export function bucketEpicTasks(
 		closed: [],
 	};
 	for (const issue of [...group.activeChildren, ...group.closedChildren]) {
-		if (issue.status === "closed") buckets.closed.push(issue);
-		else if (issue.status === "in_progress") buckets.inProgress.push(issue);
-		else if (issue.unresolvedBlockers.length) buckets.blocked.push(issue);
-		else if (
-			overview.groups.ready.includes(issue.id) ||
-			overview.groups.nextUp.includes(issue.id)
-		)
-			buckets.ready.push(issue);
+		const column = classifyEpicBoardCard(issue, overview, group.epic.id);
+		if (column === "done") buckets.closed.push(issue);
+		else if (column === "blocked") buckets.blocked.push(issue);
+		else if (column === "current_focus" || column === "in_progress")
+			buckets.inProgress.push(issue);
+		else if (column === "ready") buckets.ready.push(issue);
 		else buckets.backlog.push(issue);
 	}
 	return {
-		inProgress: sortIssueViews(buckets.inProgress),
-		ready: sortIssueViews(buckets.ready),
-		blocked: sortIssueViews(buckets.blocked),
-		backlog: sortIssueViews(buckets.backlog),
-		closed: sortIssueViews(buckets.closed),
+		inProgress: sortEpicBoardCards(buckets.inProgress, group.epic.id),
+		ready: sortEpicBoardCards(buckets.ready, group.epic.id),
+		blocked: sortEpicBoardCards(buckets.blocked, group.epic.id),
+		backlog: sortEpicBoardCards(buckets.backlog, group.epic.id),
+		closed: sortEpicBoardCards(buckets.closed, group.epic.id),
 	};
+}
+
+export function classifyEpicBoardCard(
+	issue: RoadmapIssueView,
+	overview: RoadmapOverview,
+	epicId: string,
+): RoadmapEpicBoardColumn {
+	// Precedence is exclusive for board rendering: terminal and blocked states win
+	// over focus, then focus wins over in_progress so operators can distinguish
+	// chosen work from background in-flight work.
+	if (issue.status === "closed") return "done";
+	if (issue.unresolvedBlockers.length) return "blocked";
+	if (getEpicBoardCardMetadata(issue, epicId).currentFocus)
+		return "current_focus";
+	if (issue.status === "in_progress") return "in_progress";
+	if (
+		issue.status === "open" &&
+		(overview.groups.ready.includes(issue.id) ||
+			overview.groups.nextUp.includes(issue.id))
+	)
+		return "ready";
+	return "backlog";
+}
+
+export function getEpicBoardCardMetadata(
+	issue: RoadmapIssueView,
+	epicId: string,
+): RoadmapEpicBoardCardMetadata {
+	const board = readEpicBoardMetadata(issue.extensions, epicId);
+	return {
+		currentFocus: board.currentFocus === true,
+		manualOrder: typeof board.order === "number" ? board.order : undefined,
+	};
+}
+
+export function sortEpicBoardCards(
+	issues: RoadmapIssueView[],
+	epicId: string,
+): RoadmapIssueView[] {
+	return [...issues].sort((a, b) => {
+		const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
+		const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
+		if (aOrder !== undefined || bOrder !== undefined) {
+			if (aOrder === undefined) return 1;
+			if (bOrder === undefined) return -1;
+			if (aOrder !== bOrder) return aOrder - bOrder;
+		}
+		return compareIssues(a, b);
+	});
+}
+
+function readEpicBoardMetadata(
+	extensions: Record<string, unknown> | undefined,
+	epicId: string,
+): Record<string, unknown> {
+	const piLattice = readRecord(extensions?.piLattice);
+	const roadmap = readRecord(piLattice.roadmap);
+	const epicBoards = readRecord(roadmap.epicBoards);
+	return readRecord(epicBoards[epicId]);
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+	return value as Record<string, unknown>;
 }
 
 function compareIssues(a: RoadmapIssueView, b: RoadmapIssueView): number {

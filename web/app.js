@@ -35432,26 +35432,79 @@ function splitEpicGroups(hierarchy) {
   };
 }
 function bucketEpicTasks(group, overview) {
-  const buckets = { inProgress: [], ready: [], blocked: [], backlog: [], closed: [] };
+  const buckets = {
+    inProgress: [],
+    ready: [],
+    blocked: [],
+    backlog: [],
+    closed: []
+  };
   for (const issue of [...group.activeChildren, ...group.closedChildren]) {
-    if (issue.status === "closed")
+    const column = classifyEpicBoardCard(issue, overview, group.epic.id);
+    if (column === "done")
       buckets.closed.push(issue);
-    else if (issue.status === "in_progress")
-      buckets.inProgress.push(issue);
-    else if (issue.unresolvedBlockers.length)
+    else if (column === "blocked")
       buckets.blocked.push(issue);
-    else if (overview.groups.ready.includes(issue.id) || overview.groups.nextUp.includes(issue.id))
+    else if (column === "current_focus" || column === "in_progress")
+      buckets.inProgress.push(issue);
+    else if (column === "ready")
       buckets.ready.push(issue);
     else
       buckets.backlog.push(issue);
   }
   return {
-    inProgress: sortIssueViews(buckets.inProgress),
-    ready: sortIssueViews(buckets.ready),
-    blocked: sortIssueViews(buckets.blocked),
-    backlog: sortIssueViews(buckets.backlog),
-    closed: sortIssueViews(buckets.closed)
+    inProgress: sortEpicBoardCards(buckets.inProgress, group.epic.id),
+    ready: sortEpicBoardCards(buckets.ready, group.epic.id),
+    blocked: sortEpicBoardCards(buckets.blocked, group.epic.id),
+    backlog: sortEpicBoardCards(buckets.backlog, group.epic.id),
+    closed: sortEpicBoardCards(buckets.closed, group.epic.id)
   };
+}
+function classifyEpicBoardCard(issue, overview, epicId) {
+  if (issue.status === "closed")
+    return "done";
+  if (issue.unresolvedBlockers.length)
+    return "blocked";
+  if (getEpicBoardCardMetadata(issue, epicId).currentFocus)
+    return "current_focus";
+  if (issue.status === "in_progress")
+    return "in_progress";
+  if (issue.status === "open" && (overview.groups.ready.includes(issue.id) || overview.groups.nextUp.includes(issue.id)))
+    return "ready";
+  return "backlog";
+}
+function getEpicBoardCardMetadata(issue, epicId) {
+  const board = readEpicBoardMetadata(issue.extensions, epicId);
+  return {
+    currentFocus: board.currentFocus === true,
+    manualOrder: typeof board.order === "number" ? board.order : undefined
+  };
+}
+function sortEpicBoardCards(issues, epicId) {
+  return [...issues].sort((a, b) => {
+    const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
+    const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
+    if (aOrder !== undefined || bOrder !== undefined) {
+      if (aOrder === undefined)
+        return 1;
+      if (bOrder === undefined)
+        return -1;
+      if (aOrder !== bOrder)
+        return aOrder - bOrder;
+    }
+    return compareIssues(a, b);
+  });
+}
+function readEpicBoardMetadata(extensions, epicId) {
+  const piLattice = readRecord(extensions?.piLattice);
+  const roadmap = readRecord(piLattice.roadmap);
+  const epicBoards = readRecord(roadmap.epicBoards);
+  return readRecord(epicBoards[epicId]);
+}
+function readRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return {};
+  return value;
 }
 function compareIssues(a, b) {
   const status = statusWeight(a.status) - statusWeight(b.status);
