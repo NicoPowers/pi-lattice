@@ -530,7 +530,7 @@ function App() {
 				</div>
 			</header>
 
-			<main className="flex-1 overflow-hidden p-4">
+			<main className="min-h-0 flex-1 overflow-hidden p-4">
 				{activeTab === "agents" && (
 					<AgentsPanel
 						agents={agents}

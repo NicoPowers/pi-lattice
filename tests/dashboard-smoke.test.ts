@@ -362,8 +362,9 @@ describe("dashboard bundle smoke test", () => {
 			);
 			await window.happyDOM.waitUntilComplete();
 			await new Promise((resolve) => setTimeout(resolve, 50));
-			const roadmapFrame =
-				window.document.querySelector("main")?.firstElementChild;
+			const main = window.document.querySelector("main");
+			expect(main?.className || "").toContain("min-h-0");
+			const roadmapFrame = main?.firstElementChild;
 			expect(roadmapFrame?.className || "").not.toContain("max-w-");
 			const roadmapText =
 				window.document.getElementById("root")?.textContent || "";

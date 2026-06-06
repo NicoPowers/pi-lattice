@@ -35646,7 +35646,7 @@ function RoadmapPanel({ pushLog }) {
     setDetailBackIssueId(null);
   };
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Card, {
-    className: "flex h-full min-h-0 flex-col overflow-hidden",
+    className: "flex h-[calc(100vh-6.5rem)] min-h-0 flex-col overflow-hidden",
     "aria-label": "Project Roadmap panel",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CardHeader, {
@@ -37540,7 +37540,7 @@ function App() {
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime15.jsxDEV("main", {
-        className: "flex-1 overflow-hidden p-4",
+        className: "min-h-0 flex-1 overflow-hidden p-4",
         children: [
           activeTab === "agents" && /* @__PURE__ */ jsx_dev_runtime15.jsxDEV(AgentsPanel, {
             agents,

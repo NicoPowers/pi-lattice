@@ -670,7 +670,8 @@ describe("RoadmapPanel epic kanban board", () => {
 				"[aria-label='Project Roadmap panel']",
 			);
 			expect(panel).toBeTruthy();
-			expect(panel?.className).toContain("h-full");
+			expect(panel?.className).toContain("h-[calc(100vh-6.5rem)]");
+			expect(panel?.className).not.toContain("h-full");
 			expect(panel?.className).toContain("overflow-hidden");
 			const content = window.document.querySelector(
 				"[aria-label='Roadmap content']",

@@ -141,7 +141,7 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 
 	return (
 		<Card
-			className="flex h-full min-h-0 flex-col overflow-hidden"
+			className="flex h-[calc(100vh-6.5rem)] min-h-0 flex-col overflow-hidden"
 			aria-label="Project Roadmap panel"
 		>
 			<CardHeader className="shrink-0 border-b border-border">
