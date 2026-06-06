@@ -1,9 +1,9 @@
 <!-- mulch:start -->
 ## Project Expertise (Mulch)
-<!-- mulch-onboard:v0.10.1:pi -->
+<!-- mulch-onboard:v0.10.7 -->
 
-This project uses [Mulch](https://github.com/jayminwest/mulch) v0.10.1 via the in-tree
-`@os-eco/pi-mulch` pi-coding-agent extension. The extension auto-primes on `session_start`,
+This project uses the latest installed [Mulch](https://github.com/jayminwest/mulch) via the in-tree
+`@os-eco/mulch-cli` Pi extension. The extension auto-primes on `session_start`,
 scope-loads relevant records on file reads/edits, registers `record_expertise` and
 `query_expertise` custom tools, and surfaces an `ml learn` nudge widget on `agent_end`.
 
@@ -34,11 +34,11 @@ Skip if no insight surfaced. Unrecorded learnings are lost; ritual filler record
 
 <!-- seeds:start -->
 ## Issue Tracking (Seeds)
-<!-- seeds-onboard:v0.4.7 -->
-<!-- seeds-onboard-schema:5:pi -->
+<!-- seeds-onboard:v0.5.9 -->
+<!-- seeds-onboard-schema:7 -->
 
-This project uses [Seeds](https://github.com/jayminwest/seeds) v0.4.7 via the in-tree
-`@os-eco/pi-seeds` pi-coding-agent extension. The extension auto-primes on `session_start`,
+This project uses the latest installed [Seeds](https://github.com/jayminwest/seeds) via the in-tree
+`@os-eco/seeds-cli` Pi extension. The extension auto-primes on `session_start`,
 renders a `sd: <n> ready / <n> in-progress / <n> blocked` status widget, registers
 `sd_create` / `sd_ready` / `sd_show` / `sd_update` / `sd_close` / `sd_dep` / `sd_search`
 custom tools, expands `#sd-<id>` references on send, and ships `/sd`, `/sd:ready`,

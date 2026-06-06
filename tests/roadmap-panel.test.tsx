@@ -1,4 +1,3 @@
-import type React from "react";
 import { describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
 import { createRoot } from "react-dom/client";
@@ -164,6 +163,7 @@ function issue(
 		closeReason: partial.closeReason,
 		blocks: partial.blocks || [],
 		blockedBy: partial.blockedBy || [],
+		extensions: partial.extensions,
 	};
 }
 
@@ -311,7 +311,7 @@ describe("RoadmapPanel status controls", () => {
 			await flush(window);
 
 			expect(window.document.body.textContent).toContain("Epic Details");
-			expect(window.document.body.textContent).toContain("Tasks in this epic");
+			expect(window.document.body.textContent).toContain("Epic board");
 			expect(window.document.body.textContent).toContain(
 				"Status updated to closed",
 			);
@@ -390,6 +390,8 @@ describe("RoadmapPanel start work actions", () => {
 		try {
 			clickButton(window, "Epic");
 			await flush(window);
+			clickButton(window, "Build task");
+			await flush(window);
 			clickButton(window, "Start work");
 			await flush(window);
 
@@ -401,12 +403,8 @@ describe("RoadmapPanel start work actions", () => {
 			expect(window.document.body.textContent).toContain(
 				"Status updated to in progress",
 			);
-			expect(window.document.body.textContent).toContain("In progress");
-			const inProgressSection = Array.from(
-				window.document.querySelectorAll("section"),
-			).find((section) => section.textContent?.includes("In progress"));
-			expect(inProgressSection?.textContent).toContain("Build task");
-			expect(window.document.body.textContent).toContain("Epic Details");
+			expect(window.document.body.textContent).toContain("in progress");
+			expect(window.document.body.textContent).toContain("Issue Details");
 		} finally {
 			await cleanup();
 		}
@@ -458,21 +456,187 @@ describe("RoadmapPanel start work actions", () => {
 		try {
 			clickButton(window, "Epic");
 			await flush(window);
+			clickButton(window, "Build task");
+			await flush(window);
 			clickButton(window, "Start work");
 			await flush(window);
 
 			expect(window.document.body.textContent).toContain(
 				"Failed to start work: Nope",
 			);
-			const readySection = Array.from(
-				window.document.querySelectorAll("section"),
-			).find((section) => section.textContent?.includes("Ready"));
-			expect(readySection?.textContent).toContain("Build task");
+			expect(window.document.body.textContent).toContain("open");
+			const backButton = window.document.querySelector(
+				"button[aria-label='Back to epic']",
+			) as HTMLElement | null;
+			expect(backButton).toBeTruthy();
+			backButton!.click();
+			await flush(window);
+			const readyColumn = Array.from(
+				window.document.querySelectorAll("section[aria-label]"),
+			).find(
+				(section) => section.getAttribute("aria-label") === "Ready column",
+			);
+			expect(readyColumn?.textContent).toContain("Build task");
 			expect(
 				logs.some((line) =>
 					line.includes("Failed to start work on Roadmap issue task-1"),
 				),
 			).toBe(true);
+		} finally {
+			await cleanup();
+		}
+	});
+});
+
+describe("RoadmapPanel epic kanban board", () => {
+	it("renders board columns and cards when an epic is expanded and opened", async () => {
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({
+				id: "task-ready",
+				title: "Ready task",
+				description: "Part of epic-1.",
+			}),
+			issue({
+				id: "task-doing",
+				title: "Doing task",
+				status: "in_progress",
+				description: "Part of epic-1.",
+			}),
+			issue({
+				id: "task-focus",
+				title: "Focus task",
+				description: "Part of epic-1.",
+				extensions: {
+					piLattice: {
+						roadmap: {
+							epicBoards: { "epic-1": { currentFocus: true, order: 7 } },
+						},
+					},
+				},
+			}),
+			issue({
+				id: "task-done",
+				title: "Done task",
+				status: "closed",
+				description: "Part of epic-1.",
+			}),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			await flush(window);
+
+			expect(
+				window.document.querySelector("[aria-label='Epic Kanban board']"),
+			).toBeTruthy();
+			expect(window.document.body.textContent).toContain("Ready task");
+			expect(window.document.body.textContent).toContain("Doing task");
+			expect(window.document.body.textContent).toContain("Focus task");
+			expect(window.document.body.textContent).toContain("Focus");
+			expect(window.document.body.textContent).toContain("Order 7");
+			expect(window.document.body.textContent).toContain("Done task");
+			expect(
+				Array.from(window.document.querySelectorAll("section[aria-label]"))
+					.map((section) => section.getAttribute("aria-label"))
+					.filter(Boolean),
+			).toEqual(
+				expect.arrayContaining([
+					"Backlog / Open column",
+					"Ready column",
+					"Current Focus column",
+					"In Progress column",
+					"Blocked column",
+					"Done column",
+				]),
+			);
+
+			clickButton(window, "Epic");
+			await flush(window);
+			expect(window.document.body.textContent).toContain("Epic board");
+			expect(window.document.body.textContent).not.toContain("Start work");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("surfaces blocker/dependent details and external dependency markers on the epic board", async () => {
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({
+				id: "internal-blocker",
+				title: "Internal blocker",
+				description: "Part of epic-1.",
+			}),
+			issue({
+				id: "blocked-task",
+				title: "Blocked task",
+				description: "Part of epic-1.",
+			}),
+			issue({ id: "external-blocker", title: "External blocker" }),
+			issue({ id: "external-dependent", title: "External dependent" }),
+		]);
+		const internalBlocker = {
+			id: "internal-blocker",
+			title: "Internal blocker",
+			status: "open",
+			priority: 2,
+		};
+		const externalBlocker = {
+			id: "external-blocker",
+			title: "External blocker",
+			status: "open",
+			priority: 2,
+		};
+		const blockedTask = {
+			id: "blocked-task",
+			title: "Blocked task",
+			status: "open",
+			priority: 2,
+		};
+		const externalDependent = {
+			id: "external-dependent",
+			title: "External dependent",
+			status: "open",
+			priority: 2,
+		};
+		initial.dependencyMap.blockers["blocked-task"] = [
+			internalBlocker,
+			externalBlocker,
+		];
+		initial.dependencyMap.unresolvedBlockers["blocked-task"] = [
+			internalBlocker,
+			externalBlocker,
+		];
+		initial.dependencyMap.dependents["internal-blocker"] = [blockedTask];
+		initial.dependencyMap.dependents["blocked-task"] = [externalDependent];
+
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			await flush(window);
+			const blockedColumn = Array.from(
+				window.document.querySelectorAll("section[aria-label]"),
+			).find(
+				(section) => section.getAttribute("aria-label") === "Blocked column",
+			);
+			expect(blockedColumn?.textContent).toContain("Blocked task");
+			expect(blockedColumn?.textContent).toContain("Internal blocker");
+			expect(blockedColumn?.textContent).toContain("External blocker");
+			expect(blockedColumn?.textContent).toContain("outside epic");
+			expect(blockedColumn?.textContent).toContain("External dependent");
+
+			const dependencyMap = window.document.querySelector(
+				"[aria-label='Epic dependency map']",
+			);
+			expect(dependencyMap).toBeTruthy();
+			expect(dependencyMap?.textContent).toContain("Dependency map");
+			expect(dependencyMap?.textContent).toContain("Blocked by");
+			expect(dependencyMap?.textContent).toContain("Blocks");
+			expect(dependencyMap?.textContent).toContain("External dependent");
+			expect(dependencyMap?.textContent).toContain("outside epic");
 		} finally {
 			await cleanup();
 		}

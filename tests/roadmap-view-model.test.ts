@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
+	EPIC_BOARD_COLUMNS,
 	EPIC_BOARD_EXCLUDED_V1_CAPABILITIES,
+	buildRoadmapEpicBoard,
+	buildRoadmapEpicBoardByEpicId,
 	buildRoadmapHierarchy,
 	bucketEpicTasks,
 	classifyEpicBoardCard,
@@ -336,6 +339,153 @@ describe("roadmap hierarchy view model", () => {
 			"roadmap_start_work",
 			"drag_drop_mutation",
 			"agent_spawn_or_handoff",
+		]);
+	});
+
+	it("builds a typed epic board DTO with exclusive column buckets and card metadata", () => {
+		const overview = roadmapOverview(
+			[
+				issue({ id: "epic", title: "Epic", type: "epic" }),
+				issue({ id: "blocker", title: "Blocker", blocks: ["blocked"] }),
+				issue({
+					id: "doing-focus",
+					title: "Doing focus",
+					status: "in_progress",
+					priority: 1,
+					description: "Part of epic.",
+					extensions: {
+						piLattice: {
+							roadmap: {
+								epicBoards: { epic: { currentFocus: true, order: 5 } },
+							},
+						},
+					},
+				}),
+				issue({
+					id: "doing",
+					title: "Doing",
+					status: "in_progress",
+					priority: 2,
+					description: "Part of epic.",
+				}),
+				issue({
+					id: "ready",
+					title: "Ready",
+					priority: 0,
+					description: "Part of epic.",
+				}),
+				issue({
+					id: "blocked",
+					title: "Blocked",
+					priority: 3,
+					blockedBy: ["blocker"],
+					description: "Part of epic.",
+				}),
+				issue({
+					id: "later",
+					title: "Later",
+					priority: 4,
+					description: "Part of epic.",
+				}),
+				issue({
+					id: "done",
+					title: "Done",
+					status: "closed",
+					priority: 5,
+					description: "Part of epic.",
+				}),
+				issue({
+					id: "not-member",
+					title: "Not a member",
+				}),
+			],
+			{ ready: ["ready"], nextUp: ["ready"] },
+		);
+		const hierarchy = buildRoadmapHierarchy(overview);
+		const board = buildRoadmapEpicBoard(hierarchy.epics[0], overview);
+
+		expect(board.epic.id).toBe("epic");
+		expect(board.excludedCapabilities).toEqual(
+			EPIC_BOARD_EXCLUDED_V1_CAPABILITIES,
+		);
+		expect(board.columns.map((column) => column.id)).toEqual(
+			EPIC_BOARD_COLUMNS.map((column) => column.id),
+		);
+		expect(board.columns.map((column) => column.cards.map((card) => card.issue.id))).toEqual([
+			["later"],
+			["ready"],
+			["doing-focus"],
+			["doing"],
+			["blocked"],
+			["done"],
+		]);
+
+		const readyCard = board.columns
+			.find((column) => column.id === "ready")
+			?.cards[0];
+		expect(readyCard?.ready).toBe(true);
+		expect(readyCard?.column).toBe("ready");
+
+		const focusCard = board.columns
+			.find((column) => column.id === "current_focus")
+			?.cards[0];
+		expect(focusCard?.metadata).toEqual({
+			currentFocus: true,
+			manualOrder: 5,
+		});
+
+		const blockedCard = board.columns
+			.find((column) => column.id === "blocked")
+			?.cards[0];
+		expect(blockedCard?.issue.unresolvedBlockers.map((item) => item.id)).toEqual(
+			["blocker"],
+		);
+		expect(
+			blockedCard?.externalUnresolvedBlockers.map((item) => item.id),
+		).toEqual(["blocker"]);
+		expect(blockedCard?.externalDependents).toEqual([]);
+		expect(board.memberCount).toBe(6);
+		expect(
+			hierarchy.ungrouped.map((item) => item.id),
+		).toEqual(["blocker", "not-member"]);
+		expect(
+			buildRoadmapEpicBoardByEpicId(overview, "epic")?.columns.length,
+		).toBe(6);
+		expect(buildRoadmapEpicBoardByEpicId(overview, "missing")).toBeUndefined();
+	});
+
+	it("keeps legacy epic task buckets aligned with the epic board DTO", () => {
+		const overview = roadmapOverview(
+			[
+				issue({ id: "epic", title: "Epic", type: "epic" }),
+				issue({
+					id: "doing-focus",
+					title: "Doing focus",
+					status: "in_progress",
+					description: "Part of epic.",
+					extensions: {
+						piLattice: {
+							roadmap: {
+								epicBoards: { epic: { currentFocus: true, order: 1 } },
+							},
+						},
+					},
+				}),
+				issue({
+					id: "doing",
+					title: "Doing",
+					status: "in_progress",
+					description: "Part of epic.",
+				}),
+			],
+			{ ready: [], nextUp: [] },
+		);
+		const hierarchy = buildRoadmapHierarchy(overview);
+		const buckets = bucketEpicTasks(hierarchy.epics[0], overview);
+
+		expect(buckets.inProgress.map((item) => item.id)).toEqual([
+			"doing-focus",
+			"doing",
 		]);
 	});
 

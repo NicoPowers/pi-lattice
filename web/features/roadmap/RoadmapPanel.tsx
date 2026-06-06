@@ -10,14 +10,15 @@ import {
 } from "../../components/ui/card.js";
 import { Dialog } from "../../components/ui/dialog.js";
 import {
-	bucketEpicTasks,
+	buildRoadmapEpicBoard,
 	buildRoadmapHierarchy,
 	sortIssueViews,
 	splitEpicGroups,
+	type RoadmapEpicBoard,
+	type RoadmapEpicBoardCard,
 	type RoadmapEpicGroup,
 	type RoadmapHierarchy,
 	type RoadmapIssueView,
-	type RoadmapTaskBuckets,
 } from "./roadmap-view-model.js";
 
 type EditableRoadmapStatus = "open" | "in_progress" | "closed";
@@ -233,6 +234,7 @@ function RoadmapSummary({
 			)}
 			<RoadmapHierarchyView
 				hierarchy={hierarchy}
+				overview={overview}
 				expandedEpicIds={expandedEpicIds}
 				onToggleEpic={toggleEpic}
 				onSelectIssue={onSelectIssue}
@@ -294,15 +296,17 @@ function FocusEpic({
 
 function RoadmapHierarchyView({
 	hierarchy,
+	overview,
 	expandedEpicIds,
 	onToggleEpic,
 	onSelectIssue,
 	pushLog,
 }: {
 	hierarchy: RoadmapHierarchy;
+	overview: RoadmapOverview;
 	expandedEpicIds: Set<string>;
 	onToggleEpic: (id: string) => void;
-	onSelectIssue: (id: string) => void;
+	onSelectIssue: (id: string, backIssueId?: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const { active, closed } = splitEpicGroups(hierarchy);
@@ -327,6 +331,7 @@ function RoadmapHierarchyView({
 						<EpicRow
 							key={group.epic.id}
 							group={group}
+							overview={overview}
 							expanded={expandedEpicIds.has(group.epic.id)}
 							onToggleEpic={onToggleEpic}
 							onSelectIssue={onSelectIssue}
@@ -349,6 +354,7 @@ function RoadmapHierarchyView({
 							<EpicRow
 								key={group.epic.id}
 								group={group}
+								overview={overview}
 								expanded={expandedEpicIds.has(group.epic.id)}
 								onToggleEpic={onToggleEpic}
 								onSelectIssue={onSelectIssue}
@@ -369,17 +375,23 @@ function RoadmapHierarchyView({
 
 function EpicRow({
 	group,
+	overview,
 	expanded,
 	onToggleEpic,
 	onSelectIssue,
 	pushLog,
 }: {
 	group: RoadmapEpicGroup;
+	overview: RoadmapOverview;
 	expanded: boolean;
 	onToggleEpic: (id: string) => void;
-	onSelectIssue: (id: string) => void;
+	onSelectIssue: (id: string, backIssueId?: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
+	const epicBoard = useMemo(
+		() => buildRoadmapEpicBoard(group, overview),
+		[group, overview],
+	);
 	const blockedCount = group.activeChildren.filter(
 		(issue) => issue.unresolvedBlockers.length,
 	).length;
@@ -426,34 +438,13 @@ function EpicRow({
 				</div>
 			</div>
 			{expanded && (
-				<div className="space-y-2 border-t border-border p-3">
-					{group.activeChildren.length ? (
-						group.activeChildren.map((issue) => (
-							<IssueCard
-								key={issue.id}
-								issue={issue}
-								onSelectIssue={onSelectIssue}
-								pushLog={pushLog}
-							/>
-						))
-					) : (
-						<p className="text-xs text-muted-foreground">
-							No active child issues.
-						</p>
-					)}
-					{!!group.closedChildren.length && (
-						<div className="space-y-2 opacity-70">
-							{group.closedChildren.map((issue) => (
-								<IssueCard
-									key={issue.id}
-									issue={issue}
-									compact
-									onSelectIssue={onSelectIssue}
-									pushLog={pushLog}
-								/>
-							))}
-						</div>
-					)}
+				<div className="border-t border-border p-3">
+					<EpicKanbanBoard
+						board={epicBoard}
+						onSelectIssue={(id) => onSelectIssue(id, group.epic.id)}
+						pushLog={pushLog}
+						compact
+					/>
 				</div>
 			)}
 		</div>
@@ -612,8 +603,8 @@ function IssueDetailDialog({
 			(group) => group.epic.id === issue.id,
 		);
 	}, [overview, issue?.id, issue?.type]);
-	const epicBuckets = epicGroup
-		? bucketEpicTasks(epicGroup, overview)
+	const epicBoard = epicGroup
+		? buildRoadmapEpicBoard(epicGroup, overview)
 		: undefined;
 	const isEpic = issue?.type === "epic";
 	const returnEpicId = backIssue?.id || (isEpic ? issue?.id : undefined);
@@ -909,13 +900,10 @@ function IssueDetailDialog({
 								pushLog={pushLog}
 							/>
 						</div>
-						{isEpic && epicBuckets && (
-							<EpicTasksPanel
-								buckets={epicBuckets}
-								epicId={issue.id}
-								onSelectIssue={onSelectIssue}
-								onStartWork={startWork}
-								startWorkIssueId={startWorkIssueId}
+						{isEpic && epicBoard && (
+							<EpicKanbanBoard
+								board={epicBoard}
+								onSelectIssue={(id) => onSelectIssue(id, issue.id)}
 								pushLog={pushLog}
 							/>
 						)}
@@ -926,85 +914,62 @@ function IssueDetailDialog({
 	);
 }
 
-function EpicTasksPanel({
-	buckets,
-	epicId,
+function EpicKanbanBoard({
+	board,
 	onSelectIssue,
-	onStartWork,
-	startWorkIssueId,
 	pushLog,
+	compact,
 }: {
-	buckets: RoadmapTaskBuckets;
-	epicId: string;
-	onSelectIssue: (id: string, backIssueId?: string) => void;
-	onStartWork: (issue: RoadmapIssueView) => void;
-	startWorkIssueId: string | null;
+	board: RoadmapEpicBoard;
+	onSelectIssue: (id: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
+	compact?: boolean;
 }) {
-	const total = Object.values(buckets).reduce(
-		(sum, issues) => sum + issues.length,
-		0,
-	);
-	const active = total - buckets.closed.length;
+	const activeCount = board.columns
+		.filter((column) => column.id !== "done")
+		.reduce((sum, column) => sum + column.cards.length, 0);
+	const doneCount =
+		board.columns.find((column) => column.id === "done")?.cards.length || 0;
+
 	return (
-		<div className="rounded-lg border border-border bg-card/30 p-3">
+		<div
+			className={`rounded-lg border border-border bg-card/30 ${compact ? "p-2" : "p-3"}`}
+			aria-label="Epic Kanban board"
+		>
 			<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
 				<div>
-					<h4 className="text-sm font-semibold">Tasks in this epic</h4>
+					<h4 className="text-sm font-semibold">Epic board</h4>
 					<p className="mt-1 text-xs text-muted-foreground">
-						Grouped by what is actionable next. Select a task to inspect
-						details.
+						Read-only planning view. Select a card to inspect details.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-1">
-					<Badge variant="outline">{active} active</Badge>
-					<Badge variant="outline">{buckets.closed.length} closed</Badge>
+					<Badge variant="outline">{activeCount} active</Badge>
+					<Badge variant="outline">{doneCount} done</Badge>
+					<Badge variant="outline">{board.memberCount} members</Badge>
 				</div>
 			</div>
-			{total ? (
-				<div className="max-h-[34rem] space-y-3 overflow-auto pr-1">
-					<TaskBucketSection
-						title="In progress"
-						issues={buckets.inProgress}
-						onSelectIssue={(id) => onSelectIssue(id, epicId)}
-						onStartWork={onStartWork}
-						startWorkIssueId={startWorkIssueId}
-						pushLog={pushLog}
+			{board.memberCount ? (
+				<>
+					<div
+						className={`flex gap-3 overflow-x-auto pb-1 ${compact ? "max-h-[28rem]" : "max-h-[34rem]"}`}
+					>
+						{board.columns.map((column) => (
+							<EpicKanbanColumn
+								key={column.id}
+								column={column}
+								onSelectIssue={onSelectIssue}
+								pushLog={pushLog}
+								compact={compact}
+							/>
+						))}
+					</div>
+					<EpicDependencySummary
+						board={board}
+						onSelectIssue={onSelectIssue}
+						compact={compact}
 					/>
-					<TaskBucketSection
-						title="Ready"
-						issues={buckets.ready}
-						onSelectIssue={(id) => onSelectIssue(id, epicId)}
-						onStartWork={onStartWork}
-						startWorkIssueId={startWorkIssueId}
-						pushLog={pushLog}
-					/>
-					<TaskBucketSection
-						title="Blocked"
-						issues={buckets.blocked}
-						onSelectIssue={(id) => onSelectIssue(id, epicId)}
-						onStartWork={onStartWork}
-						startWorkIssueId={startWorkIssueId}
-						pushLog={pushLog}
-					/>
-					<TaskBucketSection
-						title="Backlog"
-						issues={buckets.backlog}
-						onSelectIssue={(id) => onSelectIssue(id, epicId)}
-						onStartWork={onStartWork}
-						startWorkIssueId={startWorkIssueId}
-						pushLog={pushLog}
-					/>
-					{!!buckets.closed.length && (
-						<TaskBucketSection
-							title="Closed"
-							issues={buckets.closed}
-							onSelectIssue={(id) => onSelectIssue(id, epicId)}
-							pushLog={pushLog}
-							muted
-						/>
-					)}
-				</div>
+				</>
 			) : (
 				<p className="text-sm text-muted-foreground">
 					No tasks are currently associated with this epic.
@@ -1014,61 +979,231 @@ function EpicTasksPanel({
 	);
 }
 
-function TaskBucketSection({
-	title,
-	issues,
-	muted,
+function EpicKanbanColumn({
+	column,
 	onSelectIssue,
-	onStartWork,
-	startWorkIssueId,
 	pushLog,
+	compact,
 }: {
-	title: string;
-	issues: RoadmapIssueView[];
-	muted?: boolean;
+	column: RoadmapEpicBoard["columns"][number];
 	onSelectIssue: (id: string) => void;
-	onStartWork?: (issue: RoadmapIssueView) => void;
-	startWorkIssueId?: string | null;
 	pushLog?: RoadmapPanelProps["pushLog"];
+	compact?: boolean;
 }) {
 	return (
-		<section className={muted ? "opacity-70" : undefined}>
-			<div className="mb-2 flex items-center gap-2">
-				<h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					{title}
-				</h5>
-				<Badge variant="outline">{issues.length}</Badge>
-			</div>
-			{issues.length ? (
-				<div className="space-y-2">
-					{issues.map((issue) => (
-						<div key={issue.id} className="space-y-2">
-							<IssueCard
-								issue={issue}
-								compact
-								onSelectIssue={onSelectIssue}
-								pushLog={pushLog}
-							/>
-							{onStartWork && canStartWork(issue) && (
-								<Button
-									type="button"
-									variant="secondary"
-									className="px-2 py-1 text-xs"
-									disabled={startWorkIssueId === issue.id}
-									onClick={() => onStartWork(issue)}
-								>
-									{startWorkIssueId === issue.id ? "Starting…" : "Start work"}
-								</Button>
-							)}
-						</div>
-					))}
+		<section
+			aria-label={`${column.title} column`}
+			className={`flex min-w-[12.5rem] shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48" : "w-56"}`}
+		>
+			<div className="border-b border-border/70 px-2 py-2">
+				<div className="flex items-center gap-2">
+					<h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						{column.title}
+					</h5>
+					<Badge variant="outline">{column.cards.length}</Badge>
 				</div>
-			) : (
-				<p className="rounded border border-border/60 bg-background/30 p-2 text-xs text-muted-foreground">
-					No {title.toLowerCase()} tasks.
-				</p>
-			)}
+			</div>
+			<div className="flex-1 space-y-2 overflow-y-auto p-2">
+				{column.cards.length ? (
+					column.cards.map((card) => (
+						<EpicBoardCard
+							key={card.issue.id}
+							card={card}
+							onSelectIssue={onSelectIssue}
+							pushLog={pushLog}
+							compact={compact}
+						/>
+					))
+				) : (
+					<p className="rounded border border-border/60 bg-background/20 p-2 text-[0.7rem] leading-snug text-muted-foreground">
+						{column.description}
+					</p>
+				)}
+			</div>
 		</section>
+	);
+}
+
+function EpicBoardCard({
+	card,
+	onSelectIssue,
+	pushLog,
+	compact,
+}: {
+	card: RoadmapEpicBoardCard;
+	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
+	compact?: boolean;
+}) {
+	const {
+		issue,
+		metadata,
+		ready,
+		dependents,
+		externalUnresolvedBlockers,
+		externalDependents,
+	} = card;
+	const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
+	const dependentText = dependents.map(formatDependency).join(", ");
+	return (
+		<div
+			role="button"
+			tabIndex={0}
+			className={`block w-full cursor-pointer rounded border border-border/70 bg-card/50 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-2.5"} ${issue.status === "closed" ? "opacity-70" : ""} ${metadata.currentFocus ? "border-primary/50 bg-primary/5" : ""}`}
+			onClick={() => onSelectIssue(issue.id)}
+			onKeyDown={(event) => {
+				if (event.key !== "Enter" && event.key !== " ") return;
+				event.preventDefault();
+				onSelectIssue(issue.id);
+			}}
+		>
+			<div className="flex flex-wrap items-center gap-1 text-[0.65rem] text-muted-foreground">
+				<span>{issue.id}</span>
+				<CopyIssueIdButton issueId={issue.id} pushLog={pushLog} />
+				<Badge variant={statusBadgeVariant(issue.status)}>
+					{formatStatus(issue.status)}
+				</Badge>
+				<Badge variant="outline">P{issue.priority}</Badge>
+				{metadata.currentFocus && <Badge variant="default">Focus</Badge>}
+				{metadata.manualOrder !== undefined && (
+					<Badge variant="outline">Order {metadata.manualOrder}</Badge>
+				)}
+				{ready && <Badge variant="success">Ready</Badge>}
+				{!!issue.dependentCount && (
+					<Badge variant="outline">blocks {issue.dependentCount}</Badge>
+				)}
+			</div>
+			<div
+				className={`${compact ? "mt-1 text-xs" : "mt-1.5 text-sm"} font-medium leading-snug`}
+			>
+				{issue.title}
+			</div>
+			{!!issue.unresolvedBlockers.length && (
+				<div className="mt-2 rounded border border-destructive/30 bg-destructive/10 p-1.5 text-[0.65rem] text-destructive">
+					Blocked by {blockerText}
+					{!!externalUnresolvedBlockers.length && " (outside epic)"}
+				</div>
+			)}
+			{!!dependents.length && (
+				<div className="mt-2 rounded border border-border/70 bg-background/30 p-1.5 text-[0.65rem] text-muted-foreground">
+					Blocks {dependentText}
+					{!!externalDependents.length && " (outside epic)"}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function EpicDependencySummary({
+	board,
+	onSelectIssue,
+	compact,
+}: {
+	board: RoadmapEpicBoard;
+	onSelectIssue: (id: string) => void;
+	compact?: boolean;
+}) {
+	const cards = board.columns.flatMap((column) => column.cards);
+	const cardsWithDependencies = cards.filter(
+		(card) => card.issue.unresolvedBlockers.length || card.dependents.length,
+	);
+	if (!cardsWithDependencies.length) return null;
+
+	return (
+		<div
+			className="mt-3 rounded border border-border/70 bg-background/30 p-2"
+			aria-label="Epic dependency map"
+		>
+			<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+				<div>
+					<h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Dependency map
+					</h5>
+					<p className="mt-1 text-[0.7rem] text-muted-foreground">
+						Read-only blocker/dependent relationships for cards in this epic.
+					</p>
+				</div>
+				<Badge variant="outline">{cardsWithDependencies.length} linked</Badge>
+			</div>
+			<div className={`grid gap-2 ${compact ? "" : "md:grid-cols-2"}`}>
+				{cardsWithDependencies.map((card) => (
+					<EpicDependencySummaryItem
+						key={card.issue.id}
+						card={card}
+						onSelectIssue={onSelectIssue}
+					/>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function EpicDependencySummaryItem({
+	card,
+	onSelectIssue,
+}: {
+	card: RoadmapEpicBoardCard;
+	onSelectIssue: (id: string) => void;
+}) {
+	return (
+		<div className="rounded border border-border/60 bg-card/30 p-2 text-xs">
+			<div className="mb-1 flex flex-wrap items-center gap-2 font-medium">
+				<span>{card.issue.title}</span>
+				<Badge variant={statusBadgeVariant(card.issue.status)}>
+					{formatStatus(card.issue.status)}
+				</Badge>
+			</div>
+			{card.issue.unresolvedBlockers.length ? (
+				<DependencySummaryLine
+					label="Blocked by"
+					dependencies={card.issue.unresolvedBlockers}
+					externalDependencies={card.externalUnresolvedBlockers}
+					onSelectIssue={onSelectIssue}
+				/>
+			) : null}
+			{card.dependents.length ? (
+				<DependencySummaryLine
+					label="Blocks"
+					dependencies={card.dependents}
+					externalDependencies={card.externalDependents}
+					onSelectIssue={onSelectIssue}
+				/>
+			) : null}
+		</div>
+	);
+}
+
+function DependencySummaryLine({
+	label,
+	dependencies,
+	externalDependencies,
+	onSelectIssue,
+}: {
+	label: string;
+	dependencies: RoadmapDependency[];
+	externalDependencies: RoadmapDependency[];
+	onSelectIssue: (id: string) => void;
+}) {
+	const externalIds = new Set(
+		externalDependencies.map((dependency) => dependency.id),
+	);
+	return (
+		<div className="mt-1 flex flex-wrap items-center gap-1 text-muted-foreground">
+			<span>{label}</span>
+			{dependencies.map((dependency) => (
+				<button
+					key={`${label}-${dependency.id}`}
+					type="button"
+					className="inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary"
+					onClick={() => onSelectIssue(dependency.id)}
+				>
+					<span>{dependency.title || dependency.id}</span>
+					{externalIds.has(dependency.id) && (
+						<Badge variant="outline">outside epic</Badge>
+					)}
+				</button>
+			))}
+		</div>
 	);
 }
 

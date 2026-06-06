@@ -34,6 +34,30 @@ export interface RoadmapEpicBoardCardMetadata {
 	manualOrder?: number;
 }
 
+export interface RoadmapEpicBoardCard {
+	issue: RoadmapIssueView;
+	column: RoadmapEpicBoardColumn;
+	metadata: RoadmapEpicBoardCardMetadata;
+	ready: boolean;
+	dependents: RoadmapDependency[];
+	externalUnresolvedBlockers: RoadmapDependency[];
+	externalDependents: RoadmapDependency[];
+}
+
+export interface RoadmapEpicBoardColumnView {
+	id: RoadmapEpicBoardColumn;
+	title: string;
+	description: string;
+	cards: RoadmapEpicBoardCard[];
+}
+
+export interface RoadmapEpicBoard {
+	epic: RoadmapIssueView;
+	columns: RoadmapEpicBoardColumnView[];
+	memberCount: number;
+	excludedCapabilities: typeof EPIC_BOARD_EXCLUDED_V1_CAPABILITIES;
+}
+
 export interface RoadmapTaskBuckets {
 	inProgress: RoadmapIssueView[];
 	ready: RoadmapIssueView[];
@@ -179,32 +203,65 @@ export function splitEpicGroups(hierarchy: RoadmapHierarchy): SplitEpicGroups {
 	};
 }
 
+export function buildRoadmapEpicBoard(
+	group: RoadmapEpicGroup,
+	overview: RoadmapOverview,
+): RoadmapEpicBoard {
+	const epicId = group.epic.id;
+	const memberIds = new Set(
+		[...group.activeChildren, ...group.closedChildren].map((issue) => issue.id),
+	);
+	const cardsByColumn = new Map<RoadmapEpicBoardColumn, RoadmapEpicBoardCard[]>(
+		EPIC_BOARD_COLUMNS.map((column) => [column.id, []]),
+	);
+
+	for (const issue of [...group.activeChildren, ...group.closedChildren]) {
+		const column = classifyEpicBoardCard(issue, overview, epicId);
+		cardsByColumn
+			.get(column)!
+			.push(toEpicBoardCard(issue, overview, epicId, column, memberIds));
+	}
+
+	return {
+		epic: group.epic,
+		columns: EPIC_BOARD_COLUMNS.map((column) => ({
+			...column,
+			cards: sortEpicBoardCardViews(cardsByColumn.get(column.id)!, epicId),
+		})),
+		memberCount: memberIds.size,
+		excludedCapabilities: EPIC_BOARD_EXCLUDED_V1_CAPABILITIES,
+	};
+}
+
+export function buildRoadmapEpicBoardByEpicId(
+	overview: RoadmapOverview,
+	epicId: string,
+): RoadmapEpicBoard | undefined {
+	const group = buildRoadmapHierarchy(overview).epics.find(
+		(item) => item.epic.id === epicId,
+	);
+	return group ? buildRoadmapEpicBoard(group, overview) : undefined;
+}
+
 export function bucketEpicTasks(
 	group: RoadmapEpicGroup,
 	overview: RoadmapOverview,
 ): RoadmapTaskBuckets {
-	const buckets: RoadmapTaskBuckets = {
-		inProgress: [],
-		ready: [],
-		blocked: [],
-		backlog: [],
-		closed: [],
-	};
-	for (const issue of [...group.activeChildren, ...group.closedChildren]) {
-		const column = classifyEpicBoardCard(issue, overview, group.epic.id);
-		if (column === "done") buckets.closed.push(issue);
-		else if (column === "blocked") buckets.blocked.push(issue);
-		else if (column === "current_focus" || column === "in_progress")
-			buckets.inProgress.push(issue);
-		else if (column === "ready") buckets.ready.push(issue);
-		else buckets.backlog.push(issue);
-	}
+	const board = buildRoadmapEpicBoard(group, overview);
+	const cardsByColumn = new Map(
+		board.columns.map((column) => [column.id, column.cards]),
+	);
+	const currentFocus = cardsByColumn.get("current_focus") || [];
+	const inProgress = cardsByColumn.get("in_progress") || [];
 	return {
-		inProgress: sortEpicBoardCards(buckets.inProgress, group.epic.id),
-		ready: sortEpicBoardCards(buckets.ready, group.epic.id),
-		blocked: sortEpicBoardCards(buckets.blocked, group.epic.id),
-		backlog: sortEpicBoardCards(buckets.backlog, group.epic.id),
-		closed: sortEpicBoardCards(buckets.closed, group.epic.id),
+		inProgress: [
+			...currentFocus.map((card) => card.issue),
+			...inProgress.map((card) => card.issue),
+		],
+		ready: (cardsByColumn.get("ready") || []).map((card) => card.issue),
+		blocked: (cardsByColumn.get("blocked") || []).map((card) => card.issue),
+		backlog: (cardsByColumn.get("backlog") || []).map((card) => card.issue),
+		closed: (cardsByColumn.get("done") || []).map((card) => card.issue),
 	};
 }
 
@@ -245,16 +302,54 @@ export function sortEpicBoardCards(
 	issues: RoadmapIssueView[],
 	epicId: string,
 ): RoadmapIssueView[] {
-	return [...issues].sort((a, b) => {
-		const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
-		const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
-		if (aOrder !== undefined || bOrder !== undefined) {
-			if (aOrder === undefined) return 1;
-			if (bOrder === undefined) return -1;
-			if (aOrder !== bOrder) return aOrder - bOrder;
-		}
-		return compareIssues(a, b);
-	});
+	return [...issues].sort((a, b) => compareEpicBoardCardOrder(a, b, epicId));
+}
+
+function toEpicBoardCard(
+	issue: RoadmapIssueView,
+	overview: RoadmapOverview,
+	epicId: string,
+	column: RoadmapEpicBoardColumn,
+	memberIds: Set<string>,
+): RoadmapEpicBoardCard {
+	const dependents = overview.dependencyMap.dependents[issue.id] || [];
+	return {
+		issue,
+		column,
+		metadata: getEpicBoardCardMetadata(issue, epicId),
+		ready:
+			overview.groups.ready.includes(issue.id) ||
+			overview.groups.nextUp.includes(issue.id),
+		dependents,
+		externalUnresolvedBlockers: issue.unresolvedBlockers.filter(
+			(dep) => !memberIds.has(dep.id),
+		),
+		externalDependents: dependents.filter((dep) => !memberIds.has(dep.id)),
+	};
+}
+
+function sortEpicBoardCardViews(
+	cards: RoadmapEpicBoardCard[],
+	epicId: string,
+): RoadmapEpicBoardCard[] {
+	return [...cards].sort((a, b) =>
+		compareEpicBoardCardOrder(a.issue, b.issue, epicId),
+	);
+}
+
+function compareEpicBoardCardOrder(
+	a: RoadmapIssueView,
+	b: RoadmapIssueView,
+	epicId: string,
+): number {
+	const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
+	const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
+	if (aOrder !== undefined || bOrder !== undefined) {
+		if (aOrder === undefined) return 1;
+		if (bOrder === undefined) return -1;
+		if (aOrder !== bOrder) return aOrder - bOrder;
+	}
+	return compareIssues(a, b);
 }
 
 function readEpicBoardMetadata(

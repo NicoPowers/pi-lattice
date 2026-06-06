@@ -35383,6 +35383,44 @@ function RootOrchestratorProfilesPanel({
 var import_react9 = __toESM(require_react(), 1);
 
 // web/features/roadmap/roadmap-view-model.ts
+var EPIC_BOARD_COLUMNS = [
+  {
+    id: "backlog",
+    title: "Backlog / Open",
+    description: "Open epic children that are not blocked, not current focus, not in progress, and not highlighted as ready."
+  },
+  {
+    id: "ready",
+    title: "Ready",
+    description: "Open epic children with no unresolved hard blockers that the Seeds provider marks actionable."
+  },
+  {
+    id: "current_focus",
+    title: "Current Focus",
+    description: "Open or in-progress epic children marked as the operator/agent focus through Seeds extension metadata."
+  },
+  {
+    id: "in_progress",
+    title: "In Progress",
+    description: "Epic children with Seeds status in_progress."
+  },
+  {
+    id: "blocked",
+    title: "Blocked",
+    description: "Non-closed epic children with unresolved hard blockers."
+  },
+  {
+    id: "done",
+    title: "Done",
+    description: "Closed epic children."
+  }
+];
+var EPIC_BOARD_EXCLUDED_V1_CAPABILITIES = [
+  "review_validate_column",
+  "roadmap_start_work",
+  "drag_drop_mutation",
+  "agent_spawn_or_handoff"
+];
 function buildRoadmapHierarchy(overview) {
   const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
   const epics = issueViews.filter((issue) => issue.type === "epic");
@@ -35431,33 +35469,22 @@ function splitEpicGroups(hierarchy) {
     closed: hierarchy.epics.filter((group) => group.epic.status === "closed")
   };
 }
-function bucketEpicTasks(group, overview) {
-  const buckets = {
-    inProgress: [],
-    ready: [],
-    blocked: [],
-    backlog: [],
-    closed: []
-  };
+function buildRoadmapEpicBoard(group, overview) {
+  const epicId = group.epic.id;
+  const memberIds = new Set([...group.activeChildren, ...group.closedChildren].map((issue) => issue.id));
+  const cardsByColumn = new Map(EPIC_BOARD_COLUMNS.map((column) => [column.id, []]));
   for (const issue of [...group.activeChildren, ...group.closedChildren]) {
-    const column = classifyEpicBoardCard(issue, overview, group.epic.id);
-    if (column === "done")
-      buckets.closed.push(issue);
-    else if (column === "blocked")
-      buckets.blocked.push(issue);
-    else if (column === "current_focus" || column === "in_progress")
-      buckets.inProgress.push(issue);
-    else if (column === "ready")
-      buckets.ready.push(issue);
-    else
-      buckets.backlog.push(issue);
+    const column = classifyEpicBoardCard(issue, overview, epicId);
+    cardsByColumn.get(column).push(toEpicBoardCard(issue, overview, epicId, column, memberIds));
   }
   return {
-    inProgress: sortEpicBoardCards(buckets.inProgress, group.epic.id),
-    ready: sortEpicBoardCards(buckets.ready, group.epic.id),
-    blocked: sortEpicBoardCards(buckets.blocked, group.epic.id),
-    backlog: sortEpicBoardCards(buckets.backlog, group.epic.id),
-    closed: sortEpicBoardCards(buckets.closed, group.epic.id)
+    epic: group.epic,
+    columns: EPIC_BOARD_COLUMNS.map((column) => ({
+      ...column,
+      cards: sortEpicBoardCardViews(cardsByColumn.get(column.id), epicId)
+    })),
+    memberCount: memberIds.size,
+    excludedCapabilities: EPIC_BOARD_EXCLUDED_V1_CAPABILITIES
   };
 }
 function classifyEpicBoardCard(issue, overview, epicId) {
@@ -35480,20 +35507,33 @@ function getEpicBoardCardMetadata(issue, epicId) {
     manualOrder: typeof board.order === "number" ? board.order : undefined
   };
 }
-function sortEpicBoardCards(issues, epicId) {
-  return [...issues].sort((a, b) => {
-    const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
-    const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
-    if (aOrder !== undefined || bOrder !== undefined) {
-      if (aOrder === undefined)
-        return 1;
-      if (bOrder === undefined)
-        return -1;
-      if (aOrder !== bOrder)
-        return aOrder - bOrder;
-    }
-    return compareIssues(a, b);
-  });
+function toEpicBoardCard(issue, overview, epicId, column, memberIds) {
+  const dependents = overview.dependencyMap.dependents[issue.id] || [];
+  return {
+    issue,
+    column,
+    metadata: getEpicBoardCardMetadata(issue, epicId),
+    ready: overview.groups.ready.includes(issue.id) || overview.groups.nextUp.includes(issue.id),
+    dependents,
+    externalUnresolvedBlockers: issue.unresolvedBlockers.filter((dep) => !memberIds.has(dep.id)),
+    externalDependents: dependents.filter((dep) => !memberIds.has(dep.id))
+  };
+}
+function sortEpicBoardCardViews(cards, epicId) {
+  return [...cards].sort((a, b) => compareEpicBoardCardOrder(a.issue, b.issue, epicId));
+}
+function compareEpicBoardCardOrder(a, b, epicId) {
+  const aOrder = getEpicBoardCardMetadata(a, epicId).manualOrder;
+  const bOrder = getEpicBoardCardMetadata(b, epicId).manualOrder;
+  if (aOrder !== undefined || bOrder !== undefined) {
+    if (aOrder === undefined)
+      return 1;
+    if (bOrder === undefined)
+      return -1;
+    if (aOrder !== bOrder)
+      return aOrder - bOrder;
+  }
+  return compareIssues(a, b);
 }
 function readEpicBoardMetadata(extensions, epicId) {
   const piLattice = readRecord(extensions?.piLattice);
@@ -35734,6 +35774,7 @@ function RoadmapSummary({
       }, undefined, false, undefined, this),
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(RoadmapHierarchyView, {
         hierarchy,
+        overview,
         expandedEpicIds,
         onToggleEpic: toggleEpic,
         onSelectIssue,
@@ -35811,6 +35852,7 @@ function FocusEpic({
 }
 function RoadmapHierarchyView({
   hierarchy,
+  overview,
   expandedEpicIds,
   onToggleEpic,
   onSelectIssue,
@@ -35860,6 +35902,7 @@ function RoadmapHierarchyView({
         className: "space-y-2",
         children: active.map((group) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicRow, {
           group,
+          overview,
           expanded: expandedEpicIds.has(group.epic.id),
           onToggleEpic,
           onSelectIssue,
@@ -35886,6 +35929,7 @@ function RoadmapHierarchyView({
             className: "mt-2 space-y-2 opacity-75",
             children: closed.map((group) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicRow, {
               group,
+              overview,
               expanded: expandedEpicIds.has(group.epic.id),
               onToggleEpic,
               onSelectIssue,
@@ -35904,11 +35948,13 @@ function RoadmapHierarchyView({
 }
 function EpicRow({
   group,
+  overview,
   expanded,
   onToggleEpic,
   onSelectIssue,
   pushLog
 }) {
+  const epicBoard = import_react9.useMemo(() => buildRoadmapEpicBoard(group, overview), [group, overview]);
   const blockedCount = group.activeChildren.filter((issue) => issue.unresolvedBlockers.length).length;
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
     className: "rounded-lg border border-border bg-background/40",
@@ -35980,27 +36026,14 @@ function EpicRow({
         ]
       }, undefined, true, undefined, this),
       expanded && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "space-y-2 border-t border-border p-3",
-        children: [
-          group.activeChildren.length ? group.activeChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
-            issue,
-            onSelectIssue,
-            pushLog
-          }, issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
-            className: "text-xs text-muted-foreground",
-            children: "No active child issues."
-          }, undefined, false, undefined, this),
-          !!group.closedChildren.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-            className: "space-y-2 opacity-70",
-            children: group.closedChildren.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
-              issue,
-              compact: true,
-              onSelectIssue,
-              pushLog
-            }, issue.id, false, undefined, this))
-          }, undefined, false, undefined, this)
-        ]
-      }, undefined, true, undefined, this)
+        className: "border-t border-border p-3",
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanBoard, {
+          board: epicBoard,
+          onSelectIssue: (id) => onSelectIssue(id, group.epic.id),
+          pushLog,
+          compact: true
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
@@ -36145,7 +36178,7 @@ function IssueDetailDialog({
       return;
     return buildRoadmapHierarchy(overview).epics.find((group) => group.epic.id === issue.id);
   }, [overview, issue?.id, issue?.type]);
-  const epicBuckets = epicGroup ? bucketEpicTasks(epicGroup, overview) : undefined;
+  const epicBoard = epicGroup ? buildRoadmapEpicBoard(epicGroup, overview) : undefined;
   const isEpic = issue?.type === "epic";
   const returnEpicId = backIssue?.id || (isEpic ? issue?.id : undefined);
   import_react9.useEffect(() => {
@@ -36477,12 +36510,9 @@ function IssueDetailDialog({
                 }, undefined, false, undefined, this)
               ]
             }, undefined, true, undefined, this),
-            isEpic && epicBuckets && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicTasksPanel, {
-              buckets: epicBuckets,
-              epicId: issue.id,
-              onSelectIssue,
-              onStartWork: startWork,
-              startWorkIssueId,
+            isEpic && epicBoard && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanBoard, {
+              board: epicBoard,
+              onSelectIssue: (id) => onSelectIssue(id, issue.id),
               pushLog
             }, undefined, false, undefined, this)
           ]
@@ -36491,18 +36521,17 @@ function IssueDetailDialog({
     }, undefined, true, undefined, this)
   }, undefined, false, undefined, this);
 }
-function EpicTasksPanel({
-  buckets,
-  epicId,
+function EpicKanbanBoard({
+  board,
   onSelectIssue,
-  onStartWork,
-  startWorkIssueId,
-  pushLog
+  pushLog,
+  compact
 }) {
-  const total = Object.values(buckets).reduce((sum, issues) => sum + issues.length, 0);
-  const active = total - buckets.closed.length;
+  const activeCount = board.columns.filter((column) => column.id !== "done").reduce((sum, column) => sum + column.cards.length, 0);
+  const doneCount = board.columns.find((column) => column.id === "done")?.cards.length || 0;
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-    className: "rounded-lg border border-border bg-card/30 p-3",
+    className: `rounded-lg border border-border bg-card/30 ${compact ? "p-2" : "p-3"}`,
+    "aria-label": "Epic Kanban board",
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
         className: "mb-3 flex flex-wrap items-center justify-between gap-2",
@@ -36511,11 +36540,11 @@ function EpicTasksPanel({
             children: [
               /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h4", {
                 className: "text-sm font-semibold",
-                children: "Tasks in this epic"
+                children: "Epic board"
               }, undefined, false, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
                 className: "mt-1 text-xs text-muted-foreground",
-                children: "Grouped by what is actionable next. Select a task to inspect details."
+                children: "Read-only planning view. Select a card to inspect details."
               }, undefined, false, undefined, this)
             ]
           }, undefined, true, undefined, this),
@@ -36525,62 +36554,43 @@ function EpicTasksPanel({
               /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
                 variant: "outline",
                 children: [
-                  active,
+                  activeCount,
                   " active"
                 ]
               }, undefined, true, undefined, this),
               /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
                 variant: "outline",
                 children: [
-                  buckets.closed.length,
-                  " closed"
+                  doneCount,
+                  " done"
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+                variant: "outline",
+                children: [
+                  board.memberCount,
+                  " members"
                 ]
               }, undefined, true, undefined, this)
             ]
           }, undefined, true, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      total ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "max-h-[34rem] space-y-3 overflow-auto pr-1",
+      board.memberCount ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(jsx_dev_runtime14.Fragment, {
         children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
-            title: "In progress",
-            issues: buckets.inProgress,
-            onSelectIssue: (id) => onSelectIssue(id, epicId),
-            onStartWork,
-            startWorkIssueId,
-            pushLog
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+            className: `flex gap-3 overflow-x-auto pb-1 ${compact ? "max-h-[28rem]" : "max-h-[34rem]"}`,
+            children: board.columns.map((column) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicKanbanColumn, {
+              column,
+              onSelectIssue,
+              pushLog,
+              compact
+            }, column.id, false, undefined, this))
           }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
-            title: "Ready",
-            issues: buckets.ready,
-            onSelectIssue: (id) => onSelectIssue(id, epicId),
-            onStartWork,
-            startWorkIssueId,
-            pushLog
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
-            title: "Blocked",
-            issues: buckets.blocked,
-            onSelectIssue: (id) => onSelectIssue(id, epicId),
-            onStartWork,
-            startWorkIssueId,
-            pushLog
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
-            title: "Backlog",
-            issues: buckets.backlog,
-            onSelectIssue: (id) => onSelectIssue(id, epicId),
-            onStartWork,
-            startWorkIssueId,
-            pushLog
-          }, undefined, false, undefined, this),
-          !!buckets.closed.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(TaskBucketSection, {
-            title: "Closed",
-            issues: buckets.closed,
-            onSelectIssue: (id) => onSelectIssue(id, epicId),
-            pushLog,
-            muted: true
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencySummary, {
+            board,
+            onSelectIssue,
+            compact
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
@@ -36590,60 +36600,251 @@ function EpicTasksPanel({
     ]
   }, undefined, true, undefined, this);
 }
-function TaskBucketSection({
-  title,
-  issues,
-  muted,
+function EpicKanbanColumn({
+  column,
   onSelectIssue,
-  onStartWork,
-  startWorkIssueId,
-  pushLog
+  pushLog,
+  compact
 }) {
   return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("section", {
-    className: muted ? "opacity-70" : undefined,
+    "aria-label": `${column.title} column`,
+    className: `flex min-w-[12.5rem] shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48" : "w-56"}`,
     children: [
       /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "mb-2 flex items-center gap-2",
+        className: "border-b border-border/70 px-2 py-2",
+        children: /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+          className: "flex items-center gap-2",
+          children: [
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h5", {
+              className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+              children: column.title
+            }, undefined, false, undefined, this),
+            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+              variant: "outline",
+              children: column.cards.length
+            }, undefined, false, undefined, this)
+          ]
+        }, undefined, true, undefined, this)
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "flex-1 space-y-2 overflow-y-auto p-2",
+        children: column.cards.length ? column.cards.map((card) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicBoardCard, {
+          card,
+          onSelectIssue,
+          pushLog,
+          compact
+        }, card.issue.id, false, undefined, this)) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
+          className: "rounded border border-border/60 bg-background/20 p-2 text-[0.7rem] leading-snug text-muted-foreground",
+          children: column.description
+        }, undefined, false, undefined, this)
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function EpicBoardCard({
+  card,
+  onSelectIssue,
+  pushLog,
+  compact
+}) {
+  const {
+    issue,
+    metadata,
+    ready,
+    dependents,
+    externalUnresolvedBlockers,
+    externalDependents
+  } = card;
+  const blockerText = issue.unresolvedBlockers.map(formatDependency).join(", ");
+  const dependentText = dependents.map(formatDependency).join(", ");
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+    role: "button",
+    tabIndex: 0,
+    className: `block w-full cursor-pointer rounded border border-border/70 bg-card/50 text-left transition hover:border-primary/60 ${compact ? "p-2" : "p-2.5"} ${issue.status === "closed" ? "opacity-70" : ""} ${metadata.currentFocus ? "border-primary/50 bg-primary/5" : ""}`,
+    onClick: () => onSelectIssue(issue.id),
+    onKeyDown: (event) => {
+      if (event.key !== "Enter" && event.key !== " ")
+        return;
+      event.preventDefault();
+      onSelectIssue(issue.id);
+    },
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "flex flex-wrap items-center gap-1 text-[0.65rem] text-muted-foreground",
         children: [
-          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h5", {
-            className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-            children: title
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+            children: issue.id
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(CopyIssueIdButton, {
+            issueId: issue.id,
+            pushLog
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: statusBadgeVariant(issue.status),
+            children: formatStatus(issue.status)
           }, undefined, false, undefined, this),
           /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
             variant: "outline",
-            children: issues.length
+            children: [
+              "P",
+              issue.priority
+            ]
+          }, undefined, true, undefined, this),
+          metadata.currentFocus && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "default",
+            children: "Focus"
+          }, undefined, false, undefined, this),
+          metadata.manualOrder !== undefined && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              "Order ",
+              metadata.manualOrder
+            ]
+          }, undefined, true, undefined, this),
+          ready && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "success",
+            children: "Ready"
+          }, undefined, false, undefined, this),
+          !!issue.dependentCount && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              "blocks ",
+              issue.dependentCount
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: `${compact ? "mt-1 text-xs" : "mt-1.5 text-sm"} font-medium leading-snug`,
+        children: issue.title
+      }, undefined, false, undefined, this),
+      !!issue.unresolvedBlockers.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "mt-2 rounded border border-destructive/30 bg-destructive/10 p-1.5 text-[0.65rem] text-destructive",
+        children: [
+          "Blocked by ",
+          blockerText,
+          !!externalUnresolvedBlockers.length && " (outside epic)"
+        ]
+      }, undefined, true, undefined, this),
+      !!dependents.length && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "mt-2 rounded border border-border/70 bg-background/30 p-1.5 text-[0.65rem] text-muted-foreground",
+        children: [
+          "Blocks ",
+          dependentText,
+          !!externalDependents.length && " (outside epic)"
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function EpicDependencySummary({
+  board,
+  onSelectIssue,
+  compact
+}) {
+  const cards = board.columns.flatMap((column) => column.cards);
+  const cardsWithDependencies = cards.filter((card) => card.issue.unresolvedBlockers.length || card.dependents.length);
+  if (!cardsWithDependencies.length)
+    return null;
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+    className: "mt-3 rounded border border-border/70 bg-background/30 p-2",
+    "aria-label": "Epic dependency map",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "mb-2 flex flex-wrap items-center justify-between gap-2",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("h5", {
+                className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                children: "Dependency map"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
+                className: "mt-1 text-[0.7rem] text-muted-foreground",
+                children: "Read-only blocker/dependent relationships for cards in this epic."
+              }, undefined, false, undefined, this)
+            ]
+          }, undefined, true, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "outline",
+            children: [
+              cardsWithDependencies.length,
+              " linked"
+            ]
+          }, undefined, true, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: `grid gap-2 ${compact ? "" : "md:grid-cols-2"}`,
+        children: cardsWithDependencies.map((card) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(EpicDependencySummaryItem, {
+          card,
+          onSelectIssue
+        }, card.issue.id, false, undefined, this))
+      }, undefined, false, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function EpicDependencySummaryItem({
+  card,
+  onSelectIssue
+}) {
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+    className: "rounded border border-border/60 bg-card/30 p-2 text-xs",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+        className: "mb-1 flex flex-wrap items-center gap-2 font-medium",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+            children: card.issue.title
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: statusBadgeVariant(card.issue.status),
+            children: formatStatus(card.issue.status)
           }, undefined, false, undefined, this)
         ]
       }, undefined, true, undefined, this),
-      issues.length ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-        className: "space-y-2",
-        children: issues.map((issue) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
-          className: "space-y-2",
-          children: [
-            /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(IssueCard, {
-              issue,
-              compact: true,
-              onSelectIssue,
-              pushLog
-            }, undefined, false, undefined, this),
-            onStartWork && canStartWork(issue) && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Button, {
-              type: "button",
-              variant: "secondary",
-              className: "px-2 py-1 text-xs",
-              disabled: startWorkIssueId === issue.id,
-              onClick: () => onStartWork(issue),
-              children: startWorkIssueId === issue.id ? "Starting…" : "Start work"
-            }, undefined, false, undefined, this)
-          ]
-        }, issue.id, true, undefined, this))
-      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("p", {
-        className: "rounded border border-border/60 bg-background/30 p-2 text-xs text-muted-foreground",
+      card.issue.unresolvedBlockers.length ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(DependencySummaryLine, {
+        label: "Blocked by",
+        dependencies: card.issue.unresolvedBlockers,
+        externalDependencies: card.externalUnresolvedBlockers,
+        onSelectIssue
+      }, undefined, false, undefined, this) : null,
+      card.dependents.length ? /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(DependencySummaryLine, {
+        label: "Blocks",
+        dependencies: card.dependents,
+        externalDependencies: card.externalDependents,
+        onSelectIssue
+      }, undefined, false, undefined, this) : null
+    ]
+  }, undefined, true, undefined, this);
+}
+function DependencySummaryLine({
+  label,
+  dependencies,
+  externalDependencies,
+  onSelectIssue
+}) {
+  const externalIds = new Set(externalDependencies.map((dependency) => dependency.id));
+  return /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("div", {
+    className: "mt-1 flex flex-wrap items-center gap-1 text-muted-foreground",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+        children: label
+      }, undefined, false, undefined, this),
+      dependencies.map((dependency) => /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("button", {
+        type: "button",
+        className: "inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary",
+        onClick: () => onSelectIssue(dependency.id),
         children: [
-          "No ",
-          title.toLowerCase(),
-          " tasks."
+          /* @__PURE__ */ jsx_dev_runtime14.jsxDEV("span", {
+            children: dependency.title || dependency.id
+          }, undefined, false, undefined, this),
+          externalIds.has(dependency.id) && /* @__PURE__ */ jsx_dev_runtime14.jsxDEV(Badge, {
+            variant: "outline",
+            children: "outside epic"
+          }, undefined, false, undefined, this)
         ]
-      }, undefined, true, undefined, this)
+      }, `${label}-${dependency.id}`, true, undefined, this))
     ]
   }, undefined, true, undefined, this);
 }
