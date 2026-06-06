@@ -311,7 +311,10 @@ describe("RoadmapPanel status controls", () => {
 			await flush(window);
 
 			expect(window.document.body.textContent).toContain("Epic Details");
-			expect(window.document.body.textContent).toContain("Epic board");
+			expect(window.document.body.textContent).toContain("Open Epic Board");
+			expect(
+				window.document.querySelector("[aria-label='Epic Kanban board']"),
+			).toBeNull();
 			expect(window.document.body.textContent).toContain(
 				"Status updated to closed",
 			);
@@ -388,7 +391,7 @@ describe("RoadmapPanel start work actions", () => {
 			},
 		);
 		try {
-			clickButton(window, "Epic");
+			clickButton(window, "Open Epic Board");
 			await flush(window);
 			clickButton(window, "Build task");
 			await flush(window);
@@ -427,6 +430,8 @@ describe("RoadmapPanel start work actions", () => {
 			clickButton(window, "Epic");
 			await flush(window);
 			expect(window.document.body.textContent).not.toContain("Start work");
+			clickButton(window, "Open Epic Board");
+			await flush(window);
 			clickButton(window, "Closed task");
 			await flush(window);
 			expect(window.document.body.textContent).not.toContain("Start work");
@@ -454,7 +459,7 @@ describe("RoadmapPanel start work actions", () => {
 			(text) => logs.push(text),
 		);
 		try {
-			clickButton(window, "Epic");
+			clickButton(window, "Open Epic Board");
 			await flush(window);
 			clickButton(window, "Build task");
 			await flush(window);
@@ -465,12 +470,6 @@ describe("RoadmapPanel start work actions", () => {
 				"Failed to start work: Nope",
 			);
 			expect(window.document.body.textContent).toContain("open");
-			const backButton = window.document.querySelector(
-				"button[aria-label='Back to epic']",
-			) as HTMLElement | null;
-			expect(backButton).toBeTruthy();
-			backButton!.click();
-			await flush(window);
 			const readyColumn = Array.from(
 				window.document.querySelectorAll("section[aria-label]"),
 			).find(
@@ -489,7 +488,81 @@ describe("RoadmapPanel start work actions", () => {
 });
 
 describe("RoadmapPanel epic kanban board", () => {
-	it("renders board columns and cards when an epic is expanded and opened", async () => {
+	it("opens a dedicated full-width epic board and returns without reloading roadmap data", async () => {
+		const requests: string[] = [];
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({
+				id: "task-ready",
+				title: "Ready task",
+				description: "Part of epic-1.",
+			}),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(async (input) => {
+			requests.push(String(input));
+			return new Response(JSON.stringify(initial), { status: 200 });
+		});
+		try {
+			await flush(window);
+			clickButton(window, "Open Epic Board");
+			await flush(window);
+
+			const boardView = window.document.querySelector(
+				"[aria-label='Full-width Epic Board view']",
+			);
+			expect(boardView).toBeTruthy();
+			expect(boardView?.textContent).toContain("Epic");
+			expect(boardView?.textContent).toContain("epic-1");
+			expect(boardView?.textContent).toContain("Ready task");
+			expect(boardView?.textContent).toContain("1 active");
+			expect(window.document.body.textContent).toContain("Back to Roadmap");
+
+			clickButton(window, "Back to Roadmap");
+			await flush(window);
+
+			expect(
+				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+			).toBeNull();
+			expect(window.document.body.textContent).toContain("Project Roadmap");
+			expect(window.document.body.textContent).toContain("Open Epic Board");
+			expect(window.document.body.textContent).not.toContain("Ready task");
+			expect(requests).toEqual(["/api/roadmap"]);
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("opens the dedicated epic board from epic details and closes the modal", async () => {
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({
+				id: "task-ready",
+				title: "Ready task",
+				description: "Part of epic-1.",
+			}),
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			clickButton(window, "Epic");
+			await flush(window);
+			expect(window.document.body.textContent).toContain("Epic Details");
+
+			clickButton(window, "Open Epic Board");
+			await flush(window);
+
+			expect(
+				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+			).toBeTruthy();
+			expect(window.document.body.textContent).not.toContain("Epic Details");
+			expect(window.document.body.textContent).toContain("Ready task");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("keeps roadmap epic rows lightweight until the dedicated board is opened", async () => {
 		const initial = overview([
 			issue({ id: "epic-1", title: "Epic", type: "epic" }),
 			issue({
@@ -530,6 +603,16 @@ describe("RoadmapPanel epic kanban board", () => {
 
 			expect(
 				window.document.querySelector("[aria-label='Epic Kanban board']"),
+			).toBeNull();
+			expect(window.document.body.textContent).toContain("Open Epic Board");
+			expect(window.document.body.textContent).not.toContain("Ready task");
+			expect(window.document.body.textContent).not.toContain("Doing task");
+
+			clickButton(window, "Open Epic Board");
+			await flush(window);
+
+			expect(
+				window.document.querySelector("[aria-label='Epic Kanban board']"),
 			).toBeTruthy();
 			expect(window.document.body.textContent).toContain("Ready task");
 			expect(window.document.body.textContent).toContain("Doing task");
@@ -551,11 +634,113 @@ describe("RoadmapPanel epic kanban board", () => {
 					"Done column",
 				]),
 			);
+			expect(window.document.body.textContent).not.toContain("Start work");
+		} finally {
+			await cleanup();
+		}
+	});
 
+	it("renders a representative large epic in a dedicated scrollable board viewport", async () => {
+		const tasks = Array.from({ length: 30 }, (_, index) =>
+			issue({
+				id: `task-${index + 1}`,
+				title: `Epic task ${index + 1}`,
+				status:
+					index % 5 === 0
+						? "closed"
+						: index % 4 === 0
+							? "in_progress"
+							: "open",
+				description: "Part of epic-1.",
+			}),
+		);
+		const initial = overview([
+			issue({ id: "epic-1", title: "Large Epic", type: "epic" }),
+			...tasks,
+		]);
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			await flush(window);
+			clickButton(window, "Open Epic Board");
+			await flush(window);
+
+			const viewport = window.document.querySelector(
+				"[aria-label='Epic board columns']",
+			);
+			expect(viewport).toBeTruthy();
+			expect(
+				Array.from(viewport!.querySelectorAll("section[aria-label]")).length,
+			).toBe(6);
+			expect(viewport?.textContent).toContain("Epic task 1");
+			expect(viewport?.textContent).toContain("Epic task 30");
+			expect(window.document.body.textContent).not.toContain("Start work");
+		} finally {
+			await cleanup();
+		}
+	});
+
+	it("collapses dependency trees and opens dependency node details from the board", async () => {
+		const initial = overview([
+			issue({ id: "epic-1", title: "Epic", type: "epic" }),
+			issue({
+				id: "blocked-task",
+				title: "Blocked task",
+				description: "Part of epic-1.",
+			}),
+			issue({
+				id: "internal-blocker",
+				title: "Internal blocker",
+			}),
+			issue({ id: "upstream-external", title: "Upstream external" }),
+		]);
+		initial.dependencyMap.blockers["blocked-task"] = [
+			{ id: "internal-blocker", title: "Internal blocker", status: "open", priority: 2 },
+		];
+		initial.dependencyMap.unresolvedBlockers["blocked-task"] = [
+			{ id: "internal-blocker", title: "Internal blocker", status: "open", priority: 2 },
+		];
+		initial.dependencyMap.blockers["internal-blocker"] = [
+			{ id: "upstream-external", title: "Upstream external", status: "open", priority: 2 },
+		];
+		initial.dependencyMap.unresolvedBlockers["internal-blocker"] = [
+			{ id: "upstream-external", title: "Upstream external", status: "open", priority: 2 },
+		];
+		const { window, cleanup } = await renderRoadmapPanel(
+			async () => new Response(JSON.stringify(initial), { status: 200 }),
+		);
+		try {
+			await flush(window);
 			clickButton(window, "Epic");
 			await flush(window);
-			expect(window.document.body.textContent).toContain("Epic board");
-			expect(window.document.body.textContent).not.toContain("Start work");
+			clickButton(window, "Open Epic Board");
+			await flush(window);
+
+			const map = window.document.querySelector(
+				"[aria-label='Epic dependency tree map']",
+			);
+			expect(map).toBeTruthy();
+			expect(map?.textContent).toContain("Dependency tree");
+			expect(map?.textContent).toContain("Blocked task");
+			expect(map?.textContent).toContain("Internal blocker");
+			expect(map?.textContent).toContain("Upstream external");
+			expect(map?.textContent).toContain("outside epic");
+
+			clickButton(window, "Collapse blocked-task dependencies");
+			await flush(window);
+			expect(map?.textContent).not.toContain("Internal blocker");
+
+			clickButton(window, "Expand blocked-task dependencies");
+			await flush(window);
+			clickButton(window, "Upstream external");
+			await flush(window);
+
+			expect(window.document.body.textContent).toContain("Issue Details");
+			expect(window.document.body.textContent).toContain("Upstream external");
+			expect(
+				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+			).toBeTruthy();
 		} finally {
 			await cleanup();
 		}
@@ -617,6 +802,8 @@ describe("RoadmapPanel epic kanban board", () => {
 		);
 		try {
 			await flush(window);
+			clickButton(window, "Open Epic Board");
+			await flush(window);
 			const blockedColumn = Array.from(
 				window.document.querySelectorAll("section[aria-label]"),
 			).find(
@@ -629,12 +816,12 @@ describe("RoadmapPanel epic kanban board", () => {
 			expect(blockedColumn?.textContent).toContain("External dependent");
 
 			const dependencyMap = window.document.querySelector(
-				"[aria-label='Epic dependency map']",
+				"[aria-label='Epic dependency tree map']",
 			);
 			expect(dependencyMap).toBeTruthy();
-			expect(dependencyMap?.textContent).toContain("Dependency map");
+			expect(dependencyMap?.textContent).toContain("Dependency tree");
 			expect(dependencyMap?.textContent).toContain("Blocked by");
-			expect(dependencyMap?.textContent).toContain("Blocks");
+			expect(dependencyMap?.textContent).toContain("Dependents");
 			expect(dependencyMap?.textContent).toContain("External dependent");
 			expect(dependencyMap?.textContent).toContain("outside epic");
 		} finally {

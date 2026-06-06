@@ -390,7 +390,10 @@ describe("dashboard bundle smoke test", () => {
 			).toContain("Epic Details");
 			expect(
 				window.document.getElementById("root")?.textContent || "",
-			).toContain("Epic board");
+			).toContain("Open Epic Board");
+			expect(
+				window.document.querySelector("[aria-label='Epic Kanban board']"),
+			).toBeNull();
 			const epicDialog = window.document.querySelector('[role="dialog"]');
 			const tracerButton = Array.from(
 				epicDialog?.querySelectorAll("button,[role='button']") || [],
@@ -438,7 +441,7 @@ describe("dashboard bundle smoke test", () => {
 			const backText =
 				window.document.getElementById("root")?.textContent || "";
 			expect(backText).toContain("Epic Details");
-			expect(backText).toContain("Epic board");
+			expect(backText).toContain("Open Epic Board");
 			const dialog = window.document.querySelector('[role="dialog"]');
 			dialog?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
 			await window.happyDOM.waitUntilComplete();

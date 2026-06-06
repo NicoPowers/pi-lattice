@@ -58,6 +58,31 @@ export interface RoadmapEpicBoard {
 	excludedCapabilities: typeof EPIC_BOARD_EXCLUDED_V1_CAPABILITIES;
 }
 
+export type RoadmapEpicDependencyMembership = "member" | "external";
+
+export interface RoadmapEpicDependencyNode {
+	issueId: string;
+	title?: string;
+	status: string;
+	type?: string;
+	priority?: number;
+	membership: RoadmapEpicDependencyMembership;
+	resolved: boolean;
+	blockers: RoadmapEpicDependencyNode[];
+	dependents: RoadmapEpicDependencyNode[];
+}
+
+export interface RoadmapEpicDependencyGroup {
+	blockedCard: RoadmapEpicDependencyNode;
+	blockers: RoadmapEpicDependencyNode[];
+}
+
+export interface RoadmapEpicDependencyTree {
+	epic: RoadmapIssueView;
+	memberIds: string[];
+	groups: RoadmapEpicDependencyGroup[];
+}
+
 export interface RoadmapTaskBuckets {
 	inProgress: RoadmapIssueView[];
 	ready: RoadmapIssueView[];
@@ -241,6 +266,89 @@ export function buildRoadmapEpicBoardByEpicId(
 		(item) => item.epic.id === epicId,
 	);
 	return group ? buildRoadmapEpicBoard(group, overview) : undefined;
+}
+
+export function buildRoadmapEpicDependencyTree(
+	board: RoadmapEpicBoard,
+	overview: RoadmapOverview,
+): RoadmapEpicDependencyTree {
+	const memberIds = board.columns.flatMap((column) =>
+		column.cards.map((card) => card.issue.id),
+	);
+	const memberIdSet = new Set(memberIds);
+	const groups = board.columns
+		.flatMap((column) => column.cards)
+		.map((card) => {
+			const blockedCard = toDependencyNode(
+				card.issue,
+				overview,
+				memberIdSet,
+				new Set([card.issue.id]),
+			);
+			const blockers = (overview.dependencyMap.blockers[card.issue.id] || []).map(
+				(blocker) =>
+					toDependencyNode(
+						blocker,
+						overview,
+						memberIdSet,
+						new Set([card.issue.id, blocker.id]),
+					),
+			);
+			return { blockedCard, blockers };
+		})
+		.filter((group) => group.blockers.length > 0);
+
+	return {
+		epic: board.epic,
+		memberIds,
+		groups,
+	};
+}
+
+function toDependencyNode(
+	dependency: RoadmapDependency | RoadmapIssueView,
+	overview: RoadmapOverview,
+	memberIds: Set<string>,
+	visited: Set<string>,
+): RoadmapEpicDependencyNode {
+	const issue = overview.issues.find((item) => item.id === dependency.id);
+	const status = issue?.status || dependency.status || "unknown";
+	return {
+		issueId: dependency.id,
+		title: issue?.title || dependency.title,
+		status,
+		type: issue?.type || dependency.type,
+		priority: issue?.priority ?? dependency.priority,
+		membership: memberIds.has(dependency.id) ? "member" : "external",
+		resolved: status === "closed",
+		blockers: childDependencyNodes(
+			overview.dependencyMap.blockers[dependency.id] || [],
+			overview,
+			memberIds,
+			visited,
+		),
+		dependents: childDependencyNodes(
+			overview.dependencyMap.dependents[dependency.id] || [],
+			overview,
+			memberIds,
+			visited,
+		),
+	};
+}
+
+function childDependencyNodes(
+	dependencies: RoadmapDependency[],
+	overview: RoadmapOverview,
+	memberIds: Set<string>,
+	visited: Set<string>,
+): RoadmapEpicDependencyNode[] {
+	return dependencies
+		.filter((dependency) => !visited.has(dependency.id))
+		.map((dependency) => {
+			const nextVisited = new Set(visited);
+			nextVisited.add(dependency.id);
+			return toDependencyNode(dependency, overview, memberIds, nextVisited);
+		});
 }
 
 export function bucketEpicTasks(

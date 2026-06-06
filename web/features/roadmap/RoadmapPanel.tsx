@@ -10,12 +10,14 @@ import {
 } from "../../components/ui/card.js";
 import { Dialog } from "../../components/ui/dialog.js";
 import {
-	buildRoadmapEpicBoard,
+	buildRoadmapEpicBoardByEpicId,
+	buildRoadmapEpicDependencyTree,
 	buildRoadmapHierarchy,
 	sortIssueViews,
 	splitEpicGroups,
 	type RoadmapEpicBoard,
 	type RoadmapEpicBoardCard,
+	type RoadmapEpicDependencyNode,
 	type RoadmapEpicGroup,
 	type RoadmapHierarchy,
 	type RoadmapIssueView,
@@ -36,6 +38,9 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 	const [error, setError] = useState("");
 	const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 	const [detailBackIssueId, setDetailBackIssueId] = useState<string | null>(
+		null,
+	);
+	const [selectedEpicBoardId, setSelectedEpicBoardId] = useState<string | null>(
 		null,
 	);
 
@@ -107,6 +112,13 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 		() => roadmapIssues.find((issue) => issue.id === detailBackIssueId),
 		[roadmapIssues, detailBackIssueId],
 	);
+	const selectedEpicBoard = useMemo(
+		() =>
+			overview && selectedEpicBoardId
+				? buildRoadmapEpicBoardByEpicId(overview, selectedEpicBoardId)
+				: undefined,
+		[overview, selectedEpicBoardId],
+	);
 	const selectIssue = (id: string, backIssueId?: string) => {
 		setSelectedIssueId(id);
 		setDetailBackIssueId(backIssueId || null);
@@ -114,6 +126,14 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 	const closeIssue = () => {
 		setSelectedIssueId(null);
 		setDetailBackIssueId(null);
+	};
+	const openEpicBoard = (epicId: string) => {
+		setSelectedEpicBoardId(epicId);
+		closeIssue();
+	};
+	const closeEpicBoard = () => {
+		setSelectedEpicBoardId(null);
+		closeIssue();
 	};
 	const backToIssue = () => {
 		if (!detailBackIssueId) return;
@@ -153,10 +173,20 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 						{error}
 					</div>
 				)}
-				{!loading && !error && overview && (
+				{!loading && !error && overview && selectedEpicBoard && (
+					<EpicBoardDashboardView
+						board={selectedEpicBoard}
+						overview={overview}
+						onBack={closeEpicBoard}
+						onSelectIssue={(id) => selectIssue(id, selectedEpicBoard.epic.id)}
+						pushLog={pushLog}
+					/>
+				)}
+				{!loading && !error && overview && !selectedEpicBoard && (
 					<RoadmapSummary
 						overview={overview}
 						onSelectIssue={selectIssue}
+						onOpenEpicBoard={openEpicBoard}
 						pushLog={pushLog}
 					/>
 				)}
@@ -172,6 +202,7 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 					onUpdateStatus={updateIssueStatus}
 					pushLog={pushLog}
 					onUpdateDescription={updateIssueDescription}
+					onOpenEpicBoard={openEpicBoard}
 				/>
 			)}
 		</Card>
@@ -184,10 +215,12 @@ export function RoadmapPanel({ pushLog }: RoadmapPanelProps) {
 function RoadmapSummary({
 	overview,
 	onSelectIssue,
+	onOpenEpicBoard,
 	pushLog,
 }: {
 	overview: RoadmapOverview;
 	onSelectIssue: (id: string) => void;
+	onOpenEpicBoard: (epicId: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const hierarchy = useMemo(() => buildRoadmapHierarchy(overview), [overview]);
@@ -228,15 +261,83 @@ function RoadmapSummary({
 				<FocusEpic
 					group={focusEpic}
 					onSelectIssue={onSelectIssue}
+					onOpenEpicBoard={onOpenEpicBoard}
 					onExpand={() => setExpandedEpicIds(new Set([focusEpic.epic.id]))}
 					pushLog={pushLog}
 				/>
 			)}
 			<RoadmapHierarchyView
 				hierarchy={hierarchy}
-				overview={overview}
 				expandedEpicIds={expandedEpicIds}
 				onToggleEpic={toggleEpic}
+				onSelectIssue={onSelectIssue}
+				onOpenEpicBoard={onOpenEpicBoard}
+				pushLog={pushLog}
+			/>
+		</div>
+	);
+}
+
+// Epic Board UX: the six-column board gets a dedicated full-width dashboard
+// surface instead of being constrained by roadmap rows or issue modals. The board
+// remains read-only for Roadmap v1: cards open issue details, but drag/drop,
+// start-work, agent spawn, and handoff controls stay out of this planning view.
+function EpicBoardDashboardView({
+	board,
+	overview,
+	onBack,
+	onSelectIssue,
+	pushLog,
+}: {
+	board: RoadmapEpicBoard;
+	overview: RoadmapOverview;
+	onBack: () => void;
+	onSelectIssue: (id: string) => void;
+	pushLog?: RoadmapPanelProps["pushLog"];
+}) {
+	const activeCount = board.columns
+		.filter((column) => column.id !== "done")
+		.reduce((sum, column) => sum + column.cards.length, 0);
+	const doneCount =
+		board.columns.find((column) => column.id === "done")?.cards.length || 0;
+	const blockedCount =
+		board.columns.find((column) => column.id === "blocked")?.cards.length || 0;
+
+	return (
+		<div className="space-y-4" aria-label="Full-width Epic Board view">
+			<div className="rounded-lg border border-primary/40 bg-primary/5 p-4">
+				<div className="flex flex-wrap items-start justify-between gap-3">
+					<div className="min-w-0">
+						<div className="text-xs font-semibold uppercase tracking-wide text-primary">
+							Full-width Epic Board
+						</div>
+						<h3 className="mt-1 text-xl font-semibold">{board.epic.title}</h3>
+						<div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+							<span>{board.epic.id}</span>
+							<CopyIssueIdButton issueId={board.epic.id} pushLog={pushLog} />
+							<Badge variant={statusBadgeVariant(board.epic.status)}>
+								{formatStatus(board.epic.status)}
+							</Badge>
+							<Badge variant="outline">{activeCount} active</Badge>
+							<Badge variant="outline">{doneCount} done</Badge>
+							<Badge variant="outline">{board.memberCount} members</Badge>
+							{!!blockedCount && (
+								<Badge variant="destructive">{blockedCount} blocked</Badge>
+							)}
+						</div>
+					</div>
+					<Button
+						variant="secondary"
+						className="px-2 py-1 text-xs"
+						onClick={onBack}
+					>
+						Back to Roadmap
+					</Button>
+				</div>
+			</div>
+			<EpicKanbanBoard
+				board={board}
+				overview={overview}
 				onSelectIssue={onSelectIssue}
 				pushLog={pushLog}
 			/>
@@ -247,11 +348,13 @@ function RoadmapSummary({
 function FocusEpic({
 	group,
 	onSelectIssue,
+	onOpenEpicBoard,
 	onExpand,
 	pushLog,
 }: {
 	group: RoadmapEpicGroup;
 	onSelectIssue: (id: string) => void;
+	onOpenEpicBoard: (epicId: string) => void;
 	onExpand: () => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
@@ -282,13 +385,22 @@ function FocusEpic({
 						</Badge>
 					</div>
 				</div>
-				<Button
-					variant="secondary"
-					className="px-2 py-1 text-xs"
-					onClick={onExpand}
-				>
-					Follow epic
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						variant="secondary"
+						className="px-2 py-1 text-xs"
+						onClick={onExpand}
+					>
+						Follow epic
+					</Button>
+					<Button
+						variant="default"
+						className="px-2 py-1 text-xs"
+						onClick={() => onOpenEpicBoard(group.epic.id)}
+					>
+						Open Epic Board
+					</Button>
+				</div>
 			</div>
 		</div>
 	);
@@ -296,17 +408,17 @@ function FocusEpic({
 
 function RoadmapHierarchyView({
 	hierarchy,
-	overview,
 	expandedEpicIds,
 	onToggleEpic,
 	onSelectIssue,
+	onOpenEpicBoard,
 	pushLog,
 }: {
 	hierarchy: RoadmapHierarchy;
-	overview: RoadmapOverview;
 	expandedEpicIds: Set<string>;
 	onToggleEpic: (id: string) => void;
 	onSelectIssue: (id: string, backIssueId?: string) => void;
+	onOpenEpicBoard: (epicId: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
 	const { active, closed } = splitEpicGroups(hierarchy);
@@ -331,10 +443,10 @@ function RoadmapHierarchyView({
 						<EpicRow
 							key={group.epic.id}
 							group={group}
-							overview={overview}
 							expanded={expandedEpicIds.has(group.epic.id)}
 							onToggleEpic={onToggleEpic}
 							onSelectIssue={onSelectIssue}
+							onOpenEpicBoard={onOpenEpicBoard}
 							pushLog={pushLog}
 						/>
 					))}
@@ -354,10 +466,10 @@ function RoadmapHierarchyView({
 							<EpicRow
 								key={group.epic.id}
 								group={group}
-								overview={overview}
 								expanded={expandedEpicIds.has(group.epic.id)}
 								onToggleEpic={onToggleEpic}
 								onSelectIssue={onSelectIssue}
+								onOpenEpicBoard={onOpenEpicBoard}
 								pushLog={pushLog}
 							/>
 						))}
@@ -375,23 +487,19 @@ function RoadmapHierarchyView({
 
 function EpicRow({
 	group,
-	overview,
 	expanded,
 	onToggleEpic,
 	onSelectIssue,
+	onOpenEpicBoard,
 	pushLog,
 }: {
 	group: RoadmapEpicGroup;
-	overview: RoadmapOverview;
 	expanded: boolean;
 	onToggleEpic: (id: string) => void;
 	onSelectIssue: (id: string, backIssueId?: string) => void;
+	onOpenEpicBoard: (epicId: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 }) {
-	const epicBoard = useMemo(
-		() => buildRoadmapEpicBoard(group, overview),
-		[group, overview],
-	);
 	const blockedCount = group.activeChildren.filter(
 		(issue) => issue.unresolvedBlockers.length,
 	).length;
@@ -436,15 +544,30 @@ function EpicRow({
 						)}
 					</div>
 				</div>
+				<Button
+					variant="default"
+					className="px-2 py-1 text-xs"
+					onClick={() => onOpenEpicBoard(group.epic.id)}
+				>
+					Open Epic Board
+				</Button>
 			</div>
 			{expanded && (
-				<div className="border-t border-border p-3">
-					<EpicKanbanBoard
-						board={epicBoard}
-						onSelectIssue={(id) => onSelectIssue(id, group.epic.id)}
-						pushLog={pushLog}
-						compact
-					/>
+				<div className="border-t border-border p-3 text-sm text-muted-foreground">
+					<div className="flex flex-wrap gap-2">
+						<Badge variant="outline">
+							{group.activeChildren.length} active children
+						</Badge>
+						<Badge variant="outline">
+							{group.closedChildren.length} closed children
+						</Badge>
+						{!!blockedCount && (
+							<Badge variant="destructive">{blockedCount} blocked</Badge>
+						)}
+					</div>
+					<p className="mt-2">
+						Open the dedicated Epic Board for the full six-column planning view.
+					</p>
 				</div>
 			)}
 		</div>
@@ -568,6 +691,7 @@ function IssueDetailDialog({
 	onSelectIssue,
 	onUpdateStatus,
 	onUpdateDescription,
+	onOpenEpicBoard,
 	pushLog,
 }: {
 	overview: RoadmapOverview;
@@ -578,6 +702,7 @@ function IssueDetailDialog({
 	onSelectIssue: (id: string, backIssueId?: string) => void;
 	onUpdateStatus: (id: string, status: EditableRoadmapStatus) => Promise<void>;
 	onUpdateDescription: (id: string, description: string) => Promise<void>;
+	onOpenEpicBoard: (epicId: string) => void;
 	pushLog?: (
 		text: string,
 		level?: "info" | "success" | "warn" | "error",
@@ -597,15 +722,6 @@ function IssueDetailDialog({
 	const dependents = issue
 		? overview.dependencyMap.dependents[issue.id] || []
 		: [];
-	const epicGroup = useMemo(() => {
-		if (!issue || issue.type !== "epic") return undefined;
-		return buildRoadmapHierarchy(overview).epics.find(
-			(group) => group.epic.id === issue.id,
-		);
-	}, [overview, issue?.id, issue?.type]);
-	const epicBoard = epicGroup
-		? buildRoadmapEpicBoard(epicGroup, overview)
-		: undefined;
 	const isEpic = issue?.type === "epic";
 	const returnEpicId = backIssue?.id || (isEpic ? issue?.id : undefined);
 
@@ -740,17 +856,29 @@ function IssueDetailDialog({
 						</div>
 						<div className="mt-2 flex flex-wrap items-start justify-between gap-3">
 							<h3 className="text-xl font-semibold">{issue.title}</h3>
-							{canStartWork(issue) && (
-								<Button
-									type="button"
-									variant="default"
-									className="px-2 py-1 text-xs"
-									disabled={startWorkIssueId === issue.id}
-									onClick={() => startWork(issue)}
-								>
-									{startWorkIssueId === issue.id ? "Starting…" : "Start work"}
-								</Button>
-							)}
+							<div className="flex flex-wrap gap-2">
+								{isEpic && (
+									<Button
+										type="button"
+										variant="default"
+										className="px-2 py-1 text-xs"
+										onClick={() => onOpenEpicBoard(issue.id)}
+									>
+										Open Epic Board
+									</Button>
+								)}
+								{canStartWork(issue) && (
+									<Button
+										type="button"
+										variant="default"
+										className="px-2 py-1 text-xs"
+										disabled={startWorkIssueId === issue.id}
+										onClick={() => startWork(issue)}
+									>
+										{startWorkIssueId === issue.id ? "Starting…" : "Start work"}
+									</Button>
+								)}
+							</div>
 						</div>
 					</div>
 					<div className="rounded border border-border bg-card/40 p-3">
@@ -900,13 +1028,7 @@ function IssueDetailDialog({
 								pushLog={pushLog}
 							/>
 						</div>
-						{isEpic && epicBoard && (
-							<EpicKanbanBoard
-								board={epicBoard}
-								onSelectIssue={(id) => onSelectIssue(id, issue.id)}
-								pushLog={pushLog}
-							/>
-						)}
+
 					</div>
 				</div>
 			)}
@@ -916,11 +1038,13 @@ function IssueDetailDialog({
 
 function EpicKanbanBoard({
 	board,
+	overview,
 	onSelectIssue,
 	pushLog,
 	compact,
 }: {
 	board: RoadmapEpicBoard;
+	overview: RoadmapOverview;
 	onSelectIssue: (id: string) => void;
 	pushLog?: RoadmapPanelProps["pushLog"];
 	compact?: boolean;
@@ -930,12 +1054,20 @@ function EpicKanbanBoard({
 		.reduce((sum, column) => sum + column.cards.length, 0);
 	const doneCount =
 		board.columns.find((column) => column.id === "done")?.cards.length || 0;
+	const dependencyTree = useMemo(
+		() => buildRoadmapEpicDependencyTree(board, overview),
+		[board, overview],
+	);
+
+	const boardFrameClass = compact
+		? "rounded-lg border border-border bg-card/30 p-2"
+		: "rounded-lg";
+	const columnViewportClass = compact
+		? "flex max-h-[28rem] gap-3 overflow-x-auto pb-1"
+		: "flex max-h-[calc(100vh-20rem)] min-h-[28rem] gap-4 overflow-x-auto pb-3";
 
 	return (
-		<div
-			className={`rounded-lg border border-border bg-card/30 ${compact ? "p-2" : "p-3"}`}
-			aria-label="Epic Kanban board"
-		>
+		<div className={boardFrameClass} aria-label="Epic Kanban board">
 			<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h4 className="text-sm font-semibold">Epic board</h4>
@@ -951,9 +1083,7 @@ function EpicKanbanBoard({
 			</div>
 			{board.memberCount ? (
 				<>
-					<div
-						className={`flex gap-3 overflow-x-auto pb-1 ${compact ? "max-h-[28rem]" : "max-h-[34rem]"}`}
-					>
+					<div className={columnViewportClass} aria-label="Epic board columns">
 						{board.columns.map((column) => (
 							<EpicKanbanColumn
 								key={column.id}
@@ -964,8 +1094,8 @@ function EpicKanbanBoard({
 							/>
 						))}
 					</div>
-					<EpicDependencySummary
-						board={board}
+					<EpicDependencyTreeMap
+						tree={dependencyTree}
 						onSelectIssue={onSelectIssue}
 						compact={compact}
 					/>
@@ -993,7 +1123,7 @@ function EpicKanbanColumn({
 	return (
 		<section
 			aria-label={`${column.title} column`}
-			className={`flex min-w-[12.5rem] shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48" : "w-56"}`}
+			className={`flex shrink-0 flex-col rounded border border-border/70 bg-background/30 ${compact ? "w-48 min-w-[12.5rem]" : "w-64 min-w-[15rem] xl:flex-1"}`}
 		>
 			<div className="border-b border-border/70 px-2 py-2">
 				<div className="flex items-center gap-2">
@@ -1094,43 +1224,118 @@ function EpicBoardCard({
 	);
 }
 
-function EpicDependencySummary({
-	board,
+function EpicDependencyTreeMap({
+	tree,
 	onSelectIssue,
 	compact,
 }: {
-	board: RoadmapEpicBoard;
+	tree: ReturnType<typeof buildRoadmapEpicDependencyTree>;
 	onSelectIssue: (id: string) => void;
 	compact?: boolean;
 }) {
-	const cards = board.columns.flatMap((column) => column.cards);
-	const cardsWithDependencies = cards.filter(
-		(card) => card.issue.unresolvedBlockers.length || card.dependents.length,
-	);
-	if (!cardsWithDependencies.length) return null;
+	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+	const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+	if (!tree.groups.length) return null;
+
+	const toggleGroup = (issueId: string) => {
+		setCollapsedGroups((prev) => toggleSetValue(prev, issueId));
+	};
+	const toggleNode = (issueId: string) => {
+		setCollapsedNodes((prev) => toggleSetValue(prev, issueId));
+	};
 
 	return (
 		<div
-			className="mt-3 rounded border border-border/70 bg-background/30 p-2"
-			aria-label="Epic dependency map"
+			className="mt-4 rounded border border-border/70 bg-background/30 p-3"
+			aria-label="Epic dependency tree map"
 		>
-			<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+			<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
 				<div>
 					<h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Dependency map
+						Dependency tree
 					</h5>
 					<p className="mt-1 text-[0.7rem] text-muted-foreground">
-						Read-only blocker/dependent relationships for cards in this epic.
+						Read-only blocker map grouped by blocked card. Collapse branches to drill into large epics.
 					</p>
 				</div>
-				<Badge variant="outline">{cardsWithDependencies.length} linked</Badge>
+				<Badge variant="outline">{tree.groups.length} blocked cards</Badge>
 			</div>
-			<div className={`grid gap-2 ${compact ? "" : "md:grid-cols-2"}`}>
-				{cardsWithDependencies.map((card) => (
-					<EpicDependencySummaryItem
-						key={card.issue.id}
-						card={card}
+			<div className={`space-y-3 ${compact ? "text-[0.7rem]" : "text-xs"}`}>
+				{tree.groups.map((group) => {
+					const collapsed = collapsedGroups.has(group.blockedCard.issueId);
+					return (
+						<div
+							key={group.blockedCard.issueId}
+							className="rounded border border-border/60 bg-card/30 p-2"
+						>
+							<div className="flex flex-wrap items-center justify-between gap-2">
+								<EpicDependencyNodeButton
+									node={group.blockedCard}
+									onSelectIssue={onSelectIssue}
+									labelPrefix="Blocked card"
+								/>
+								<Button
+									type="button"
+									variant="secondary"
+									className="px-2 py-1 text-xs"
+									onClick={() => toggleGroup(group.blockedCard.issueId)}
+								>
+									{collapsed ? "Expand" : "Collapse"} {group.blockedCard.issueId} dependencies
+								</Button>
+							</div>
+							{!collapsed && (
+								<div className="mt-2 space-y-2 border-l border-border/70 pl-3">
+									<EpicDependencyBranch
+										label="Blocked by"
+										nodes={group.blockers}
+										onSelectIssue={onSelectIssue}
+										collapsedNodes={collapsedNodes}
+										onToggleNode={toggleNode}
+									/>
+									<EpicDependencyBranch
+										label="Dependents"
+										nodes={group.blockedCard.dependents}
+										onSelectIssue={onSelectIssue}
+										collapsedNodes={collapsedNodes}
+										onToggleNode={toggleNode}
+									/>
+								</div>
+							)}
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function EpicDependencyBranch({
+	label,
+	nodes,
+	onSelectIssue,
+	collapsedNodes,
+	onToggleNode,
+}: {
+	label: string;
+	nodes: RoadmapEpicDependencyNode[];
+	onSelectIssue: (id: string) => void;
+	collapsedNodes: Set<string>;
+	onToggleNode: (issueId: string) => void;
+}) {
+	if (!nodes.length) return null;
+	return (
+		<div>
+			<div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+				{label}
+			</div>
+			<div className="space-y-1">
+				{nodes.map((node) => (
+					<EpicDependencyTreeNode
+						key={`${label}-${node.issueId}`}
+						node={node}
 						onSelectIssue={onSelectIssue}
+						collapsedNodes={collapsedNodes}
+						onToggleNode={onToggleNode}
 					/>
 				))}
 			</div>
@@ -1138,73 +1343,85 @@ function EpicDependencySummary({
 	);
 }
 
-function EpicDependencySummaryItem({
-	card,
+function EpicDependencyTreeNode({
+	node,
 	onSelectIssue,
+	collapsedNodes,
+	onToggleNode,
 }: {
-	card: RoadmapEpicBoardCard;
+	node: RoadmapEpicDependencyNode;
 	onSelectIssue: (id: string) => void;
+	collapsedNodes: Set<string>;
+	onToggleNode: (issueId: string) => void;
 }) {
+	const children = [...node.blockers, ...node.dependents];
+	const collapsed = collapsedNodes.has(node.issueId);
 	return (
-		<div className="rounded border border-border/60 bg-card/30 p-2 text-xs">
-			<div className="mb-1 flex flex-wrap items-center gap-2 font-medium">
-				<span>{card.issue.title}</span>
-				<Badge variant={statusBadgeVariant(card.issue.status)}>
-					{formatStatus(card.issue.status)}
-				</Badge>
+		<div className="border-l border-border/60 pl-3">
+			<div className="flex flex-wrap items-center gap-2">
+				<span className="text-muted-foreground">↳</span>
+				<EpicDependencyNodeButton node={node} onSelectIssue={onSelectIssue} />
+				{!!children.length && (
+					<button
+						type="button"
+						className="text-[0.65rem] text-muted-foreground hover:text-primary"
+						onClick={() => onToggleNode(node.issueId)}
+					>
+						{collapsed ? "▸" : "▾"}
+					</button>
+				)}
 			</div>
-			{card.issue.unresolvedBlockers.length ? (
-				<DependencySummaryLine
-					label="Blocked by"
-					dependencies={card.issue.unresolvedBlockers}
-					externalDependencies={card.externalUnresolvedBlockers}
-					onSelectIssue={onSelectIssue}
-				/>
-			) : null}
-			{card.dependents.length ? (
-				<DependencySummaryLine
-					label="Blocks"
-					dependencies={card.dependents}
-					externalDependencies={card.externalDependents}
-					onSelectIssue={onSelectIssue}
-				/>
-			) : null}
+			{!!children.length && !collapsed && (
+				<div className="mt-1 space-y-1">
+					<EpicDependencyBranch
+						label="Blocked by"
+						nodes={node.blockers}
+						onSelectIssue={onSelectIssue}
+						collapsedNodes={collapsedNodes}
+						onToggleNode={onToggleNode}
+					/>
+					<EpicDependencyBranch
+						label="Dependents"
+						nodes={node.dependents}
+						onSelectIssue={onSelectIssue}
+						collapsedNodes={collapsedNodes}
+						onToggleNode={onToggleNode}
+					/>
+				</div>
+			)}
 		</div>
 	);
 }
 
-function DependencySummaryLine({
-	label,
-	dependencies,
-	externalDependencies,
+function EpicDependencyNodeButton({
+	node,
 	onSelectIssue,
+	labelPrefix,
 }: {
-	label: string;
-	dependencies: RoadmapDependency[];
-	externalDependencies: RoadmapDependency[];
+	node: RoadmapEpicDependencyNode;
 	onSelectIssue: (id: string) => void;
+	labelPrefix?: string;
 }) {
-	const externalIds = new Set(
-		externalDependencies.map((dependency) => dependency.id),
-	);
 	return (
-		<div className="mt-1 flex flex-wrap items-center gap-1 text-muted-foreground">
-			<span>{label}</span>
-			{dependencies.map((dependency) => (
-				<button
-					key={`${label}-${dependency.id}`}
-					type="button"
-					className="inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary"
-					onClick={() => onSelectIssue(dependency.id)}
-				>
-					<span>{dependency.title || dependency.id}</span>
-					{externalIds.has(dependency.id) && (
-						<Badge variant="outline">outside epic</Badge>
-					)}
-				</button>
-			))}
-		</div>
+		<button
+			type="button"
+			className="inline-flex items-center gap-1 rounded border border-border/70 bg-background/40 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary"
+			onClick={() => onSelectIssue(node.issueId)}
+		>
+			{labelPrefix && <span className="text-muted-foreground">{labelPrefix}</span>}
+			<span>{node.title || node.issueId}</span>
+			<Badge variant={statusBadgeVariant(node.status)}>{formatStatus(node.status)}</Badge>
+			{node.membership === "external" && <Badge variant="outline">outside epic</Badge>}
+			{node.resolved && <Badge variant="success">resolved</Badge>}
+		</button>
 	);
+}
+
+function toggleSetValue<T>(values: Set<T>, value: T): Set<T> {
+	const next = new Set(values);
+	if (next.has(value)) next.delete(value);
+	else next.add(value);
+	return next;
 }
 
 function DependencyList({
