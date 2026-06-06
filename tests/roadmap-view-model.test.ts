@@ -412,7 +412,9 @@ describe("roadmap hierarchy view model", () => {
 		expect(board.columns.map((column) => column.id)).toEqual(
 			EPIC_BOARD_COLUMNS.map((column) => column.id),
 		);
-		expect(board.columns.map((column) => column.cards.map((card) => card.issue.id))).toEqual([
+		expect(
+			board.columns.map((column) => column.cards.map((card) => card.issue.id)),
+		).toEqual([
 			["later"],
 			["ready"],
 			["doing-focus"],
@@ -421,34 +423,33 @@ describe("roadmap hierarchy view model", () => {
 			["done"],
 		]);
 
-		const readyCard = board.columns
-			.find((column) => column.id === "ready")
+		const readyCard = board.columns.find((column) => column.id === "ready")
 			?.cards[0];
 		expect(readyCard?.ready).toBe(true);
 		expect(readyCard?.column).toBe("ready");
 
-		const focusCard = board.columns
-			.find((column) => column.id === "current_focus")
-			?.cards[0];
+		const focusCard = board.columns.find(
+			(column) => column.id === "current_focus",
+		)?.cards[0];
 		expect(focusCard?.metadata).toEqual({
 			currentFocus: true,
 			manualOrder: 5,
 		});
 
-		const blockedCard = board.columns
-			.find((column) => column.id === "blocked")
+		const blockedCard = board.columns.find((column) => column.id === "blocked")
 			?.cards[0];
-		expect(blockedCard?.issue.unresolvedBlockers.map((item) => item.id)).toEqual(
-			["blocker"],
-		);
+		expect(
+			blockedCard?.issue.unresolvedBlockers.map((item) => item.id),
+		).toEqual(["blocker"]);
 		expect(
 			blockedCard?.externalUnresolvedBlockers.map((item) => item.id),
 		).toEqual(["blocker"]);
 		expect(blockedCard?.externalDependents).toEqual([]);
 		expect(board.memberCount).toBe(6);
-		expect(
-			hierarchy.ungrouped.map((item) => item.id),
-		).toEqual(["blocker", "not-member"]);
+		expect(hierarchy.ungrouped.map((item) => item.id)).toEqual([
+			"blocker",
+			"not-member",
+		]);
 		expect(
 			buildRoadmapEpicBoardByEpicId(overview, "epic")?.columns.length,
 		).toBe(6);
@@ -531,6 +532,45 @@ describe("roadmap hierarchy view model", () => {
 		]);
 	});
 
+	it("keeps dependency trees bounded for dense dependency graphs", () => {
+		const tasks = Array.from({ length: 12 }, (_, index) =>
+			issue({
+				id: `task-${index}`,
+				title: `Task ${index}`,
+				description: "Part of epic.",
+				blockedBy: Array.from(
+					{ length: index },
+					(_unused, blockerIndex) => `task-${blockerIndex}`,
+				),
+			}),
+		);
+		const overview = roadmapOverview([
+			issue({ id: "epic", title: "Epic", type: "epic" }),
+			...tasks,
+		]);
+		const board = buildRoadmapEpicBoardByEpicId(overview, "epic")!;
+
+		const tree = buildRoadmapEpicDependencyTree(board, overview);
+		const countNode = (
+			node: (typeof tree.groups)[number]["blockedCard"],
+		): number =>
+			1 +
+			node.blockers.reduce((sum, child) => sum + countNode(child), 0) +
+			node.dependents.reduce((sum, child) => sum + countNode(child), 0);
+		const nodeCount = tree.groups.reduce(
+			(sum, group) =>
+				sum +
+				countNode(group.blockedCard) +
+				group.blockers.reduce(
+					(blockerSum, blocker) => blockerSum + countNode(blocker),
+					0,
+				),
+			0,
+		);
+
+		expect(nodeCount).toBeLessThan(500);
+	});
+
 	it("nests available blocker/dependent nodes without treating dependency-only links as epic members", () => {
 		const overview = roadmapOverview([
 			issue({ id: "epic", title: "Epic", type: "epic" }),
@@ -559,7 +599,9 @@ describe("roadmap hierarchy view model", () => {
 		const tree = buildRoadmapEpicDependencyTree(board, overview);
 
 		expect(
-			board.columns.flatMap((column) => column.cards).map((card) => card.issue.id),
+			board.columns
+				.flatMap((column) => column.cards)
+				.map((card) => card.issue.id),
 		).not.toContain("external-dependent");
 		expect(tree.groups[0].blockers[0].blockers[0]).toMatchObject({
 			issueId: "upstream",

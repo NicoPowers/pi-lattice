@@ -521,7 +521,9 @@ describe("RoadmapPanel epic kanban board", () => {
 			await flush(window);
 
 			expect(
-				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+				window.document.querySelector(
+					"[aria-label='Full-width Epic Board view']",
+				),
 			).toBeNull();
 			expect(window.document.body.textContent).toContain("Project Roadmap");
 			expect(window.document.body.textContent).toContain("Open Epic Board");
@@ -553,7 +555,9 @@ describe("RoadmapPanel epic kanban board", () => {
 			await flush(window);
 
 			expect(
-				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+				window.document.querySelector(
+					"[aria-label='Full-width Epic Board view']",
+				),
 			).toBeTruthy();
 			expect(window.document.body.textContent).not.toContain("Epic Details");
 			expect(window.document.body.textContent).toContain("Ready task");
@@ -646,11 +650,7 @@ describe("RoadmapPanel epic kanban board", () => {
 				id: `task-${index + 1}`,
 				title: `Epic task ${index + 1}`,
 				status:
-					index % 5 === 0
-						? "closed"
-						: index % 4 === 0
-							? "in_progress"
-							: "open",
+					index % 5 === 0 ? "closed" : index % 4 === 0 ? "in_progress" : "open",
 				description: "Part of epic-1.",
 			}),
 		);
@@ -696,16 +696,36 @@ describe("RoadmapPanel epic kanban board", () => {
 			issue({ id: "upstream-external", title: "Upstream external" }),
 		]);
 		initial.dependencyMap.blockers["blocked-task"] = [
-			{ id: "internal-blocker", title: "Internal blocker", status: "open", priority: 2 },
+			{
+				id: "internal-blocker",
+				title: "Internal blocker",
+				status: "open",
+				priority: 2,
+			},
 		];
 		initial.dependencyMap.unresolvedBlockers["blocked-task"] = [
-			{ id: "internal-blocker", title: "Internal blocker", status: "open", priority: 2 },
+			{
+				id: "internal-blocker",
+				title: "Internal blocker",
+				status: "open",
+				priority: 2,
+			},
 		];
 		initial.dependencyMap.blockers["internal-blocker"] = [
-			{ id: "upstream-external", title: "Upstream external", status: "open", priority: 2 },
+			{
+				id: "upstream-external",
+				title: "Upstream external",
+				status: "open",
+				priority: 2,
+			},
 		];
 		initial.dependencyMap.unresolvedBlockers["internal-blocker"] = [
-			{ id: "upstream-external", title: "Upstream external", status: "open", priority: 2 },
+			{
+				id: "upstream-external",
+				title: "Upstream external",
+				status: "open",
+				priority: 2,
+			},
 		];
 		const { window, cleanup } = await renderRoadmapPanel(
 			async () => new Response(JSON.stringify(initial), { status: 200 }),
@@ -739,7 +759,9 @@ describe("RoadmapPanel epic kanban board", () => {
 			expect(window.document.body.textContent).toContain("Issue Details");
 			expect(window.document.body.textContent).toContain("Upstream external");
 			expect(
-				window.document.querySelector("[aria-label='Full-width Epic Board view']"),
+				window.document.querySelector(
+					"[aria-label='Full-width Epic Board view']",
+				),
 			).toBeTruthy();
 		} finally {
 			await cleanup();

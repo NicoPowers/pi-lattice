@@ -35421,6 +35421,7 @@ var EPIC_BOARD_EXCLUDED_V1_CAPABILITIES = [
   "drag_drop_mutation",
   "agent_spawn_or_handoff"
 ];
+var EPIC_DEPENDENCY_TREE_RECURSION_DEPTH = 1;
 function buildRoadmapHierarchy(overview) {
   const issueViews = overview.issues.map((issue) => toIssueView(issue, overview));
   const epics = issueViews.filter((issue) => issue.type === "epic");
@@ -35495,8 +35496,8 @@ function buildRoadmapEpicDependencyTree(board, overview) {
   const memberIds = board.columns.flatMap((column) => column.cards.map((card) => card.issue.id));
   const memberIdSet = new Set(memberIds);
   const groups = board.columns.flatMap((column) => column.cards).map((card) => {
-    const blockedCard = toDependencyNode(card.issue, overview, memberIdSet, new Set([card.issue.id]));
-    const blockers = (overview.dependencyMap.blockers[card.issue.id] || []).map((blocker) => toDependencyNode(blocker, overview, memberIdSet, new Set([card.issue.id, blocker.id])));
+    const blockedCard = toDependencyNode(card.issue, overview, memberIdSet, new Set([card.issue.id]), "dependents", EPIC_DEPENDENCY_TREE_RECURSION_DEPTH);
+    const blockers = (overview.dependencyMap.blockers[card.issue.id] || []).map((blocker) => toDependencyNode(blocker, overview, memberIdSet, new Set([card.issue.id, blocker.id]), "blockers", EPIC_DEPENDENCY_TREE_RECURSION_DEPTH));
     return { blockedCard, blockers };
   }).filter((group) => group.blockers.length > 0);
   return {
@@ -35505,7 +35506,7 @@ function buildRoadmapEpicDependencyTree(board, overview) {
     groups
   };
 }
-function toDependencyNode(dependency, overview, memberIds, visited) {
+function toDependencyNode(dependency, overview, memberIds, visited, direction, remainingDepth) {
   const issue = overview.issues.find((item) => item.id === dependency.id);
   const status = issue?.status || dependency.status || "unknown";
   return {
@@ -35516,15 +35517,17 @@ function toDependencyNode(dependency, overview, memberIds, visited) {
     priority: issue?.priority ?? dependency.priority,
     membership: memberIds.has(dependency.id) ? "member" : "external",
     resolved: status === "closed",
-    blockers: childDependencyNodes(overview.dependencyMap.blockers[dependency.id] || [], overview, memberIds, visited),
-    dependents: childDependencyNodes(overview.dependencyMap.dependents[dependency.id] || [], overview, memberIds, visited)
+    blockers: direction === "blockers" ? childDependencyNodes(overview.dependencyMap.blockers[dependency.id] || [], overview, memberIds, visited, direction, remainingDepth) : [],
+    dependents: direction === "dependents" ? childDependencyNodes(overview.dependencyMap.dependents[dependency.id] || [], overview, memberIds, visited, direction, remainingDepth) : []
   };
 }
-function childDependencyNodes(dependencies, overview, memberIds, visited) {
+function childDependencyNodes(dependencies, overview, memberIds, visited, direction, remainingDepth) {
+  if (remainingDepth <= 0)
+    return [];
   return dependencies.filter((dependency) => !visited.has(dependency.id)).map((dependency) => {
     const nextVisited = new Set(visited);
     nextVisited.add(dependency.id);
-    return toDependencyNode(dependency, overview, memberIds, nextVisited);
+    return toDependencyNode(dependency, overview, memberIds, nextVisited, direction, remainingDepth - 1);
   });
 }
 function classifyEpicBoardCard(issue, overview, epicId) {

@@ -138,6 +138,8 @@ export const EPIC_BOARD_EXCLUDED_V1_CAPABILITIES = [
 	"agent_spawn_or_handoff",
 ] as const;
 
+const EPIC_DEPENDENCY_TREE_RECURSION_DEPTH = 1;
+
 export interface SplitEpicGroups {
 	active: RoadmapEpicGroup[];
 	closed: RoadmapEpicGroup[];
@@ -284,15 +286,20 @@ export function buildRoadmapEpicDependencyTree(
 				overview,
 				memberIdSet,
 				new Set([card.issue.id]),
+				"dependents",
+				EPIC_DEPENDENCY_TREE_RECURSION_DEPTH,
 			);
-			const blockers = (overview.dependencyMap.blockers[card.issue.id] || []).map(
-				(blocker) =>
-					toDependencyNode(
-						blocker,
-						overview,
-						memberIdSet,
-						new Set([card.issue.id, blocker.id]),
-					),
+			const blockers = (
+				overview.dependencyMap.blockers[card.issue.id] || []
+			).map((blocker) =>
+				toDependencyNode(
+					blocker,
+					overview,
+					memberIdSet,
+					new Set([card.issue.id, blocker.id]),
+					"blockers",
+					EPIC_DEPENDENCY_TREE_RECURSION_DEPTH,
+				),
 			);
 			return { blockedCard, blockers };
 		})
@@ -305,11 +312,15 @@ export function buildRoadmapEpicDependencyTree(
 	};
 }
 
+type RoadmapDependencyTreeDirection = "blockers" | "dependents";
+
 function toDependencyNode(
 	dependency: RoadmapDependency | RoadmapIssueView,
 	overview: RoadmapOverview,
 	memberIds: Set<string>,
 	visited: Set<string>,
+	direction: RoadmapDependencyTreeDirection,
+	remainingDepth: number,
 ): RoadmapEpicDependencyNode {
 	const issue = overview.issues.find((item) => item.id === dependency.id);
 	const status = issue?.status || dependency.status || "unknown";
@@ -321,18 +332,28 @@ function toDependencyNode(
 		priority: issue?.priority ?? dependency.priority,
 		membership: memberIds.has(dependency.id) ? "member" : "external",
 		resolved: status === "closed",
-		blockers: childDependencyNodes(
-			overview.dependencyMap.blockers[dependency.id] || [],
-			overview,
-			memberIds,
-			visited,
-		),
-		dependents: childDependencyNodes(
-			overview.dependencyMap.dependents[dependency.id] || [],
-			overview,
-			memberIds,
-			visited,
-		),
+		blockers:
+			direction === "blockers"
+				? childDependencyNodes(
+						overview.dependencyMap.blockers[dependency.id] || [],
+						overview,
+						memberIds,
+						visited,
+						direction,
+						remainingDepth,
+					)
+				: [],
+		dependents:
+			direction === "dependents"
+				? childDependencyNodes(
+						overview.dependencyMap.dependents[dependency.id] || [],
+						overview,
+						memberIds,
+						visited,
+						direction,
+						remainingDepth,
+					)
+				: [],
 	};
 }
 
@@ -341,13 +362,23 @@ function childDependencyNodes(
 	overview: RoadmapOverview,
 	memberIds: Set<string>,
 	visited: Set<string>,
+	direction: RoadmapDependencyTreeDirection,
+	remainingDepth: number,
 ): RoadmapEpicDependencyNode[] {
+	if (remainingDepth <= 0) return [];
 	return dependencies
 		.filter((dependency) => !visited.has(dependency.id))
 		.map((dependency) => {
 			const nextVisited = new Set(visited);
 			nextVisited.add(dependency.id);
-			return toDependencyNode(dependency, overview, memberIds, nextVisited);
+			return toDependencyNode(
+				dependency,
+				overview,
+				memberIds,
+				nextVisited,
+				direction,
+				remainingDepth - 1,
+			);
 		});
 }
 

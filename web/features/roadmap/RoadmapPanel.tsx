@@ -1028,7 +1028,6 @@ function IssueDetailDialog({
 								pushLog={pushLog}
 							/>
 						</div>
-
 					</div>
 				</div>
 			)}
@@ -1233,7 +1232,9 @@ function EpicDependencyTreeMap({
 	onSelectIssue: (id: string) => void;
 	compact?: boolean;
 }) {
-	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+		new Set(),
+	);
 	const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
 	if (!tree.groups.length) return null;
 
@@ -1255,7 +1256,8 @@ function EpicDependencyTreeMap({
 						Dependency tree
 					</h5>
 					<p className="mt-1 text-[0.7rem] text-muted-foreground">
-						Read-only blocker map grouped by blocked card. Collapse branches to drill into large epics.
+						Read-only blocker map grouped by blocked card. Collapse branches to
+						drill into large epics.
 					</p>
 				</div>
 				<Badge variant="outline">{tree.groups.length} blocked cards</Badge>
@@ -1280,7 +1282,8 @@ function EpicDependencyTreeMap({
 									className="px-2 py-1 text-xs"
 									onClick={() => toggleGroup(group.blockedCard.issueId)}
 								>
-									{collapsed ? "Expand" : "Collapse"} {group.blockedCard.issueId} dependencies
+									{collapsed ? "Expand" : "Collapse"}{" "}
+									{group.blockedCard.issueId} dependencies
 								</Button>
 							</div>
 							{!collapsed && (
@@ -1408,10 +1411,16 @@ function EpicDependencyNodeButton({
 			className="inline-flex items-center gap-1 rounded border border-border/70 bg-background/40 px-1.5 py-0.5 text-left hover:border-primary/60 hover:text-primary"
 			onClick={() => onSelectIssue(node.issueId)}
 		>
-			{labelPrefix && <span className="text-muted-foreground">{labelPrefix}</span>}
+			{labelPrefix && (
+				<span className="text-muted-foreground">{labelPrefix}</span>
+			)}
 			<span>{node.title || node.issueId}</span>
-			<Badge variant={statusBadgeVariant(node.status)}>{formatStatus(node.status)}</Badge>
-			{node.membership === "external" && <Badge variant="outline">outside epic</Badge>}
+			<Badge variant={statusBadgeVariant(node.status)}>
+				{formatStatus(node.status)}
+			</Badge>
+			{node.membership === "external" && (
+				<Badge variant="outline">outside epic</Badge>
+			)}
 			{node.resolved && <Badge variant="success">resolved</Badge>}
 		</button>
 	);
